@@ -141,13 +141,24 @@ def test_redo_clears_documents_and_reprioritises_sites(conn):
     assert [j["url"] for j in database.get_jobs_by_stage(conn, "pending_tailor", min_score=7)] == [LINKEDIN]
 
 
-def test_redo_keeps_applied_and_in_progress_jobs(conn):
+def test_redo_keeps_applied_jobs_and_frees_stuck_ones(conn):
     add(conn, JORA, "Jora", title="Data Analyst", tailored_resume_path="/t/a.txt", applied_at="2026-10-01")
+    add(conn, INDEED, "indeed", title="Data Engineer", tailored_resume_path="/t/b.txt", apply_status="in_progress",
+        agent_id="worker-0")  # left over from an apply run that never finished
+    add(conn, LINKEDIN, "linkedin", title="ML Engineer", tailored_resume_path="/t/c.txt")
+    assert database.redo_documents(conn) == 2
+    kept = {r[0] for r in conn.execute("SELECT url FROM jobs WHERE tailored_resume_path IS NOT NULL")}
+    assert kept == {JORA}
+    row = conn.execute("SELECT apply_status, agent_id FROM jobs WHERE url = ?", (INDEED,)).fetchone()
+    assert tuple(row) == (None, None)  # back in the apply queue once rewritten
+
+
+def test_redo_skips_the_job_being_applied_to(conn):
     add(conn, INDEED, "indeed", title="Data Engineer", tailored_resume_path="/t/b.txt", apply_status="in_progress")
     add(conn, LINKEDIN, "linkedin", title="ML Engineer", tailored_resume_path="/t/c.txt")
-    assert database.redo_documents(conn) == 1
-    kept = {r[0] for r in conn.execute("SELECT url FROM jobs WHERE tailored_resume_path IS NOT NULL")}
-    assert kept == {JORA, INDEED}
+    assert database.redo_documents(conn, applying_now=INDEED) == 1
+    row = conn.execute("SELECT apply_status, tailored_resume_path FROM jobs WHERE url = ?", (INDEED,)).fetchone()
+    assert tuple(row) == ("in_progress", "/t/b.txt")
 
 
 def test_redo_one_job_includes_its_other_listings(conn):

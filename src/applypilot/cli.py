@@ -294,7 +294,8 @@ def redo(
 ) -> None:
     """Regenerate tailored resumes and cover letters for jobs not yet applied to.
 
-    Also re-picks the listing to use when a role is on several sites
+    Jobs stuck "in progress" from an unfinished apply run are included and
+    put back in the apply queue, so don't run this while applying. Also re-picks the listing to use when a role is on several sites
     (site_priority: LinkedIn > Indeed > Jora by default).
     """
     _bootstrap()

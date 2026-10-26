@@ -557,7 +557,10 @@ def create_app() -> FastAPI:
         from applypilot.database import redo_documents
         if task.running:
             raise HTTPException(409, f"'{task.label}' is still running; try again when it finishes")
-        cleared = redo_documents(get_connection(), body.get("url") or None)
+        applying_now = (session.job or {}).get("url") if session.busy else None
+        if applying_now and body.get("url") == applying_now:
+            raise HTTPException(409, "You're applying to this job right now; finish that first")
+        cleared = redo_documents(get_connection(), body.get("url") or None, applying_now=applying_now)
         args = ["run", "tailor", "cover", "pdf", "--min-score", str(int(body.get("min_score", 7)))]
         task.start("Redo resumes and cover letters", args)
         return {"cleared": cleared, **task.snapshot()}
