@@ -161,13 +161,18 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     return conn
 
 
+_AUTH_WALL_RE = re.compile(r"linkedin\.com/(signup|login|uas/login|authwall|checkpoint)", re.IGNORECASE)
+
+
 def _absolute_link(page_url: str, link) -> str | None:
     """`link` as an absolute http(s) URL, resolving "/path" against the listing; None if it isn't a link."""
     if not isinstance(link, str):
         return None
     link = link.strip()
     if link.startswith(("http://", "https://")):
-        return link
+        # A board's sign-up / sign-in wall (LinkedIn's "cold-join" when scraped
+        # logged out) isn't an application: open the listing instead.
+        return None if _AUTH_WALL_RE.search(link) else link
     if link.startswith("/") and not link.startswith("//") and str(page_url or "").startswith(("http://", "https://")):
         return urljoin(page_url, link)
     return None
