@@ -521,7 +521,7 @@ async function loadJobs() {
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
     }
-    if ((j.tailored || j.has_cover) && !j.applied_at && j.apply_status !== "in_progress") {
+    if ((j.tailored || j.has_cover) && !j.applied_at) {
       actions.push(" ", el("button", { class: "btn secondary", title: "Write this job's resume and cover letter again",
         onclick: () => redo(j.url) }, "Redo"));
     }
