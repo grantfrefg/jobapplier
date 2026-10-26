@@ -90,6 +90,12 @@ When the job search country is **Australia** (the default in the setup wizard an
 
 The bundled North American sources are switched off: ZipRecruiter, the Canadian and US-remote boards in `config/sites.yaml`, and the Canadian/US employers in `config/employers.yaml`. These choices live in `searches.yaml` as `sites`, `smart_extract_sites` and `workday_employers`; delete a key to use every bundled source again. Jobs are kept if their location matches `location_accept` (generated from the city you enter, e.g. *Sydney, NSW, New South Wales*) or they're remote.
 
+**The same role on several sites is applied to once.** Two listings count as one role if they have the same title and company (ignoring "Pty Ltd", "Group" etc.), or the same employer application link, or near-identical descriptions when the company isn't shown. Only one copy is kept:
+- a copy you've already applied to or tailored, if there is one;
+- otherwise the copy from the first site in `site_priority` (default `[linkedin, indeed, jora]`).
+
+The other copies are skipped by scoring, tailoring, cover letters and apply. That also saves Gemini requests: in a live Sydney test, 12 of 80 listings were repeats. In the web UI the kept job shows "Also on: …".
+
 **Not included:**
 - **SEEK:** its terms prohibit scraping and it has strong bot protection. Applying to SEEK jobs you find yourself works as normal.
 - **APS Jobs:** its listings don't render for automated browsers.

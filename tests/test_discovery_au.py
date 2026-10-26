@@ -95,8 +95,8 @@ def test_workday_without_allowlist_crawls_everything(monkeypatch):
 
 def test_relative_jora_urls_resolved(tmp_path):
     conn = sqlite3.connect(tmp_path / "t.db")
-    conn.execute("CREATE TABLE jobs (url TEXT PRIMARY KEY, title, salary, description, location, site, "
-                 "strategy, discovered_at)")
+    conn.execute("CREATE TABLE jobs (url TEXT PRIMARY KEY, title, company, salary, description, location, "
+                 "site, strategy, discovered_at)")
     jobs = [{"url": "/job/Data-Analyst-abc?x=1", "title": "Data Analyst", "location": "Sydney NSW"},
             {"url": "/job/Other-def", "title": "Other", "location": "Perth WA"}]
     new, _ = se._store_jobs_filtered(conn, jobs, "Jora", "css", *config.load_location_filter(AU_CFG))

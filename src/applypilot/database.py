@@ -5,10 +5,12 @@ pipeline stage are created up front so any stage can run independently
 without migration ordering issues.
 """
 
+import re
 import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from applypilot.config import DB_PATH
 
@@ -92,6 +94,7 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
             -- Discovery stage (smart_extract / job_search)
             url                   TEXT PRIMARY KEY,
             title                 TEXT,
+            company               TEXT,
             salary                TEXT,
             description           TEXT,
             location              TEXT,
@@ -129,7 +132,10 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
             last_attempted_at     TEXT,
             apply_duration_ms     INTEGER,
             apply_task_id         TEXT,
-            verification_confidence TEXT
+            verification_confidence TEXT,
+
+            -- Cross-site de-duplication: URL of the listing this one repeats
+            duplicate_of          TEXT
         )
     """)
     conn.commit()
@@ -180,6 +186,9 @@ _ALL_COLUMNS: dict[str, str] = {
     "apply_duration_ms": "INTEGER",
     "apply_task_id": "TEXT",
     "verification_confidence": "TEXT",
+    # Cross-site de-duplication
+    "company": "TEXT",
+    "duplicate_of": "TEXT",
 }
 
 
@@ -217,6 +226,143 @@ def ensure_columns(conn: sqlite3.Connection | None = None) -> list[str]:
         conn.commit()
 
     return added
+
+
+# ---------------------------------------------------------------------------
+# Cross-site de-duplication
+# ---------------------------------------------------------------------------
+# The same role is often listed on Indeed, LinkedIn and Jora under three
+# different URLs. Each row keeps its URL, but every repeat gets
+# duplicate_of = <canonical URL>, and pipeline stages and apply skip repeats.
+
+_COMPANY_SUFFIXES = {
+    "pty", "ltd", "limited", "inc", "incorporated", "llc", "plc", "corp", "corporation",
+    "co", "company", "group", "holdings", "australia", "aust", "au", "the",
+}
+
+
+def _norm_words(text: str | None) -> list[str]:
+    text = (text or "").lower().replace("&", " and ")
+    return re.findall(r"[a-z0-9]+", text)
+
+
+def normalize_company(name: str | None) -> str:
+    """'Acme Pty Ltd' and 'ACME Group' -> 'acme'."""
+    words = _norm_words(name)
+    while words and words[-1] in _COMPANY_SUFFIXES:
+        words.pop()
+    while words and words[0] == "the":
+        words.pop(0)
+    return " ".join(words)
+
+
+def normalize_title(title: str | None) -> str:
+    return " ".join(_norm_words(title))
+
+
+def _norm_apply_url(url: str | None) -> str:
+    """Employer apply link without query string, fragment or trailing slash."""
+    if not url or not url.startswith("http"):
+        return ""
+    parts = urlsplit(url)
+    host = parts.netloc.lower().removeprefix("www.")
+    return f"{host}{parts.path.rstrip('/')}"
+
+
+def _shingles(text: str | None, n: int = 5) -> frozenset:
+    words = _norm_words(text)
+    return frozenset(tuple(words[i:i + n]) for i in range(max(len(words) - n + 1, 0)))
+
+
+def _overlap(a: frozenset, b: frozenset) -> float:
+    """Share of the shorter description that also appears in the longer one."""
+    if not a or not b:
+        return 0.0
+    return len(a & b) / min(len(a), len(b))
+
+
+_MIN_SHINGLES = 40  # ~45 words: shorter texts are too generic to compare
+
+
+def _same_role(a: dict, b: dict) -> bool:
+    """a and b already have the same normalized title."""
+    if a["company_n"] and b["company_n"] and a["company_n"] == b["company_n"]:
+        return True
+    sa, sb = a["shingles"], b["shingles"]
+    if len(sa) < _MIN_SHINGLES or len(sb) < _MIN_SHINGLES:
+        return False
+    # Different (or unknown) company names: only near-identical text counts,
+    # e.g. a recruiter reposting the employer's ad. Stricter when both names
+    # are known and differ.
+    threshold = 0.9 if (a["company_n"] and b["company_n"]) else 0.8
+    return _overlap(sa, sb) >= threshold
+
+
+DEFAULT_SITE_PRIORITY = ("linkedin", "indeed", "jora")
+
+
+def _site_priority() -> list[str]:
+    """Preferred listing source for a role (searches.yaml `site_priority`)."""
+    from applypilot.config import load_search_config
+    try:
+        configured = load_search_config().get("site_priority")
+    except Exception:
+        configured = None
+    return [str(s).lower() for s in (configured or DEFAULT_SITE_PRIORITY)]
+
+
+def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
+    """Link repeat listings of the same role to one canonical row.
+
+    Two listings are the same role when they share an employer apply link,
+    or have the same title and the same company, or (company unknown or
+    different) the same title and near-identical descriptions.
+
+    The canonical row is the one furthest along (applied, then tailored),
+    then the preferred site (`site_priority`, default LinkedIn > Indeed >
+    Jora), then highest fit score, then first discovered. Idempotent;
+    returns the number of rows whose duplicate_of changed.
+    """
+    if conn is None:
+        conn = get_connection()
+    rows = [dict(r) for r in conn.execute(
+        "SELECT rowid, url, title, company, site, application_url, description, full_description, "
+        "applied_at, tailored_resume_path, fit_score, duplicate_of FROM jobs"
+    ).fetchall()]
+    priority = _site_priority()
+
+    def site_rank(site: str | None) -> int:
+        site = (site or "").lower()
+        return priority.index(site) if site in priority else len(priority)
+
+    rows.sort(key=lambda r: (r["applied_at"] is None, r["tailored_resume_path"] is None,
+                             site_rank(r["site"]),
+                             -(r["fit_score"] if r["fit_score"] is not None else -1), r["rowid"]))
+
+    by_apply_url: dict[str, dict] = {}
+    by_title: dict[str, list[dict]] = {}
+    changed = 0
+    for r in rows:
+        r["company_n"] = normalize_company(r["company"])
+        r["shingles"] = _shingles(r["full_description"] or r["description"])
+        title_n = normalize_title(r["title"])
+        apply_key = _norm_apply_url(r["application_url"])
+
+        canon = by_apply_url.get(apply_key) if apply_key else None
+        if canon is None and title_n:
+            canon = next((c for c in by_title.get(title_n, []) if _same_role(r, c)), None)
+
+        if canon is None:
+            if apply_key:
+                by_apply_url.setdefault(apply_key, r)
+            if title_n:
+                by_title.setdefault(title_n, []).append(r)
+        target = canon["url"] if canon else None
+        if target != r["duplicate_of"]:
+            conn.execute("UPDATE jobs SET duplicate_of = ? WHERE url = ?", (target, r["url"]))
+            changed += 1
+    conn.commit()
+    return changed
 
 
 def get_stats(conn: sqlite3.Connection | None = None) -> dict:
@@ -287,7 +433,7 @@ def get_stats(conn: sqlite3.Connection | None = None) -> dict:
     stats["untailored_eligible"] = conn.execute(
         "SELECT COUNT(*) FROM jobs "
         "WHERE fit_score >= 7 AND full_description IS NOT NULL "
-        "AND tailored_resume_path IS NULL"
+        "AND tailored_resume_path IS NULL AND duplicate_of IS NULL"
     ).fetchone()[0]
 
     stats["tailor_exhausted"] = conn.execute(
@@ -320,7 +466,11 @@ def get_stats(conn: sqlite3.Connection | None = None) -> dict:
         "SELECT COUNT(*) FROM jobs "
         "WHERE tailored_resume_path IS NOT NULL "
         "AND applied_at IS NULL "
-        "AND application_url IS NOT NULL"
+        "AND application_url IS NOT NULL AND duplicate_of IS NULL"
+    ).fetchone()[0]
+
+    stats["duplicates"] = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE duplicate_of IS NOT NULL"
     ).fetchone()[0]
 
     return stats
@@ -349,9 +499,9 @@ def store_jobs(conn: sqlite3.Connection, jobs: list[dict],
             continue
         try:
             conn.execute(
-                "INSERT INTO jobs (url, title, salary, description, location, site, strategy, discovered_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (url, job.get("title"), job.get("salary"), job.get("description"),
+                "INSERT INTO jobs (url, title, company, salary, description, location, site, strategy, "
+                "discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (url, job.get("title"), job.get("company"), job.get("salary"), job.get("description"),
                  job.get("location"), site, strategy, now),
             )
             new += 1
@@ -384,16 +534,16 @@ def get_jobs_by_stage(conn: sqlite3.Connection | None = None,
         "discovered": "1=1",
         "pending_detail": "detail_scraped_at IS NULL",
         "enriched": "full_description IS NOT NULL",
-        "pending_score": "full_description IS NOT NULL AND fit_score IS NULL",
+        "pending_score": "full_description IS NOT NULL AND fit_score IS NULL AND duplicate_of IS NULL",
         "scored": "fit_score IS NOT NULL",
         "pending_tailor": (
-            "fit_score >= ? AND full_description IS NOT NULL "
+            "fit_score >= ? AND full_description IS NOT NULL AND duplicate_of IS NULL "
             "AND tailored_resume_path IS NULL AND COALESCE(tailor_attempts, 0) < 5"
         ),
         "tailored": "tailored_resume_path IS NOT NULL",
         "pending_apply": (
             "tailored_resume_path IS NOT NULL AND applied_at IS NULL "
-            "AND application_url IS NOT NULL"
+            "AND application_url IS NOT NULL AND duplicate_of IS NULL"
         ),
         "applied": "applied_at IS NOT NULL",
     }

@@ -455,10 +455,11 @@ async function loadJobs() {
     const docs = [];
     if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank" }, "Resume"));
     if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank" }, "Cover letter"));
-    const statusText = j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
+    const statusText = j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
+      : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
       : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ? "Ready" : "Not tailored");
     const actions = [];
-    if (j.tailored && !j.applied_at) {
+    if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
     }
     if (["manual", "failed"].includes(j.apply_status) && !j.applied_at) {
@@ -468,7 +469,8 @@ async function loadJobs() {
     return el("tr", {},
       el("td", { class: "score" }, j.fit_score ?? "–"),
       el("td", {}, el("a", { href: link, target: "_blank", rel: "noopener" }, j.title || link),
-        el("div", { class: "muted" }, [j.site, j.location].filter(Boolean).join(" · "))),
+        el("div", { class: "muted" }, [j.company, j.site, j.location].filter(Boolean).join(" · ")),
+        j.also_on ? el("div", { class: "muted" }, "Also on: " + j.also_on) : ""),
       el("td", { class: "muted" }, statusText),
       el("td", {}, docs.length ? docs : el("span", { class: "muted" }, "–")),
       el("td", { style: "white-space:nowrap" }, actions));
