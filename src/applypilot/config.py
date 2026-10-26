@@ -236,6 +236,7 @@ DEFAULTS = {
     "poll_interval": 60,
     "apply_timeout": 300,
     "viewport": "1280x900",
+    "score_batch_size": 10,  # jobs scored per LLM request
 }
 
 

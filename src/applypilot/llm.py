@@ -91,6 +91,8 @@ class LLMClient:
         self._client = httpx.Client(timeout=_TIMEOUT)
         # True once we've confirmed the native Gemini API works for this model
         self._use_native_gemini: bool = False
+        # False once the OpenAI-compat endpoint has rejected response_format
+        self._compat_json_ok: bool = True
         self._is_gemini: bool = base_url.startswith(_GEMINI_COMPAT_BASE)
 
     # -- Native Gemini API --------------------------------------------------
@@ -100,6 +102,7 @@ class LLMClient:
         messages: list[dict],
         temperature: float,
         max_tokens: int,
+        json_mode: bool = False,
     ) -> str:
         """Call the native Gemini generateContent API.
 
@@ -130,6 +133,8 @@ class LLMClient:
                 "maxOutputTokens": max_tokens,
             },
         }
+        if json_mode:
+            payload["generationConfig"]["responseMimeType"] = "application/json"
         if system_parts:
             payload["systemInstruction"] = {"parts": system_parts}
 
@@ -151,6 +156,7 @@ class LLMClient:
         messages: list[dict],
         temperature: float,
         max_tokens: int,
+        json_mode: bool = False,
     ) -> str:
         """Call the OpenAI-compatible endpoint."""
         headers: dict[str, str] = {"Content-Type": "application/json"}
@@ -163,12 +169,23 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if json_mode and self._compat_json_ok:
+            payload["response_format"] = {"type": "json_object"}
 
         resp = self._client.post(
             f"{self.base_url}/chat/completions",
             json=payload,
             headers=headers,
         )
+        if resp.status_code == 400 and "response_format" in payload:
+            # Some local servers don't support JSON mode: ask in plain text
+            # (the prompt still asks for JSON). Only remember that if the plain
+            # request works -- a 400 can also mean a bad key.
+            del payload["response_format"]
+            resp = self._client.post(f"{self.base_url}/chat/completions", json=payload, headers=headers)
+            if resp.status_code != 400:
+                log.warning("Endpoint doesn't support JSON mode; continuing without it.")
+                self._compat_json_ok = False
 
         # 403 on Gemini compat = model not available on compat layer.
         # Raise a specific sentinel so chat() can switch to native API.
@@ -190,8 +207,13 @@ class LLMClient:
         messages: list[dict],
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        json_mode: bool = False,
     ) -> str:
-        """Send a chat completion request and return the assistant message text."""
+        """Send a chat completion request and return the assistant message text.
+
+        json_mode asks the provider for a JSON-only reply (Gemini's
+        responseMimeType / OpenAI's response_format); see chat_json().
+        """
         # Qwen3 optimization: prepend /no_think to skip chain-of-thought
         # reasoning, saving tokens on structured extraction tasks.
         if "qwen" in self.model.lower() and messages:
@@ -203,9 +225,9 @@ class LLMClient:
             try:
                 # Route to native Gemini if we've already confirmed it's needed
                 if self._use_native_gemini:
-                    return self._chat_native_gemini(messages, temperature, max_tokens)
+                    return self._chat_native_gemini(messages, temperature, max_tokens, json_mode)
 
-                return self._chat_compat(messages, temperature, max_tokens)
+                return self._chat_compat(messages, temperature, max_tokens, json_mode)
 
             except _GeminiCompatForbidden as exc:
                 # Model not available on OpenAI-compat layer — switch to native.
@@ -218,7 +240,7 @@ class LLMClient:
                 self._use_native_gemini = True
                 # Retry immediately with native — don't count as a rate-limit wait
                 try:
-                    return self._chat_native_gemini(messages, temperature, max_tokens)
+                    return self._chat_native_gemini(messages, temperature, max_tokens, json_mode)
                 except httpx.HTTPStatusError as native_exc:
                     raise RuntimeError(
                         f"Both Gemini endpoints failed. Compat: 403 Forbidden. "
@@ -265,12 +287,38 @@ class LLMClient:
 
         raise RuntimeError("LLM request failed after all retries")
 
+    def chat_json(self, messages: list[dict], temperature: float = 0.0, max_tokens: int = 4096):
+        """chat() in JSON mode, parsed. Raises ValueError if the reply isn't JSON."""
+        return parse_json(self.chat(messages, temperature=temperature, max_tokens=max_tokens, json_mode=True))
+
     def ask(self, prompt: str, **kwargs) -> str:
         """Convenience: single user prompt -> assistant response."""
         return self.chat([{"role": "user", "content": prompt}], **kwargs)
 
     def close(self) -> None:
         self._client.close()
+
+
+def parse_json(text: str):
+    """Parse a model reply as JSON, tolerating ```json fences or stray prose around it."""
+    import json
+    import re
+    text = (text or "").strip()
+    fence = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+    if fence:
+        text = fence.group(1).strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    for open_ch, close_ch in (("{", "}"), ("[", "]")):
+        start, end = text.find(open_ch), text.rfind(close_ch)
+        if start != -1 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                continue
+    raise ValueError(f"Model reply was not JSON: {text[:200]!r}")
 
 
 class _GeminiCompatForbidden(Exception):
