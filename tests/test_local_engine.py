@@ -327,3 +327,10 @@ def test_env_example_values_are_really_empty():
     values = dotenv_values(example)
     assert values.pop("EXECUTION_ENGINE") == "claude_code"
     assert values == {"GEMINI_API_KEY": "", "CAPSOLVER_API_KEY": ""}
+
+    # Uncommenting an optional "# KEY=" line must not pick up a note either
+    import io
+    import re
+    uncommented = re.sub(r"^# ([A-Z_]+=)", r"\1", example.read_text(), flags=re.M)
+    for key, value in dotenv_values(stream=io.StringIO(uncommented)).items():
+        assert "#" not in (value or ""), f"{key} would be set to a comment: {value!r}"
