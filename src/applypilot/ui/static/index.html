@@ -463,7 +463,7 @@ async function loadJobs() {
   let jobs; try { jobs = await api("/api/jobs?view=" + $("#job-view").value); } catch (e) { return toast(e.message, true); }
   const busy = applyState && applyState.busy;
   $("#jobs").replaceChildren(...jobs.map((j) => {
-    const link = j.application_url || j.url;
+    const link = j.link;
     const docs = [];
     if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank" }, "Resume"));
     if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank" }, "Cover letter"));

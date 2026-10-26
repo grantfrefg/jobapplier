@@ -334,3 +334,32 @@ def test_env_example_values_are_really_empty():
     uncommented = re.sub(r"^# ([A-Z_]+=)", r"\1", example.read_text(), flags=re.M)
     for key, value in dotenv_values(stream=io.StringIO(uncommented)).items():
         assert "#" not in (value or ""), f"{key} would be set to a comment: {value!r}"
+
+
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
+def test_unreachable_job_page_is_reported_not_blank(tmp_path, monkeypatch):
+    """Regression: a failed page load left a blank browser with no explanation."""
+    pytest.importorskip("playwright")
+    tailored = tmp_path / "tailored"
+    tailored.mkdir()
+    (tailored / "a.txt").write_text(RESUME)
+    (tailored / "a.pdf").write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(json.dumps(PROFILE))
+    for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
+                        "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
+        monkeypatch.setattr(config, name, value)
+    monkeypatch.setattr(le, "_call_gemini", _fake_gemini([]))
+
+    seen = {}
+
+    def gate(page, needs, dry_run):
+        seen["needs"] = needs
+        return "manual"
+
+    job = {"title": "Engineer", "site": "Acme", "url": "http://127.0.0.1:9/job", "application_url": "None",
+           "tailored_resume_path": str(tailored / "a.txt"), "cover_letter_path": None, "fit_score": 9}
+    status, _ = le.run_job(job, gate=gate)
+    assert status == "manual"
+    assert "Couldn't open the job page (http://127.0.0.1:9/job)" in seen["needs"][0]

@@ -135,7 +135,11 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tup
             detail_scraped_at = now
 
         # Extract apply URL if JobSpy provided it
-        apply_url = str(row.get("job_url_direct", "")) if str(row.get("job_url_direct", "")) != "nan" else None
+        # Boards often give no direct link: JobSpy then has None or NaN, and
+        # str() of those is "None"/"nan" -- only keep real URLs.
+        apply_url = str(row.get("job_url_direct") or "")
+        if not apply_url.startswith(("http://", "https://")):
+            apply_url = None
 
         try:
             conn.execute(
