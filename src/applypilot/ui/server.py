@@ -193,9 +193,14 @@ class ApplySession:
         launcher.record_result(job, result, duration_ms)
         self.state, self.result = "done", result
 
-    def _gate(self, page, needs_attention: list[str], dry_run: bool) -> str:
-        """Same contract as local_engine._approval_gate, answered from the UI."""
+    def _gate(self, page, needs_attention: list[str], dry_run: bool, snapshot=None) -> str:
+        """Same contract as local_engine._approval_gate, answered from the UI.
+
+        `snapshot()` records the answers on the page for the answer bank; it's
+        called every few seconds so your edits are kept even after Submit.
+        """
         self.needs, self.state = needs_attention, "waiting"
+        ticks = 0
         while True:
             try:
                 decision = self._decisions.get(timeout=1)
@@ -204,12 +209,17 @@ class ApplySession:
                 if page.is_closed():  # user closed the browser window
                     decision = "manual"
                     break
+                ticks += 1
+                if snapshot and ticks % 3 == 0:
+                    snapshot()
         self.state = "filling" if decision == "rescan" else "closing"
         return decision
 
     def decide(self, decision: str) -> None:
         if self.state != "waiting":
             raise HTTPException(409, "Nothing is waiting for your approval")
+        # Leave "waiting" now, so a status poll right after can't see the old state
+        self.state = "filling" if decision == "rescan" else "closing"
         self._decisions.put(decision)
 
     def snapshot(self) -> dict:
@@ -529,6 +539,24 @@ def create_app() -> FastAPI:
     @app.get("/api/jobs/file")
     def job_file(url: str, kind: str = "resume") -> FileResponse:
         return FileResponse(_job_file(url, kind), media_type="application/pdf")
+
+    # -- answer bank ---------------------------------------------------------
+
+    @app.get("/api/answers")
+    def list_answers() -> list[dict]:
+        from applypilot.apply.answers import ensure_table
+        conn = get_connection()
+        ensure_table(conn)
+        rows = conn.execute("SELECT question_key, question, answer, source, uses, updated_at FROM answers "
+                            "ORDER BY source = 'user' DESC, question").fetchall()
+        return [dict(r) for r in rows]
+
+    @app.post("/api/answers/delete")
+    def delete_answer(body: dict) -> dict:
+        conn = get_connection()
+        conn.execute("DELETE FROM answers WHERE question_key = ?", (body.get("question_key"),))
+        conn.commit()
+        return {"ok": True}
 
     # -- browser -----------------------------------------------------------
 

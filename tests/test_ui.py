@@ -156,7 +156,7 @@ def test_apply_through_web_gate(client, tmp_path, monkeypatch):
     # Re-scan goes back to filling, then waits again
     client.post("/api/apply/decision", json={"decision": "rescan"})
     wait_for("waiting")
-    assert len(prompts) == 3  # step 1, step 2, step 2 again
+    assert len(prompts) == 2  # step 2, then step 2 again (step 1 is all standard fields: no AI)
 
     client.post("/api/apply/decision", json={"decision": "applied"})
     s = wait_for("done")
@@ -242,3 +242,14 @@ def test_job_list_links_to_listing_when_no_application_link(client, tmp_path):
         "UPDATE jobs SET application_url = 'None' WHERE url = 'https://linkedin.com/jobs/view/1'")
     jobs = client.get("/api/jobs?view=all").json()
     assert jobs[0]["link"] == "https://linkedin.com/jobs/view/1"
+
+
+def test_saved_answers_list_and_delete(client):
+    from applypilot.apply.answers import save_answer
+    conn = database.get_connection()
+    save_answer(conn, "Notice period", "2 weeks", "user")
+    save_answer(conn, "Expected salary", "110000", "ai")
+    rows = client.get("/api/answers").json()
+    assert [(r["question"], r["source"]) for r in rows] == [("Notice period", "user"), ("Expected salary", "ai")]
+    client.post("/api/answers/delete", json={"question_key": "notice period"})
+    assert [r["question"] for r in client.get("/api/answers").json()] == ["Expected salary"]
