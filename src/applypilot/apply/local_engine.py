@@ -46,6 +46,9 @@ _GEMINI_MAX_RETRIES = 4
 
 # Cap on how many multi-step pages we will auto-advance through
 _MAX_STEPS = 8
+# How long to wait for a Next/Continue button to become clickable. Real ATS
+# pages (and busy machines) often need more than Playwright's usual 5s.
+_NEXT_CLICK_TIMEOUT_MS = 15000
 # Cap on field descriptors sent to Gemini per page
 _MAX_FIELDS = 150
 _MAX_RESUME_CHARS = 8000
@@ -804,7 +807,7 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
                     lf.write(f"  clicking '{next_btn['text']}'\n")
                     frame_by_id[next_btn["id"]].locator(
                         f'[data-ap-id="{next_btn["id"]}"]'
-                    ).click(timeout=5000)
+                    ).click(timeout=_NEXT_CLICK_TIMEOUT_MS)
                     try:
                         page.wait_for_load_state("networkidle", timeout=10000)
                     except Exception:
