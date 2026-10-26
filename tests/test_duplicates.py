@@ -118,3 +118,45 @@ def test_never_applies_twice(conn):
         tailored_resume_path="/b.txt", fit_score=9)
     assert launcher.acquire_job(min_score=7) is None
     assert launcher.acquire_job(target_url="https://linkedin.com/jobs/view/3") is None
+
+
+JORA, INDEED, LINKEDIN = "https://au.jora.com/job/1", "https://au.indeed.com/viewjob?jk=2", "https://linkedin.com/jobs/view/3"
+
+
+def test_redo_clears_documents_and_reprioritises_sites(conn):
+    # The Jora listing was found and tailored first, so it was the canonical copy
+    add(conn, JORA, "Jora", company="Acme", desc=DESC, tailored_resume_path="/t/jora.txt",
+        cover_letter_path="/c/jora.txt", tailor_attempts=1, fit_score=8)
+    add(conn, INDEED, "indeed", company="Acme", desc=DESC, fit_score=8)
+    add(conn, LINKEDIN, "linkedin", company="Acme", desc=DESC, fit_score=8)
+    database.mark_duplicates(conn)
+    assert dup_map(conn)[LINKEDIN] == JORA
+
+    assert database.redo_documents(conn) == 1
+    row = conn.execute("SELECT tailored_resume_path, cover_letter_path, tailor_attempts FROM jobs "
+                       "WHERE url = ?", (JORA,)).fetchone()
+    assert tuple(row) == (None, None, 0)
+    # LinkedIn now leads, so it's the one tailored next
+    assert dup_map(conn) == {LINKEDIN: None, INDEED: LINKEDIN, JORA: LINKEDIN}
+    assert [j["url"] for j in database.get_jobs_by_stage(conn, "pending_tailor", min_score=7)] == [LINKEDIN]
+
+
+def test_redo_keeps_applied_and_in_progress_jobs(conn):
+    add(conn, JORA, "Jora", title="Data Analyst", tailored_resume_path="/t/a.txt", applied_at="2026-10-01")
+    add(conn, INDEED, "indeed", title="Data Engineer", tailored_resume_path="/t/b.txt", apply_status="in_progress")
+    add(conn, LINKEDIN, "linkedin", title="ML Engineer", tailored_resume_path="/t/c.txt")
+    assert database.redo_documents(conn) == 1
+    kept = {r[0] for r in conn.execute("SELECT url FROM jobs WHERE tailored_resume_path IS NOT NULL")}
+    assert kept == {JORA, INDEED}
+
+
+def test_redo_one_job_includes_its_other_listings(conn):
+    add(conn, JORA, "Jora", company="Acme", desc=DESC, tailored_resume_path="/t/jora.txt")
+    add(conn, LINKEDIN, "linkedin", company="Acme", desc=DESC)
+    add(conn, INDEED, "indeed", title="Platform Engineer", company="Other", desc=OTHER_DESC,
+        tailored_resume_path="/t/other.txt")
+    database.mark_duplicates(conn)
+    assert database.redo_documents(conn, url=LINKEDIN) == 1  # a duplicate's url reaches its canonical copy
+    tailored = {r[0] for r in conn.execute("SELECT url FROM jobs WHERE tailored_resume_path IS NOT NULL")}
+    assert tailored == {INDEED}
+    assert database.redo_documents(conn, url="https://nowhere") == 0

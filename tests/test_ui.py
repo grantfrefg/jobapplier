@@ -265,3 +265,14 @@ def test_status_shows_gemini_budget(client, monkeypatch):
     b = client.get("/api/status").json()["budget"]
     assert (b["used"], b["limit"], b["left"], b["pipeline_left"]) == (20, 200, 180, 130)
     assert client.post("/api/settings", json={"GEMINI_DAILY_LIMIT": "lots"}).status_code == 400
+
+
+def test_redo_clears_and_starts_tailoring(client, tmp_path, monkeypatch):
+    _seed_job(tmp_path, "https://example.com/job/1")
+    started = []
+    from applypilot.ui import server
+    monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, **kw: started.append(args))
+    r = client.post("/api/jobs/redo", json={"url": "https://example.com/job/1", "min_score": 8})
+    assert r.status_code == 200 and r.json()["cleared"] == 1
+    assert started == [["run", "tailor", "cover", "pdf", "--min-score", "8"]]
+    assert client.get("/api/jobs?view=ready").json() == []  # waiting to be rewritten

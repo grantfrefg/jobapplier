@@ -551,6 +551,17 @@ def create_app() -> FastAPI:
         conn.commit()
         return {"ok": True}
 
+    @app.post("/api/jobs/redo")
+    def redo_jobs(body: dict) -> dict:
+        """Regenerate the resume and cover letter for one job (url) or all jobs not yet applied to."""
+        from applypilot.database import redo_documents
+        if task.running:
+            raise HTTPException(409, f"'{task.label}' is still running; try again when it finishes")
+        cleared = redo_documents(get_connection(), body.get("url") or None)
+        args = ["run", "tailor", "cover", "pdf", "--min-score", str(int(body.get("min_score", 7)))]
+        task.start("Redo resumes and cover letters", args)
+        return {"cleared": cleared, **task.snapshot()}
+
     @app.get("/api/jobs/file")
     def job_file(url: str, kind: str = "resume") -> FileResponse:
         return FileResponse(_job_file(url, kind), media_type="application/pdf")
