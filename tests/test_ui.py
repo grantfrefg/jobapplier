@@ -229,4 +229,24 @@ def test_gemini_key_check(client, monkeypatch):
     assert calls[0][0].endswith("/models/gemini-3.5-flash-lite:generateContent")  # same default as the pipeline
 
     client.post("/api/settings", json={"GEMINI_API_KEY": "AIza-good-key-111", "LLM_MODEL": "gemini-3.5-flash"})
-    assert client.post("/api/settings/test-gemini").json() == {"ok": True, "model": "gemini-3.5-flash"}
+    assert client.post("/api/settings/test-gemini").json() == {
+        "ok": True, "model": "gemini-3.5-flash", "writing_model": "gemini-3.8-flash",
+        "writing_ok": True, "writing_problem": None}
+    assert calls[-1][0].endswith("/models/gemini-3.8-flash:generateContent")
+
+
+def test_gemini_key_check_writing_model_unavailable(client, monkeypatch):
+    """A used-up writing model isn't an error: the main model writes instead."""
+    import httpx
+    client.post("/api/settings", json={"GEMINI_API_KEY": "AIza-good-key-111"})
+
+    def fake_post(url, headers, json, timeout):
+        req = httpx.Request("POST", url)
+        if "gemini-3.8-flash" in url:
+            return httpx.Response(429, json=[{"error": {"message": "Quota exceeded for PerDay"}}], request=req)
+        return httpx.Response(200, json={"candidates": []}, request=req)
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    r = client.post("/api/settings/test-gemini")
+    assert r.status_code == 200
+    assert r.json()["writing_ok"] is False and "Quota exceeded" in r.json()["writing_problem"]

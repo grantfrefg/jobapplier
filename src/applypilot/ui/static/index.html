@@ -128,8 +128,11 @@
 
       <label for="gemini">Gemini API key <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">(get one free)</a></label>
       <input type="password" id="gemini" placeholder="Paste your key" autocomplete="off">
-      <label for="model">Gemini model</label>
+      <label for="model">Gemini model (searching, scoring, filling forms)</label>
       <input type="text" id="model" placeholder="gemini-3.5-flash-lite">
+      <label for="writing-model">Writing model (tailored resumes and cover letters)</label>
+      <input type="text" id="writing-model" placeholder="gemini-3.8-flash">
+      <p class="muted" style="margin:4px 0 0">Used until its daily free quota runs out, then the model above takes over.</p>
       <details class="dev-only"><summary>Optional keys</summary>
         <label for="openai">OpenAI API key (instead of Gemini, for scoring and tailoring only)</label>
         <input type="password" id="openai" autocomplete="off">
@@ -331,6 +334,7 @@ async function loadSettings() {
   const s = await api("/api/settings");
   $$("input[name=engine]").forEach((r) => (r.checked = r.value === s.EXECUTION_ENGINE));
   $("#model").value = s.LLM_MODEL || "";
+  $("#writing-model").value = s.LLM_WRITING_MODEL || "";
   for (const [id, key] of [["gemini", "GEMINI_API_KEY"], ["openai", "OPENAI_API_KEY"], ["capsolver", "CAPSOLVER_API_KEY"]]) {
     $("#" + id).value = "";
     $("#" + id).placeholder = s[key].set ? "Saved " + s[key].hint + " (leave blank to keep)" : "Paste your key";
@@ -341,13 +345,19 @@ $("#save-settings").addEventListener("click", () => guarded(async () => {
     EXECUTION_ENGINE: ($("input[name=engine]:checked") || {}).value || "claude_code",
     GEMINI_API_KEY: $("#gemini").value, OPENAI_API_KEY: $("#openai").value,
     CAPSOLVER_API_KEY: $("#capsolver").value, LLM_MODEL: $("#model").value,
+    LLM_WRITING_MODEL: $("#writing-model").value,
   });
   await loadSettings(); await refreshStatus();
 }, "Settings saved"));
 
 $("#test-gemini").addEventListener("click", async (e) => {
   e.target.disabled = true;
-  try { const r = await post("/api/settings/test-gemini"); toast("Gemini key works (" + r.model + ")"); }
+  try {
+    const r = await post("/api/settings/test-gemini");
+    toast(r.writing_ok ? "Gemini key works (" + r.model + ", writing: " + r.writing_model + ")"
+      : "Key works with " + r.model + ". Writing model " + r.writing_model + " isn't available ("
+        + r.writing_problem + "), so " + r.model + " will write instead.");
+  }
   catch (err) { toast(err.message, true); }
   e.target.disabled = false;
 });

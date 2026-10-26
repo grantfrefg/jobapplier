@@ -200,7 +200,9 @@ Your personal data in one structured file: contact info, work authorization, com
 Job search queries, target titles, locations, boards. Run multiple searches with different parameters.
 
 ### `.env`
-API keys and runtime config: `GEMINI_API_KEY`, `LLM_MODEL`, `CAPSOLVER_API_KEY` (optional).
+API keys and runtime config: `GEMINI_API_KEY`, `LLM_MODEL`, `LLM_WRITING_MODEL`, `CAPSOLVER_API_KEY` (optional).
+
+**Two Gemini models.** Searching, scoring, fact-checking and form-filling use `LLM_MODEL` (default `gemini-3.5-flash-lite`, about 500 free requests/day). Tailored resumes and cover letters, the text recruiters actually read, use `LLM_WRITING_MODEL` (default `gemini-3.8-flash`, about 20 free requests/day). Once the writing model's daily quota is used up, ApplyPilot switches to `LLM_MODEL` for the rest of the run instead of failing. Tailoring goes in fit-score order, so your best matches get the stronger model. Free-tier limits change; check Google AI Studio for the current numbers.
 
 ### Package configs (shipped with ApplyPilot)
 - `config/employers.yaml` - Workday employer registry (48 preconfigured)

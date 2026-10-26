@@ -34,7 +34,8 @@ from applypilot import config
 STATIC_DIR = Path(__file__).parent / "static"
 PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
 
-ENV_KEYS = ("EXECUTION_ENGINE", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY", "CAPSOLVER_API_KEY")
+ENV_KEYS = ("EXECUTION_ENGINE", "GEMINI_API_KEY", "LLM_MODEL", "LLM_WRITING_MODEL", "OPENAI_API_KEY",
+            "CAPSOLVER_API_KEY")
 SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "CAPSOLVER_API_KEY"}
 VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
 GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
@@ -364,25 +365,36 @@ def create_app() -> FastAPI:
 
     @app.post("/api/settings/test-gemini")
     def test_gemini() -> dict:
-        """One tiny request with the saved key and the model the pipeline uses."""
+        """One tiny request per model with the saved key: main model, then writing model."""
         import httpx
         from applypilot.llm import error_detail
         key = os.environ.get("GEMINI_API_KEY", "")
         if not key:
             raise HTTPException(400, "No Gemini API key saved yet")
+
+        def probe(model: str) -> str | None:
+            """None if the model answered, else Gemini's reason."""
+            try:
+                resp = httpx.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                    headers={"x-goog-api-key": key},
+                    json={"contents": [{"parts": [{"text": "Reply with OK"}]}]},
+                    timeout=30,
+                )
+            except httpx.HTTPError as e:
+                raise HTTPException(502, f"Couldn't reach Google: {e}") from e
+            return None if resp.is_success else (error_detail(resp) or f"HTTP {resp.status_code}")
+
         model = os.environ.get("LLM_MODEL") or config.DEFAULT_GEMINI_MODEL
-        try:
-            resp = httpx.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                headers={"x-goog-api-key": key},
-                json={"contents": [{"parts": [{"text": "Reply with OK"}]}]},
-                timeout=30,
-            )
-        except httpx.HTTPError as e:
-            raise HTTPException(502, f"Couldn't reach Google: {e}") from e
-        if not resp.is_success:
-            raise HTTPException(400, f"Gemini said: {error_detail(resp) or resp.status_code} (model: {model})")
-        return {"ok": True, "model": model}
+        problem = probe(model)
+        if problem:
+            raise HTTPException(400, f"Gemini said: {problem} (model: {model})")
+        writing = os.environ.get("LLM_WRITING_MODEL") or config.DEFAULT_GEMINI_WRITING_MODEL
+        # The writing model is optional: a failure here only means the main
+        # model writes resumes and cover letters too.
+        writing_problem = probe(writing) if writing != model else None
+        return {"ok": True, "model": model, "writing_model": writing,
+                "writing_ok": writing_problem is None, "writing_problem": writing_problem}
 
     # -- resume ------------------------------------------------------------
 
