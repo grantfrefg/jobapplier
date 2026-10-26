@@ -284,6 +284,10 @@ applypilot dashboard                    # Open HTML results dashboard
 
 ---
 
+## Roadmap
+
+[docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) is the plan for doing the same work with far fewer AI requests (batching, structured output, caching what the AI has already figured out, a daily request budget, and smarter form-filling), with the status of each item.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and PR guidelines.
