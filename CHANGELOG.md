@@ -1,9 +1,41 @@
 # Changelog
 
-All notable changes to ApplyPilot will be documented in this file.
+All notable changes to this project (jobapplier, a fork of ApplyPilot) are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Entries up to 0.3.0 are from the original ApplyPilot.
+
+## [Unreleased]
+
+### Added
+- **Free local apply engine** (`EXECUTION_ENGINE=local_playwright`): a visible browser plus your Gemini key fills
+  application forms, including multi-page ones. Personal identifiers are sent to Gemini only as placeholders.
+  Automation never clicks Submit/Apply/Send: you review and submit yourself.
+- **Web UI** (`applypilot ui`): Setup (keys with a **Test key** button, resume, profile, job search), Find jobs (live
+  pipeline log), and Apply (job list, live browser view, and the review-and-submit step as buttons).
+- **Desktop app** for Windows and Mac (friend mode), built and smoke-tested by the **Desktop app** workflow.
+- **Dev container** with a virtual desktop, so the visible browser works on Windows/Mac hosts.
+- **Australian job sources:** Indeed Australia, LinkedIn and Jora. `country`, `smart_extract_sites`,
+  `workday_employers` and `site_priority` in `searches.yaml`.
+- **Cross-site de-duplication:** one role listed on several boards is scored, tailored and applied to once.
+- **Batch scoring and title filter** (`exclude_titles`, `score_batch_size`); JSON output mode in the LLM client.
+- CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
+
+### Changed
+- Default model `gemini-3.5-flash-lite` for every stage (was `gemini-2.0-flash`).
+- LLM errors include the provider's message (e.g. "Please pass a valid API key").
+- Location filter shared by all sources, matching whole words. State abbreviations are expanded (NSW → New South Wales).
+- The setup wizard and UI ask for country and city instead of an (unused) search radius.
+
+### Fixed
+- `applypilot apply --url` never matched jobs that hadn't been attempted (`apply_status` NULL).
+- An empty location accept list discarded every non-remote job.
+- Indeed searched the US site regardless of location.
+- Scoring stored a permanent score 0 when the LLM call failed, so those jobs were never scored again.
+- The scoring prompt gave the job board as the company.
+- `.env.example` lines like `KEY=   # note` set the note as the value, which sent it as an API key.
+- `searches.yaml` broke on job titles containing quotes.
 
 ## [0.2.0] - 2026-02-17
 
