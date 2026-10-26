@@ -11,6 +11,7 @@ import re
 import time
 from datetime import datetime, timezone
 
+from applypilot.budget import BudgetExhausted
 from applypilot.config import DEFAULTS, RESUME_PATH, load_search_config
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
@@ -191,6 +192,11 @@ def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = 
     for n, batch in enumerate(batches, 1):
         try:
             results = score_batch(resume_text, batch)
+        except BudgetExhausted as e:
+            left = sum(len(b) for b in batches[n - 1:])
+            log.warning("%s Stopping: %d jobs left unscored for the next run.", e, left)
+            errors += left
+            break
         except Exception as e:
             log.error("Batch %d/%d failed (%d jobs left unscored for next run): %s", n, len(batches), len(batch), e)
             errors += len(batch)

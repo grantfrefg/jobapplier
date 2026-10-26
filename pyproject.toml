@@ -26,6 +26,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
     "pandas>=2.0",
+    "tzdata; sys_platform == 'win32'",  # Pacific time for the daily Gemini budget
     ]
 
 [project.optional-dependencies]
