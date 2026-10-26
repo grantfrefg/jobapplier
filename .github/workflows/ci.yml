@@ -36,6 +36,9 @@ jobs:
         run: pip install -e ".[dev,ui]" -r packaging/requirements-desktop.txt
 
       - name: Install Chromium (browser tests)
+        # Normally ~1 min; a stalled Ubuntu package mirror once hung this for
+        # the whole job, so fail fast instead
+        timeout-minutes: 10
         run: python -m playwright install --with-deps --no-shell chromium
 
       - name: Lint
