@@ -182,6 +182,23 @@ def validate_json_fields(data: dict, profile: dict, mode: str = "normal") -> dic
     return {"passed": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
+_NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def new_numbers(original: str, generated: str) -> list[str]:
+    """Numbers in `generated` that never appear in `original`.
+
+    Invented metrics ("cut costs by 37%") are the most common fabrication,
+    and they're cheap to spot in code. Single digits are ignored: counts
+    like "2 teams" are too often legitimately reworded.
+    """
+    def numbers(text: str) -> set[str]:
+        return {m.replace(",", "").rstrip(".") for m in _NUMBER_RE.findall(text or "")}
+
+    known = numbers(original)
+    return sorted(n for n in numbers(generated) - known if len(n.replace(".", "")) > 1)
+
+
 # ── Full Resume Text Validation ───────────────────────────────────────────
 
 def validate_tailored_resume(text: str, profile: dict, original_text: str = "") -> dict:

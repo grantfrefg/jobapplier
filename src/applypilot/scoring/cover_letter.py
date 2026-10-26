@@ -28,17 +28,21 @@ MAX_ATTEMPTS = 5  # max cross-run retries before giving up
 
 # ── Prompt Builder (profile-driven) ──────────────────────────────────────
 
-def _build_cover_letter_prompt(profile: dict) -> str:
-    """Build the cover letter system prompt from the user's profile.
-
-    All personal data, skills, and sign-off name come from the profile.
-    """
+def sign_off_name(profile: dict) -> str:
+    """Preferred name for the sign-off (falls back to full name)."""
     personal = profile.get("personal", {})
+    return personal.get("preferred_name") or personal.get("full_name", "")
+
+
+def cover_letter_rules(profile: dict) -> str:
+    """The cover letter writing rules (structure, voice, banned words, skills).
+
+    Shared by the standalone prompt below and the combined resume + cover
+    letter request in tailor.py.
+    """
     boundary = profile.get("skills_boundary", {})
     resume_facts = profile.get("resume_facts", {})
-
-    # Preferred name for the sign-off (falls back to full name)
-    sign_off_name = personal.get("preferred_name") or personal.get("full_name", "")
+    name = sign_off_name(profile)
 
     # Flatten all allowed skills
     all_skills: list[str] = []
@@ -65,7 +69,7 @@ def _build_cover_letter_prompt(profile: dict) -> str:
     all_banned = ", ".join(f'"{w}"' for w in BANNED_WORDS)
     leak_banned = ", ".join(f'"{p}"' for p in LLM_LEAK_PHRASES)
 
-    return f"""Write a cover letter for {sign_off_name}. The goal is to get an interview.
+    return f"""Write a cover letter for {name}. The goal is to get an interview.
 
 STRUCTURE: 3 short paragraphs. Under 250 words. Every sentence must earn its place.
 
@@ -93,14 +97,34 @@ VOICE:
 FABRICATION = INSTANT REJECTION:
 The candidate's real tools are ONLY: {skills_str}.
 Do NOT mention ANY tool not in this list. If the job asks for tools not listed, talk about the work you did, not the tools.
+Do NOT use any number that isn't in the resume.
 
-Sign off: just "{sign_off_name}"
+Start DIRECTLY with "Dear Hiring Manager," and sign off with just "{name}"."""
 
-Output ONLY the letter text. No subject lines. No "Here is the cover letter:" preamble. No notes after the sign-off.
-Start DIRECTLY with "Dear Hiring Manager," and end with the name."""
+
+def _build_cover_letter_prompt(profile: dict) -> str:
+    """Build the standalone cover letter system prompt from the user's profile."""
+    return cover_letter_rules(profile) + """
+
+Output ONLY the letter text. No subject lines. No "Here is the cover letter:" preamble. No notes after the sign-off."""
+
+
+def job_text(job: dict) -> str:
+    """The target job as shown to the LLM (shared with tailor.py)."""
+    return (
+        f"TITLE: {job['title']}\n"
+        f"COMPANY: {job.get('company') or job.get('site') or 'unknown'}\n"
+        f"LOCATION: {job.get('location', 'N/A')}\n\n"
+        f"DESCRIPTION:\n{(job.get('full_description') or '')[:6000]}"
+    )
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
+
+def clean_letter(text: str) -> str:
+    """Auto-fix dashes/quotes and drop any preamble before 'Dear ...'."""
+    return _strip_preamble(sanitize_text(text or ""))
+
 
 def _strip_preamble(text: str) -> str:
     """Remove LLM preamble before 'Dear Hiring Manager,' if present.
@@ -120,6 +144,7 @@ def _strip_preamble(text: str) -> str:
 def generate_cover_letter(
     resume_text: str, job: dict, profile: dict,
     max_retries: int = 3, validation_mode: str = "normal",
+    stats: dict | None = None,
 ) -> str:
     """Generate a cover letter with fresh context on each retry + auto-sanitize.
 
@@ -132,16 +157,12 @@ def generate_cover_letter(
         profile:          User profile dict.
         max_retries:      Maximum retry attempts.
         validation_mode:  "strict", "normal", or "lenient".
+        stats:            If given, stats["requests"] is incremented per LLM call.
 
     Returns:
         The cover letter text (best attempt even if validation failed).
     """
-    job_text = (
-        f"TITLE: {job['title']}\n"
-        f"COMPANY: {job['site']}\n"
-        f"LOCATION: {job.get('location', 'N/A')}\n\n"
-        f"DESCRIPTION:\n{(job.get('full_description') or '')[:6000]}"
-    )
+    target = job_text(job)
 
     avoid_notes: list[str] = []
     letter = ""
@@ -160,14 +181,14 @@ def generate_cover_letter(
             {"role": "system", "content": prompt},
             {"role": "user", "content": (
                 f"RESUME:\n{resume_text}\n\n---\n\n"
-                f"TARGET JOB:\n{job_text}\n\n"
+                f"TARGET JOB:\n{target}\n\n"
                 "Write the cover letter:"
             )},
         ]
 
-        letter = client.chat(messages, max_tokens=1024, temperature=0.7)
-        letter = sanitize_text(letter)  # auto-fix em dashes, smart quotes
-        letter = _strip_preamble(letter)  # remove any "Here is the letter:" prefix
+        if stats is not None:
+            stats["requests"] = stats.get("requests", 0) + 1
+        letter = clean_letter(client.chat(messages, max_tokens=1024, temperature=0.7))
 
         validation = validate_cover_letter(letter, mode=validation_mode)
         if validation["passed"]:
