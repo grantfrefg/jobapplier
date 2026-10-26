@@ -143,6 +143,9 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     # Run migrations for any columns added after initial schema
     ensure_columns(conn)
 
+    from applypilot.apply.answers import ensure_table
+    ensure_table(conn)  # the answer bank (screening-question answers)
+
     # Older JobSpy imports stored the text "None" (or a relative path) as the
     # application link when a board gave none; treat those as no link.
     conn.execute(

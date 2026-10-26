@@ -190,6 +190,16 @@
     <form id="profile-form"></form>
     <div class="row"><button class="btn" id="save-profile">Save profile</button></div>
   </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>Saved answers</h2>
+    <p class="sub">Screening questions answered before are filled in again without asking the AI. Answers you type or change in the browser before submitting are saved as yours and always win over the AI's. Delete any you don't want reused.</p>
+    <div class="table-wrap">
+      <table><thead><tr><th>Question</th><th>Answer</th><th>From</th><th>Used</th><th></th></tr></thead>
+        <tbody id="answers"></tbody></table>
+    </div>
+    <p class="muted" id="answers-empty"></p>
+  </div>
 </section>
 
 <!-- ============================== FIND JOBS ============================== -->
@@ -289,6 +299,7 @@ function showTab(name) {
   $$("section.tab").forEach((s) => s.classList.toggle("active", s.id === "tab-" + name));
   try { localStorage.setItem("ap-tab", name); } catch {}
   if (name === "apply") { loadJobs(); ensureVnc(); }
+  if (name === "setup") loadAnswers().catch(() => {});
 }
 
 // ---------- status ----------
@@ -425,6 +436,20 @@ $("#save-profile").addEventListener("click", () => guarded(async () => {
   }
   await post("/api/profile", out); await refreshStatus();
 }, "Profile saved"));
+
+// ---------- setup: saved answers ----------
+async function loadAnswers() {
+  const rows = await api("/api/answers");
+  $("#answers").replaceChildren(...rows.map((a) => el("tr", {},
+    el("td", {}, a.question), el("td", {}, a.answer),
+    el("td", { class: "muted" }, a.source === "user" ? "You" : "AI"),
+    el("td", { class: "muted" }, String(a.uses || 0)),
+    el("td", {}, el("button", { class: "btn secondary", onclick: () => guarded(async () => {
+      await post("/api/answers/delete", { question_key: a.question_key }); loadAnswers(); }, "Answer deleted") },
+      "Delete")))));
+  $("#answers-empty").textContent = rows.length ? "" :
+    "Nothing saved yet. Answers are remembered as you apply.";
+}
 
 // ---------- find jobs ----------
 const STAGES = ["discover", "enrich", "score", "tailor", "cover", "pdf"];
@@ -584,7 +609,7 @@ $("#quit").addEventListener("click", () => guarded(async () => {
 (async () => {
   await refreshStatus();
   refreshBrowser();
-  await Promise.all([loadSettings(), loadResume(), loadSearches(), loadProfile()]).catch((e) => toast(e.message, true));
+  await Promise.all([loadSettings(), loadResume(), loadSearches(), loadProfile(), loadAnswers()]).catch((e) => toast(e.message, true));
   let tab = "setup"; try { tab = localStorage.getItem("ap-tab") || tab; } catch {}
   showTab(tab);
   pollPipeline(); pollApply();

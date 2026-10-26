@@ -20,6 +20,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   `workday_employers` and `site_priority` in `searches.yaml`.
 - **Cross-site de-duplication:** one role listed on several boards is scored, tailored and applied to once.
 - **Batch scoring and title filter** (`exclude_titles`, `score_batch_size`); JSON output mode in the LLM client.
+- **Answer bank and standard fields:** the local engine fills name, contact, address and uploads in code and
+  reuses screening answers (yours win over the AI's), so known pages cost no Gemini request. Setup → Saved answers.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed
