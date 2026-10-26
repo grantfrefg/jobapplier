@@ -28,7 +28,7 @@ estimates from the code paths, not measurements.
 | A1 | Free filters before any AI (`exclude_titles`) | Small | Varies with your filters | **Done** (#4) |
 | A2 | Batch scoring | Small–medium | ~200 → ~20 requests | **Done** (#4) |
 | A3 | Structured (JSON) output | Small | Retries from unreadable replies | Scoring **done** (#4). Writing: with B |
-| B | One writing request per job | Medium | ~3–12 → ~1–2 per job | Planned |
+| B | One writing request per job | Medium | ~3–12 → ~1–2 per job | **Done** (#9) |
 | C | Remember how to read each site | Small | ~2 per title per run → ~0 | Planned |
 | D | Daily request budget | Medium | Spends requests on the best jobs | Planned |
 | E | Smarter form-filling | Large | Fewer requests; more consistent answers | Planned |
@@ -85,14 +85,18 @@ runs a separate AI "judge" to fact-check it, retrying up to 4 times.
 `cover_letter.py` then makes its own requests with the same context. That
 comes to about 3–12 requests per job.
 
-**Plan:**
-- Generate the tailored resume **and** the cover letter in one JSON
-  request. They share the job description, resume and profile.
-- Keep the fast code checks (banned words, no invented employers or
-  metrics) on every result.
-- Call the AI judge **only when those checks flag something**, instead of
-  every time.
-- Retry only the part that failed.
+**Change (done in #9):**
+- `tailor_application()` generates the tailored resume **and** the cover
+  letter in one JSON request. They share the job description, resume and
+  profile.
+- The code checks still run on both (structure, preserved employers and
+  school, fabricated skills, banned words; the letter's format).
+- The AI judge runs **only when code spots a likely fabrication**: numbers
+  not in your original resume, or watchlist tools it never mentions,
+  anywhere in the resume or letter. It now answers in JSON and also reviews
+  the letter.
+- A bad resume regenerates both; a bad letter alone gets a letter-only
+  retry.
 
 **Expected:** about 1–2 requests per job.
 
