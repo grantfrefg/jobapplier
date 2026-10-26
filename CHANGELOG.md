@@ -26,6 +26,10 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   and only asks the AI again when that stops working.
 - **Daily Gemini budget:** requests are counted per day; finding and preparing jobs stops cleanly and keeps a
   reserve for applying (`GEMINI_DAILY_LIMIT`, `GEMINI_APPLY_RESERVE`). Requests left today are shown in the UI.
+- **Prompts tuned for engineers in Australia:** scoring sees deal-breakers (work rights, clearance, location,
+  seniority); tailoring and the fact-check never add tools you don't have; Australian English, 2-page resumes and
+  DD/MM/YYYY dates; truthful screening answers and legal questions left for you. New profile fields:
+  `security_clearance`, `willing_to_relocate`, `notice_period`, `drivers_licence`.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed

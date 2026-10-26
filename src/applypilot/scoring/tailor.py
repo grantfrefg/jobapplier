@@ -20,6 +20,7 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
+from applypilot.scoring.context import AU_STYLE
 from applypilot.scoring.cover_letter import (
     COVER_LETTER_DIR,
     clean_letter,
@@ -69,55 +70,65 @@ def _tailor_rules(profile: dict) -> str:
 
     companies_str = ", ".join(companies) if companies else "N/A"
     projects_str = ", ".join(projects) if projects else "N/A"
-    metrics_str = ", ".join(real_metrics) if real_metrics else "N/A"
+    metrics_str = ", ".join(real_metrics) if real_metrics else "only those in the original resume"
 
     # Include ALL banned words from the validator so the LLM knows exactly
     # what will be rejected — the validator checks for these automatically.
     banned_str = ", ".join(BANNED_WORDS)
 
-    return f"""You are a senior technical recruiter rewriting a resume to get this person an interview.
+    return f"""You are a senior engineering recruiter in Australia rewriting a resume so this candidate
+gets an interview for the target job. Return the tailored resume as a JSON object.
 
-Take the base resume and job description. Return a tailored resume as a JSON object.
+## WHAT THE HIRING ENGINEER CHECKS FIRST (about 6 seconds)
+1. Title: does it match what they're hiring?
+2. Summary: 2-3 sentences showing they've done this work, at this level.
+3. First 3 bullets of the most recent role: the job's must-haves, with outcomes.
+4. Skills: the must-haves visible at a glance.
 
-## RECRUITER SCAN (6 seconds):
-1. Title -- matches what they're hiring?
-2. Summary -- 2 sentences proving you've done this work
-3. First 3 bullets of most recent role -- verbs and outcomes match?
-4. Skills -- must-haves visible immediately?
-
-## SKILLS BOUNDARY (real skills only):
+## SKILLS (real skills only)
+List only skills that appear in the original resume or in this boundary:
 {skills_block}
+Never add a tool, language, framework, standard or certification the candidate doesn't have, even a
+closely related one. If the job wants something they lack, emphasise the nearest real experience instead.
 
-You MAY add 2-3 closely related tools (Kubernetes if Docker, Terraform if AWS, Redis if PostgreSQL). No unrelated languages/frameworks.
+## TAILORING RULES
+TITLE: Use the target job's title when it honestly describes the candidate's work (e.g. "Software
+Engineer" -> "Backend Engineer" for backend work). Keep their seniority. Never change discipline.
+Drop company names and team names from the title.
 
-## TAILORING RULES:
+SUMMARY: Rewrite for this job. Lead with the 1-2 things that matter most for THIS role, with a real
+number or scale if the resume has one. Sound like someone who already does this job.
 
-TITLE: Match the target role. Keep seniority (Senior/Lead/Staff). Drop company suffixes and team names.
+SKILLS: Group into categories that suit the candidate (e.g. Languages, Frameworks, Cloud & DevOps,
+Databases, Tools; or for non-software engineering: Design Software, Standards & Codes, Methods).
+Put the job's must-haves first in each category. Drop skills irrelevant to this job if space is tight.
 
-SUMMARY: Rewrite from scratch. Lead with the 1-2 skills that matter most for THIS role. Sound like someone who's done this job.
+BULLETS: Reorder so the job's must-haves come first. Reword a bullet when the job uses different
+terms for the same work (e.g. "web services" -> "REST APIs") or when its impact is buried; keep it as
+is when it already fits. Shape: strong verb + what was built/designed/delivered + scale or result.
+Vary verbs (Built, Designed, Led, Shipped, Migrated, Automated, Reduced, Scaled). Up to 5 bullets for
+recent roles, 2-3 for older ones.
 
-SKILLS: Reorder each category so the job's must-haves appear first.
+PROJECTS: Most relevant first. Drop projects that don't help for this job.
 
-Reframe EVERY bullet for this role. Same real work, different angle. Every bullet must be reworded. Never copy verbatim.
+LENGTH: Australian resumes are normally 2 pages. Keep it tight: no filler bullets.
 
-PROJECTS: Reorder by relevance. Drop irrelevant projects entirely.
-
-BULLETS: Strong verb + what you built + quantified impact. Vary verbs (Built, Designed, Implemented, Reduced, Automated, Deployed, Operated, Optimized). Most relevant first. Max 4 per section.
-
-## VOICE:
-- Write like a real engineer. Short, direct.
-- GOOD: "Automated financial reporting with Python + API integrations, cut processing time from 10 hours to 2"
-- BAD: "Leveraged cutting-edge AI technologies to drive transformative operational efficiencies"
-- BANNED WORDS (using ANY of these = validation failure — do not use them even once):
+## VOICE
+- Write like an engineer: plain, specific, technical where it helps.
+- GOOD: "Built a Python ingestion service on AWS Lambda for 2M events a day, cut reporting lag
+  from 6 hours to 15 minutes"
+- BAD: "Leveraged cutting-edge technologies to drive transformative operational efficiencies"
+- BANNED WORDS (using ANY of these = validation failure, do not use them even once):
   {banned_str}
 - No em dashes. Use commas, periods, or hyphens.
+- {AU_STYLE}
 
-## HARD RULES:
-- Do NOT invent work, companies, degrees, or certifications
-- Do NOT change real numbers ({metrics_str})
+## HARD RULES
+- Do NOT invent work, companies, roles, degrees, certifications or skills
+- Do NOT invent or change numbers. Real numbers: {metrics_str}
 - Preserved companies: {companies_str} -- names stay as-is
-- Preserved school: {school}
-- Must fit 1 page."""
+- Preserved projects: {projects_str}
+- Preserved school: {school}"""
 
 
 def _resume_shape(profile: dict) -> str:
@@ -173,7 +184,7 @@ def _build_judge_prompt(profile: dict) -> str:
     skills_str = ", ".join(all_skills) if all_skills else "N/A"
 
     real_metrics = resume_facts.get("real_metrics", [])
-    metrics_str = ", ".join(real_metrics) if real_metrics else "N/A"
+    metrics_str = ", ".join(real_metrics) if real_metrics else "only those in the original resume"
 
     return f"""You are a resume quality judge. A tailoring engine rewrote a resume to target a specific job. Your job is to catch LIES, not style changes.
 
@@ -190,7 +201,8 @@ If a cover letter is included, apply the same rules to it: it may only claim wor
 - Change tone and wording extensively
 
 ## WHAT IS FABRICATION (FAIL for these):
-1. Adding tools, languages, or frameworks to TECHNICAL SKILLS that aren't in the original. The allowed skills are ONLY: {skills_str}
+1. Adding tools, languages, frameworks or certifications (in skills, bullets, summary or cover letter)
+   that aren't in the original. The allowed skills are ONLY: {skills_str}
 2. Inventing NEW metrics or numbers not in the original. The real metrics are: {metrics_str}
 3. Inventing work that has no basis in any original bullet (completely new achievements).
 4. Adding companies, roles, or degrees that don't exist.
@@ -205,14 +217,12 @@ If a cover letter is included, apply the same rules to it: it may only claim wor
 - Reordering anything
 - Changing the title or summary completely
 
-## TOLERANCE RULE:
-The goal is to get interviews, not to be a perfect fact-checker. Allow up to 3 minor stretches per resume:
-- Adding a closely related tool the candidate could realistically know is a MINOR STRETCH, not fabrication.
-- Reframing a metric with slightly different wording is a MINOR STRETCH.
-- Adding any LEARNABLE skill given their existing stack is a MINOR STRETCH.
-- Only FAIL if there are MAJOR lies: completely invented projects, fake companies, fake degrees, wildly inflated numbers, or skills from a completely different domain.
-
-Be strict about major lies. Be lenient about minor stretches and learnable skills. Do not fail for style, tone, or restructuring."""
+## JUDGEMENT
+- Wording, emphasis and structure are free: never fail for style, tone, reordering or regrouping.
+- A tool, language, framework, certification or number that isn't in the original resume or the allowed
+  skills list is fabrication, even if it's closely related or easy to learn: an interviewer will ask about it.
+- Using the job's term for the same real work ("REST APIs" for "web services") is fine.
+- When in doubt about a reworded bullet, PASS if the same underlying work appears in the original."""
 
 
 # ── JSON Extraction ───────────────────────────────────────────────────────

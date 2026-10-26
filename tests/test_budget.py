@@ -90,7 +90,7 @@ def test_scoring_stops_cleanly_and_leaves_jobs_for_next_run(tmp_path, monkeypatc
     monkeypatch.setattr(scorer, "RESUME_PATH", tmp_path / "resume.txt")
     monkeypatch.setattr(scorer, "load_search_config", lambda: {})
 
-    def no_budget(resume, batch):
+    def no_budget(*args):
         raise budget.BudgetExhausted("out of requests")
 
     monkeypatch.setattr(scorer, "score_batch", no_budget)

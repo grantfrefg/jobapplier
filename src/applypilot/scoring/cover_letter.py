@@ -15,6 +15,7 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import COVER_LETTER_DIR, RESUME_PATH, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
+from applypilot.scoring.context import AU_STYLE, target_role, years
 from applypilot.scoring.validator import (
     BANNED_WORDS,
     LLM_LEAK_PHRASES,
@@ -44,6 +45,8 @@ def cover_letter_rules(profile: dict) -> str:
     boundary = profile.get("skills_boundary", {})
     resume_facts = profile.get("resume_facts", {})
     name = sign_off_name(profile)
+    yrs = years(profile)
+    role_line = f"a {target_role(profile)}" + (f" with {yrs} years of experience" if yrs else "")
 
     # Flatten all allowed skills
     all_skills: list[str] = []
@@ -70,17 +73,24 @@ def cover_letter_rules(profile: dict) -> str:
     all_banned = ", ".join(f'"{w}"' for w in BANNED_WORDS)
     leak_banned = ", ".join(f'"{p}"' for p in LLM_LEAK_PHRASES)
 
-    return f"""Write a cover letter for {name}. The goal is to get an interview.
+    return f"""Write a cover letter for {name}, {role_line}. The goal is to get an interview with the
+engineers and hiring manager reading it.
 
-STRUCTURE: 3 short paragraphs. Under 250 words. Every sentence must earn its place.
+STRUCTURE: 3 short paragraphs, under 250 words. Every sentence must earn its place.
 
-PARAGRAPH 1 (2-3 sentences): Open with a specific thing YOU built that solves THEIR problem. Not "I'm excited about this role." Not "This role aligns with my experience." Start with the work.
+PARAGRAPH 1 (2-3 sentences): Open with the most relevant thing the candidate has built, designed or
+delivered, and how it maps to what this team needs. Not "I'm excited to apply." Start with the work.
 
-PARAGRAPH 2 (3-4 sentences): Pick 2 achievements from the resume that are MOST relevant to THIS job. Use numbers. Frame as solving their problem, not listing your accomplishments.{projects_hint}{metrics_hint}
+PARAGRAPH 2 (3-4 sentences): 1-2 more achievements from the resume most relevant to THIS job, with
+real numbers or scale (users, requests, data volume, uptime, cost, time saved). Frame them as the
+problems this team has.{projects_hint}{metrics_hint}
 
-PARAGRAPH 3 (1-2 sentences): One specific thing about the company from the job description (a product, a technical challenge, a team structure). Then close. "Happy to walk through any of this in more detail." or "Let's discuss." Nothing else.
+PARAGRAPH 3 (1-2 sentences): One specific reason for THIS role, taken from the job description (the
+product, system, technical challenge or team). If the employer isn't named (e.g. a recruitment agency
+ad), talk about the role and project described instead. Never invent facts about the company. Close
+plainly, e.g. "Happy to walk through any of this in more detail."
 
-BANNED WORDS AND PHRASES (automated validator rejects ANY of these — do not use even once):
+BANNED WORDS AND PHRASES (automated validator rejects ANY of these, do not use even once):
 {all_banned}
 
 ALSO BANNED (meta-commentary the validator catches):
@@ -89,18 +99,21 @@ ALSO BANNED (meta-commentary the validator catches):
 BANNED PUNCTUATION: No em dashes (—) or en dashes (–). Use commas or periods.
 
 VOICE:
-- Write like a real engineer emailing someone they respect. Not formal, not casual. Just direct.
-- NEVER narrate or explain what you're doing. BAD: "This demonstrates my commitment to X." GOOD: Just state the fact and move on.
-- NEVER hedge. BAD: "might address some of your challenges." GOOD: "solves the same problem your team is facing."
-- Every sentence should contain either a number, a tool name, or a specific outcome. If it doesn't, cut it.
-- Read it out loud. If it sounds like a robot wrote it, rewrite it.
+- An engineer writing to another engineer: direct, specific, confident, no fluff.
+- Vary sentence length so it reads like a person. Most sentences should carry a concrete detail
+  (a system, a tool, a number, an outcome); cut any that carry none.
+- NEVER narrate or explain. BAD: "This demonstrates my commitment to X." GOOD: state the fact.
+- NEVER hedge. BAD: "might address some of your challenges." GOOD: "solves the same problem."
+- {AU_STYLE}
 
 FABRICATION = INSTANT REJECTION:
 The candidate's real tools are ONLY: {skills_str}.
-Do NOT mention ANY tool not in this list. If the job asks for tools not listed, talk about the work you did, not the tools.
+Do NOT mention ANY tool not in this list. If the job asks for tools not listed, talk about the
+closest real work, not the tool.
 Do NOT use any number that isn't in the resume.
 
-Start DIRECTLY with "Dear Hiring Manager," and sign off with just "{name}"."""
+Start with "Dear <name>," if the job ad names the contact person, otherwise "Dear Hiring Manager,".
+Sign off with just "{name}"."""
 
 
 def _build_cover_letter_prompt(profile: dict) -> str:
@@ -117,7 +130,14 @@ def job_text(job: dict) -> str:
         f"COMPANY: {job.get('company') or job.get('site') or 'unknown'}\n"
         f"LOCATION: {job.get('location', 'N/A')}\n\n"
         f"DESCRIPTION:\n{(job.get('full_description') or '')[:6000]}"
+        + _matched_terms(job)
     )
+
+
+def _matched_terms(job: dict) -> str:
+    """Must-haves the scorer found in the resume (first line of score_reasoning)."""
+    first = (job.get("score_reasoning") or "").split("\n", 1)[0].strip()
+    return f"\n\nMUST-HAVES THE RESUME SHOWS (lead with these): {first[:400]}" if first else ""
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────

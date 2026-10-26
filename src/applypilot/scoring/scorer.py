@@ -12,38 +12,56 @@ import time
 from datetime import datetime, timezone
 
 from applypilot.budget import BudgetExhausted
-from applypilot.config import DEFAULTS, RESUME_PATH, load_search_config
+from applypilot.config import DEFAULTS, RESUME_PATH, load_profile, load_search_config
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
+from applypilot.scoring.context import candidate_brief
 
 log = logging.getLogger(__name__)
 
 
 # ── Scoring Prompt ────────────────────────────────────────────────────────
 
-SCORE_PROMPT = """You are a job fit evaluator. Given a candidate's resume and job postings, score how well
-the candidate fits each role.
+SCORE_PROMPT = """You are an experienced engineering recruiter in Australia. Score how well the
+candidate fits each job posting, 1-10, the way you would before deciding who to phone.
 
-SCORING CRITERIA:
-- 9-10: Perfect match. Candidate has direct experience in nearly all required skills and qualifications.
-- 7-8: Strong match. Candidate has most required skills, minor gaps easily bridged.
-- 5-6: Moderate match. Candidate has some relevant skills but missing key requirements.
-- 3-4: Weak match. Significant skill gaps, would need substantial ramp-up.
-- 1-2: Poor match. Completely different field or experience level.
+You get the candidate's key facts, their resume, and one or more postings, each with an "id".
+Score every posting independently against the candidate, not against each other.
 
-IMPORTANT FACTORS:
-- Weight technical skills heavily (programming languages, frameworks, tools)
-- Consider transferable experience (automation, scripting, API work)
-- Factor in the candidate's project experience
-- Be realistic about experience level vs. job requirements (years of experience, seniority)
+## DEALBREAKERS (score 3 or lower, and name it in the reasoning)
+- Work rights: the posting requires citizenship, permanent residency or a visa the candidate
+  doesn't have, or offers no sponsorship when the candidate needs it.
+- Security clearance: the posting requires a clearance (Baseline, NV1, NV2, PV) the candidate
+  doesn't hold. "Must be able to obtain" is fine only for Australian citizens.
+- Location: onsite or hybrid outside the candidate's area and they won't relocate. Remote is fine.
+- Seniority far off: e.g. Principal/Head of for a 2-year engineer, Graduate for a 10-year one.
+- Mandatory registration or licence the resume doesn't show (e.g. CPEng, RPEQ, NER, electrical licence).
 
-You will receive the candidate's resume and one or more job postings, each with an "id".
-Score every posting independently.
+## SCALE
+- 9-10: They do this job now. Core discipline and stack match (e.g. backend Python services for a
+  backend Python role), domain and seniority fit, nearly every must-have is shown in the resume.
+- 7-8: Most must-haves shown; gaps are learnable in weeks (a second framework, a cloud they
+  haven't used, a new domain).
+- 5-6: Same discipline but missing a key must-have (core language or platform, years required,
+  domain expertise the posting stresses).
+- 3-4: Adjacent discipline (e.g. QA for a backend role, data analyst for data engineering) or several
+  missing must-haves.
+- 1-2: Different field.
+
+## HOW TO JUDGE ENGINEERING ROLES
+- Separate must-haves ("essential", "required", "you have") from nice-to-haves ("desirable", "bonus").
+  Missing nice-to-haves barely matter.
+- Core stack and discipline beat tool lists: Java vs Python backend is a real gap; Jenkins vs
+  GitHub Actions is not. Software vs civil engineering is a different field.
+- Count demonstrated experience (systems built and run, designs delivered, scale, ownership) over
+  skills merely listed.
+- Compare years of experience honestly; don't round up.
+- Keyword overlap alone is not a match.
 
 Return ONLY a JSON object of this shape, with exactly one entry per posting:
 {"results": [{"id": "<posting id>", "score": <integer 1-10>,
-              "keywords": "<comma-separated ATS keywords from the posting that match or could match the candidate>",
-              "reasoning": "<2-3 sentences explaining the score>"}]}"""
+              "keywords": "<comma-separated must-haves from the posting that the resume shows>",
+              "reasoning": "<2-3 sentences: the main reason for the score, the biggest gap or dealbreaker>"}]}"""
 
 # Description characters sent per job (most postings are well under this)
 _MAX_DESCRIPTION_CHARS = 6000
@@ -69,7 +87,7 @@ def _job_block(job_id: str, job: dict) -> str:
     )
 
 
-def score_batch(resume_text: str, jobs: list[dict]) -> dict[str, dict]:
+def score_batch(resume_text: str, jobs: list[dict], profile: dict | None = None) -> dict[str, dict]:
     """Score several jobs in one LLM request.
 
     Returns {url: {"score", "keywords", "reasoning"}} for every job the model
@@ -80,7 +98,8 @@ def score_batch(resume_text: str, jobs: list[dict]) -> dict[str, dict]:
     postings = "\n\n".join(_job_block(job_id, job) for job_id, job in ids.items())
     messages = [
         {"role": "system", "content": SCORE_PROMPT},
-        {"role": "user", "content": f"RESUME:\n{resume_text}\n\n---\n\nJOB POSTINGS ({len(ids)}):\n\n{postings}"},
+        {"role": "user", "content": (f"CANDIDATE FACTS:\n{candidate_brief(profile or {})}\n\n"
+                                     f"RESUME:\n{resume_text}\n\n---\n\nJOB POSTINGS ({len(ids)}):\n\n{postings}")},
     ]
     # ~150 output tokens per job is plenty for score + keywords + reasoning
     data = get_client().chat_json(messages, temperature=0.2, max_tokens=300 + 250 * len(ids))
@@ -133,6 +152,10 @@ def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = 
          "elapsed": float, "distribution": list}
     """
     resume_text = RESUME_PATH.read_text(encoding="utf-8")
+    try:
+        profile = load_profile()
+    except Exception:  # scoring still works without the profile, just without dealbreakers
+        profile = {}
     search_cfg = load_search_config() or {}
     exclude = [str(t) for t in search_cfg.get("exclude_titles") or []]
     batch_size = max(1, int(batch_size or search_cfg.get("score_batch_size")
@@ -191,7 +214,7 @@ def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = 
     scored = errors = 0
     for n, batch in enumerate(batches, 1):
         try:
-            results = score_batch(resume_text, batch)
+            results = score_batch(resume_text, batch, profile)
         except BudgetExhausted as e:
             left = sum(len(b) for b in batches[n - 1:])
             log.warning("%s Stopping: %d jobs left unscored for the next run.", e, left)
