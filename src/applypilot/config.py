@@ -181,6 +181,53 @@ def load_env():
 
 
 # ---------------------------------------------------------------------------
+# Execution engine — which driver performs Stage 6 (auto-apply)
+# ---------------------------------------------------------------------------
+
+ENGINE_CLAUDE_CODE = "claude_code"
+ENGINE_LOCAL_PLAYWRIGHT = "local_playwright"
+EXECUTION_ENGINES = (ENGINE_CLAUDE_CODE, ENGINE_LOCAL_PLAYWRIGHT)
+
+# Default Gemini model for the local Playwright engine
+LOCAL_ENGINE_DEFAULT_MODEL = "gemini-2.5-flash"
+
+# Persistent browser profile for the local engine (keeps SEEK/Workday logins)
+LOCAL_BROWSER_PROFILE_DIR = APP_DIR / "local-playwright-profile"
+
+
+def get_execution_engine() -> str:
+    """Return the configured apply engine from EXECUTION_ENGINE.
+
+    Unset, empty, or unrecognised values fall back to "claude_code" so the
+    original paid Claude Code flow stays the default.
+    """
+    raw = os.environ.get("EXECUTION_ENGINE", "").strip().lower()
+    if raw in EXECUTION_ENGINES:
+        return raw
+    if raw:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Unknown EXECUTION_ENGINE=%r — falling back to %r. Valid values: %s",
+            raw, ENGINE_CLAUDE_CODE, ", ".join(EXECUTION_ENGINES),
+        )
+    return ENGINE_CLAUDE_CODE
+
+
+def get_local_engine_model() -> str:
+    """Gemini model for the local engine: LLM_MODEL if it names a Gemini model."""
+    model = os.environ.get("LLM_MODEL", "").strip()
+    if model.lower().startswith("gemini"):
+        return model
+    return LOCAL_ENGINE_DEFAULT_MODEL
+
+
+def has_playwright() -> bool:
+    """True if the Playwright Python package is importable."""
+    import importlib.util
+    return importlib.util.find_spec("playwright") is not None
+
+
+# ---------------------------------------------------------------------------
 # Tier system — feature gating by installed dependencies
 # ---------------------------------------------------------------------------
 
@@ -203,12 +250,19 @@ def get_tier() -> int:
     Tier 1 (Discovery):            Python + pip
     Tier 2 (AI Scoring & Tailoring): + LLM API key
     Tier 3 (Full Auto-Apply):       + Claude Code CLI + Chrome
+                                    (or, with EXECUTION_ENGINE=local_playwright,
+                                     + GEMINI_API_KEY + Playwright)
     """
     load_env()
 
     has_llm = any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL"))
     if not has_llm:
         return 1
+
+    if get_execution_engine() == ENGINE_LOCAL_PLAYWRIGHT:
+        if os.environ.get("GEMINI_API_KEY") and has_playwright():
+            return 3
+        return 2
 
     has_claude = shutil.which("claude") is not None
     try:
@@ -240,7 +294,12 @@ def check_tier(required: int, feature: str) -> None:
     missing: list[str] = []
     if required >= 2 and not any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL")):
         missing.append("LLM API key — run [bold]applypilot init[/bold] or set GEMINI_API_KEY")
-    if required >= 3:
+    if required >= 3 and get_execution_engine() == ENGINE_LOCAL_PLAYWRIGHT:
+        if not os.environ.get("GEMINI_API_KEY"):
+            missing.append("GEMINI_API_KEY — required by EXECUTION_ENGINE=local_playwright")
+        if not has_playwright():
+            missing.append("Playwright — run [bold]pip install playwright && playwright install chromium[/bold]")
+    elif required >= 3:
         if not shutil.which("claude"):
             missing.append("Claude Code CLI — install from [bold]https://claude.ai/code[/bold]")
         try:

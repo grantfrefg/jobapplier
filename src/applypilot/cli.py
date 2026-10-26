@@ -186,7 +186,7 @@ def apply(
 
     # --- Full apply mode ---
 
-    # Check 1: Tier 3 required (Claude Code CLI + Chrome)
+    # Check 1: Tier 3 required (Claude Code CLI + Chrome, or Gemini + Playwright locally)
     check_tier(3, "auto-apply")
 
     # Check 2: Profile exists
@@ -234,10 +234,18 @@ def apply(
 
     effective_limit = limit if limit is not None else (0 if continuous else 1)
 
+    from applypilot.config import get_execution_engine, get_local_engine_model, ENGINE_LOCAL_PLAYWRIGHT
+    engine = get_execution_engine()
+
     console.print("\n[bold blue]Launching Auto-Apply[/bold blue]")
+    console.print(f"  Engine:   {engine}")
+    if engine == ENGINE_LOCAL_PLAYWRIGHT:
+        console.print(f"  Gemini:   {get_local_engine_model()}")
+        console.print("  [dim]Forms are filled locally; YOU click Submit after reviewing.[/dim]")
     console.print(f"  Limit:    {'unlimited' if continuous else effective_limit}")
     console.print(f"  Workers:  {workers}")
-    console.print(f"  Model:    {model}")
+    if engine != ENGINE_LOCAL_PLAYWRIGHT:
+        console.print(f"  Model:    {model}")
     console.print(f"  Headless: {headless}")
     console.print(f"  Dry run:  {dry_run}")
     if url:
@@ -396,29 +404,47 @@ def doctor() -> None:
                         "Set GEMINI_API_KEY in ~/.applypilot/.env (run 'applypilot init')"))
 
     # --- Tier 3 checks ---
-    # Claude Code CLI
-    claude_bin = shutil.which("claude")
-    if claude_bin:
-        results.append(("Claude Code CLI", ok_mark, claude_bin))
-    else:
-        results.append(("Claude Code CLI", fail_mark,
-                        "Install from https://claude.ai/code (needed for auto-apply)"))
+    from applypilot.config import (
+        get_execution_engine, get_local_engine_model, has_playwright, ENGINE_LOCAL_PLAYWRIGHT,
+    )
+    engine = get_execution_engine()
+    results.append(("Apply engine", ok_mark, f"EXECUTION_ENGINE={engine}"))
 
-    # Chrome
-    try:
-        chrome_path = get_chrome_path()
-        results.append(("Chrome/Chromium", ok_mark, chrome_path))
-    except FileNotFoundError:
-        results.append(("Chrome/Chromium", fail_mark,
-                        "Install Chrome or set CHROME_PATH env var (needed for auto-apply)"))
-
-    # Node.js / npx (for Playwright MCP)
-    npx_bin = shutil.which("npx")
-    if npx_bin:
-        results.append(("Node.js (npx)", ok_mark, npx_bin))
+    if engine == ENGINE_LOCAL_PLAYWRIGHT:
+        if os.environ.get("GEMINI_API_KEY"):
+            results.append(("Gemini (local engine)", ok_mark, get_local_engine_model()))
+        else:
+            results.append(("Gemini (local engine)", fail_mark,
+                            "Set GEMINI_API_KEY (needed for local_playwright)"))
+        if has_playwright():
+            results.append(("Playwright", ok_mark, "Run 'playwright install chromium' if the browser won't start"))
+        else:
+            results.append(("Playwright", fail_mark,
+                            "pip install playwright && playwright install chromium"))
     else:
-        results.append(("Node.js (npx)", fail_mark,
-                        "Install Node.js 18+ from nodejs.org (needed for auto-apply)"))
+        # Claude Code CLI
+        claude_bin = shutil.which("claude")
+        if claude_bin:
+            results.append(("Claude Code CLI", ok_mark, claude_bin))
+        else:
+            results.append(("Claude Code CLI", fail_mark,
+                            "Install from https://claude.ai/code (needed for auto-apply)"))
+
+        # Chrome
+        try:
+            chrome_path = get_chrome_path()
+            results.append(("Chrome/Chromium", ok_mark, chrome_path))
+        except FileNotFoundError:
+            results.append(("Chrome/Chromium", fail_mark,
+                            "Install Chrome or set CHROME_PATH env var (needed for auto-apply)"))
+
+        # Node.js / npx (for Playwright MCP)
+        npx_bin = shutil.which("npx")
+        if npx_bin:
+            results.append(("Node.js (npx)", ok_mark, npx_bin))
+        else:
+            results.append(("Node.js (npx)", fail_mark,
+                            "Install Node.js 18+ from nodejs.org (needed for auto-apply)"))
 
     # CapSolver (optional)
     capsolver = os.environ.get("CAPSOLVER_API_KEY")
@@ -444,11 +470,15 @@ def doctor() -> None:
     tier = get_tier()
     console.print(f"[bold]Current tier: Tier {tier} — {TIER_LABELS[tier]}[/bold]")
 
+    tier3_needs = (
+        "GEMINI_API_KEY + Playwright" if engine == ENGINE_LOCAL_PLAYWRIGHT
+        else "Claude Code CLI + Chrome + Node.js"
+    )
     if tier == 1:
         console.print("[dim]  → Tier 2 unlocks: scoring, tailoring, cover letters (needs LLM API key)[/dim]")
-        console.print("[dim]  → Tier 3 unlocks: auto-apply (needs Claude Code CLI + Chrome + Node.js)[/dim]")
+        console.print(f"[dim]  → Tier 3 unlocks: auto-apply (needs {tier3_needs})[/dim]")
     elif tier == 2:
-        console.print("[dim]  → Tier 3 unlocks: auto-apply (needs Claude Code CLI + Chrome + Node.js)[/dim]")
+        console.print(f"[dim]  → Tier 3 unlocks: auto-apply (needs {tier3_needs})[/dim]")
 
     console.print()
 
