@@ -2,7 +2,7 @@
 Unified LLM client for ApplyPilot.
 
 Auto-detects provider from environment:
-  GEMINI_API_KEY  -> Google Gemini (default: gemini-2.0-flash)
+  GEMINI_API_KEY  -> Google Gemini (default: gemini-3.5-flash-lite)
   OPENAI_API_KEY  -> OpenAI (default: gpt-4o-mini)
   LLM_URL         -> Local llama.cpp / Ollama compatible endpoint
 
@@ -14,6 +14,8 @@ import os
 import time
 
 import httpx
+
+from applypilot.config import DEFAULT_GEMINI_MODEL
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ def _detect_provider() -> tuple[str, str, str]:
     if gemini_key and not local_url:
         return (
             "https://generativelanguage.googleapis.com/v1beta/openai",
-            model_override or "gemini-2.0-flash",
+            model_override or DEFAULT_GEMINI_MODEL,
             gemini_key,
         )
 
@@ -140,7 +142,7 @@ class LLMClient:
             headers={"Content-Type": "application/json"},
             params={"key": self.api_key},
         )
-        resp.raise_for_status()
+        _raise_for_status(resp)
         data = resp.json()
         return data["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -179,7 +181,7 @@ class LLMClient:
 
     @staticmethod
     def _handle_compat_response(resp: httpx.Response) -> str:
-        resp.raise_for_status()
+        _raise_for_status(resp)
         data = resp.json()
         return data["choices"][0]["message"]["content"]
 
@@ -271,6 +273,31 @@ class LLMClient:
 
     def close(self) -> None:
         self._client.close()
+
+
+def error_detail(resp: httpx.Response) -> str:
+    """The provider's error message from a failed response, if it sent one."""
+    try:
+        data = resp.json()
+        err = (data[0] if isinstance(data, list) and data else data).get("error", {})
+        return err.get("message", "") if isinstance(err, dict) else str(err)
+    except Exception:
+        return resp.text[:200]
+
+
+def _raise_for_status(resp: httpx.Response) -> None:
+    """raise_for_status, but include the provider's own error message.
+
+    Gemini answers a bad key with a bare "400 Bad Request" status; the
+    reason ("Please pass a valid API key") is only in the body.
+    """
+    if resp.is_success:
+        return
+    detail = error_detail(resp)
+    message = f"HTTP {resp.status_code} from {resp.request.url.host}"
+    if detail:
+        message += f": {detail}"
+    raise httpx.HTTPStatusError(message, request=resp.request, response=resp)
 
 
 class _GeminiCompatForbidden(Exception):
