@@ -79,7 +79,9 @@ class SubprocessTask:
 
     @property
     def running(self) -> bool:
-        return self.proc is not None and self.proc.poll() is None
+        # Running until the log pump has drained the output and set returncode,
+        # so callers never see running=False with returncode=None.
+        return self.proc is not None and self.returncode is None
 
     def start(self, label: str, args: list[str], cmd: list[str] | None = None,
               env: dict | None = None) -> None:
@@ -94,7 +96,7 @@ class SubprocessTask:
                        PYTHONIOENCODING="utf-8", APPLYPILOT_CHILD_LOG=str(log_path))
             self.lines.clear()
             self.lines.append(f"$ applypilot {' '.join(args)}" if cmd is None else f"$ {label}")
-            self.label, self.returncode = label, None
+            self.label, self.returncode, self.proc = label, None, None
             flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
             with open(log_path, "a", encoding="utf-8") as out:
                 self.proc = subprocess.Popen(
@@ -123,7 +125,7 @@ class SubprocessTask:
         self.lines.append(f"[finished with exit code {self.returncode}]")
 
     def stop(self) -> None:
-        if self.running:
+        if self.running and self.proc.poll() is None:
             self.proc.terminate()
 
     def snapshot(self) -> dict:
