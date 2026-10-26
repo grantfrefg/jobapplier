@@ -245,19 +245,18 @@ def test_local_engine_end_to_end(tmp_path, monkeypatch):
 
     seen = {}
 
-    def fake_gate(page, controls, frame_by_id, needs, dry_run):
+    def fake_gate(page, needs, dry_run):
         seen.update(page.evaluate("""() => ({
             fn: fn.value, ln: ln.value, em: em.value, rw: rw.value,
             cv: cv.files.length ? cv.files[0].name : '', cl: cl.value,
             submitted: !!window.submitted,
+            outlined: getComputedStyle(sub).outlineStyle,
         })"""))
         return "manual"
 
-    monkeypatch.setattr(le, "_approval_gate", fake_gate)
-
     job = {"title": "Engineer", "site": "Acme", "url": form.as_uri(), "application_url": None,
            "tailored_resume_path": str(resume_txt), "cover_letter_path": str(cl), "fit_score": 9}
-    status, _ = le.run_job(job)
+    status, _ = le.run_job(job, gate=fake_gate)
 
     assert status == "manual"
     assert seen["fn"] == "Jane" and seen["ln"] == "Doe"
@@ -266,6 +265,7 @@ def test_local_engine_end_to_end(tmp_path, monkeypatch):
     assert seen["cv"] == "Jane_Quinn_Doe_Resume.pdf"
     assert "Jane Quinn Doe" in seen["cl"]  # real text swapped in locally
     assert seen["submitted"] is False      # automation never clicked Submit
+    assert seen["outlined"] == "solid"     # Submit highlighted for the human
     assert len(prompts) == 2               # step 1 + step 2 (Continue was clicked)
     for p in prompts:
         for secret in SECRETS:
@@ -287,7 +287,7 @@ def test_approval_gate_blocks_on_terminal(tmp_path, monkeypatch):
         page = browser.new_page()
         page.set_content('<button id="s">Submit application</button><button>Next</button>')
         _, controls, frame_by_id = le._scan(page)
-        assert le._approval_gate(page, controls, frame_by_id, [], False) == "applied"
+        le._highlight_submit(controls, frame_by_id)
         assert page.evaluate("getComputedStyle(s).outlineStyle") == "solid"
-        assert page.evaluate("window.clicked") is None
+        assert le._approval_gate(page, [], False) == "applied"
         browser.close()

@@ -265,6 +265,28 @@ def apply(
 
 
 @app.command()
+def ui(
+    host: str = typer.Option("127.0.0.1", "--host", help="Interface to listen on (keep it local)."),
+    port: int = typer.Option(8000, "--port", "-p", help="Port for the web UI."),
+) -> None:
+    """Open the web UI: setup, find jobs, and apply with on-screen approval."""
+    try:
+        from applypilot.ui.server import serve
+    except ImportError:
+        console.print(
+            "[red]The web UI needs extra packages.[/red]\n"
+            "Install them with: [bold]pip install \"applypilot[ui]\"[/bold] "
+            "(or [bold]pip install -e \".[ui]\"[/bold] from a checkout)"
+        )
+        raise typer.Exit(code=1)
+
+    shown_host = "localhost" if host in ("127.0.0.1", "0.0.0.0") else host
+    console.print(f"[bold blue]ApplyPilot UI[/bold blue] → http://{shown_host}:{port}")
+    console.print("[dim]Ctrl+C to stop[/dim]")
+    serve(host=host, port=port)
+
+
+@app.command()
 def status() -> None:
     """Show pipeline statistics from the database."""
     _bootstrap()
