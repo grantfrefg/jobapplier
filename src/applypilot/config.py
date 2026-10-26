@@ -256,8 +256,9 @@ ENGINE_CLAUDE_CODE = "claude_code"
 ENGINE_LOCAL_PLAYWRIGHT = "local_playwright"
 EXECUTION_ENGINES = (ENGINE_CLAUDE_CODE, ENGINE_LOCAL_PLAYWRIGHT)
 
-# Default Gemini model for the local Playwright engine
-LOCAL_ENGINE_DEFAULT_MODEL = "gemini-2.5-flash"
+# Default Gemini model, for every stage, when LLM_MODEL isn't set
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+LOCAL_ENGINE_DEFAULT_MODEL = DEFAULT_GEMINI_MODEL
 
 # Persistent browser profile for the local engine (keeps SEEK/Workday logins)
 LOCAL_BROWSER_PROFILE_DIR = APP_DIR / "local-playwright-profile"
