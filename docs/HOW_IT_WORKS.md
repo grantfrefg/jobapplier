@@ -57,18 +57,22 @@ For jobs scoring at or above `--min-score` (default 7), the AI rewrites your res
 - it emphasises relevant experience;
 - it uses the job's keywords.
 
+The tailored resume and a short, specific cover letter come from **one AI request**.
+
 Two checks guard every result:
-- **Code checks:** banned buzzwords, and no missing or invented employers, projects or metrics (`resume_facts` in your profile lists what must be kept).
-- **An AI fact-check ("judge")** for subtler invented claims.
+- **Code checks, always:** banned buzzwords, required sections, and no missing or invented employers, projects or skills (`resume_facts` and `skills_boundary` in your profile list what must be kept). The letter must also have the right format.
+- **An AI fact-check ("judge"), only when needed:** it runs when code spots a likely invention anywhere in the resume or letter: a number that isn't in your original resume, or a tool from the watchlist you never mention.
+
+If the resume fails, both documents are regenerated. If only the letter fails, just the letter is retried.
 
 `--validation` controls how strict this is:
-- `strict`: banned words are errors.
-- `normal` (default): banned words are warnings.
-- `lenient`: skips the AI fact-check, which uses the fewest requests.
+- `strict`: banned words are errors, and the AI fact-check always runs.
+- `normal` (default): banned words are warnings, and the fact-check runs only when needed.
+- `lenient`: never runs the AI fact-check.
 
 ## Cover letter and PDF
 
-A short, specific cover letter per tailored job. Both documents are rendered to PDF for uploading.
+Cover letters are written together with the tailored resume (above). The separate cover-letter stage only writes letters for jobs tailored before that change. Both documents are rendered to PDF for uploading.
 
 ## Apply
 
@@ -110,8 +114,7 @@ Google's free tier limits **requests per day** per model. Everything uses `gemin
 | Stage | Requests |
 |---|---|
 | Score | ~1 per 10 jobs (skipped titles are free) |
-| Tailor | a few per good match (fewer with `--validation lenient`) |
-| Cover letter | 1+ per good match |
+| Tailor + cover letter | usually 1 per good match; 2 when the fact-check runs or the letter is retried |
 | Jora | ~2 per job title per run |
 | Apply | ~1 per form page |
 
