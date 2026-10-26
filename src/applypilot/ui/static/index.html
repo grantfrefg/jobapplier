@@ -255,6 +255,7 @@
         <option value="ready">Ready to apply</option><option value="applied">Applied</option>
         <option value="all">All jobs</option></select>
       <button class="btn secondary" id="refresh-jobs">Refresh</button>
+      <button class="btn secondary" id="redo-all" title="Rewrite every resume and cover letter not yet sent, with the current prompts and site preference (LinkedIn > Indeed > Jora)">Redo all documents</button>
     </div>
     <div class="table-wrap">
       <table><thead><tr><th>Score</th><th>Job</th><th>Status</th><th>Documents</th><th></th></tr></thead>
@@ -520,6 +521,10 @@ async function loadJobs() {
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
     }
+    if ((j.tailored || j.has_cover) && !j.applied_at && j.apply_status !== "in_progress") {
+      actions.push(" ", el("button", { class: "btn secondary", title: "Write this job's resume and cover letter again",
+        onclick: () => redo(j.url) }, "Redo"));
+    }
     if (["manual", "failed"].includes(j.apply_status) && !j.applied_at) {
       actions.push(" ", el("button", { class: "btn secondary", onclick: () => guarded(async () => {
         await post("/api/jobs/reset", { url: j.url }); loadJobs(); }, "Job reset") }, "Reset"));
@@ -537,6 +542,18 @@ async function loadJobs() {
     $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first." : "Nothing here yet.";
 }
 $("#job-view").addEventListener("change", loadJobs);
+
+async function redo(url) {
+  const all = !url;
+  if (all && !confirm("Rewrite the resume and cover letter for every job you haven't applied to? " +
+                      "This uses about one Gemini request per job.")) return;
+  await guarded(async () => {
+    const r = await post("/api/jobs/redo", { url, min_score: Number($("#min-score").value || 7) });
+    toast("Rewriting " + (all ? r.cleared + " job(s)" : "this job") + ". Follow along on the Find jobs tab.");
+    showTab("find"); pollPipeline(); loadJobs();
+  });
+}
+$("#redo-all").addEventListener("click", () => redo(null));
 $("#refresh-jobs").addEventListener("click", loadJobs);
 
 async function startApply(url) {

@@ -398,6 +398,37 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
     return changed
 
 
+def redo_documents(conn: sqlite3.Connection | None = None, url: str | None = None) -> int:
+    """Clear tailored resumes and cover letters so the next tailor run writes them again.
+
+    For one job (`url`, together with the other listings of the same role)
+    or, with no url, every job. Jobs already applied to or being applied to
+    keep theirs. A tailored listing counts as the canonical copy of its role,
+    so clearing them also lets duplicates be re-picked by `site_priority`
+    (LinkedIn > Indeed > Jora by default): the preferred site's listing is
+    the one tailored next. Returns the number of jobs cleared.
+    """
+    if conn is None:
+        conn = get_connection()
+    where = "applied_at IS NULL AND COALESCE(apply_status, '') != 'in_progress'"
+    params: list = []
+    if url:
+        group = conn.execute("SELECT COALESCE(duplicate_of, url) FROM jobs WHERE url = ?", (url,)).fetchone()
+        if not group:
+            return 0
+        where += " AND (url = ? OR duplicate_of = ?)"
+        params += [group[0], group[0]]
+    cleared = conn.execute(
+        "UPDATE jobs SET tailored_resume_path = NULL, tailored_at = NULL, tailor_attempts = 0, "
+        "cover_letter_path = NULL, cover_letter_at = NULL, cover_attempts = 0 "
+        f"WHERE {where} AND (tailored_resume_path IS NOT NULL OR cover_letter_path IS NOT NULL "
+        "OR COALESCE(tailor_attempts, 0) > 0)", params,
+    ).rowcount
+    conn.commit()
+    mark_duplicates(conn)
+    return cleared
+
+
 def get_stats(conn: sqlite3.Connection | None = None) -> dict:
     """Return job counts by pipeline stage.
 

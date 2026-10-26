@@ -68,6 +68,8 @@ Two checks guard every result:
 
 If the resume fails, both documents are regenerated. If only the letter fails, just the letter is retried.
 
+**Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job). Jobs you've applied to keep theirs. Redo also re-picks which listing to use when a role is on several sites, by `site_priority` (LinkedIn, then Indeed, then Jora), so a role first found on Jora is rewritten for its LinkedIn or Indeed listing. Each job costs about one Gemini request, and a run tailors up to 20 jobs; run it again for more.
+
 `--validation` controls how strict this is:
 - `strict`: banned words are errors, and the AI fact-check always runs.
 - `normal` (default): banned words are warnings, and the fact-check runs only when needed.
