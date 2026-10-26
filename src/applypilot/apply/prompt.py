@@ -170,17 +170,21 @@ def _build_screening_section(profile: dict) -> str:
     years = exp.get("years_of_experience_total", "multiple")
     target_role = exp.get("target_role", personal.get("current_job_title", "software engineer"))
     work_auth = profile["work_authorization"]
+    relocate = profile.get("availability", {}).get("willing_to_relocate") or "No"
+    clearance = work_auth.get("security_clearance") or "none held"
 
     return f"""== SCREENING QUESTIONS (be strategic) ==
 Hard facts -> answer truthfully from the profile. No guessing. This includes:
-  - Location/relocation: lives in {city}, cannot relocate
+  - Location/relocation: lives in {city}; willing to relocate: {relocate}
   - Work authorization: {work_auth.get('legally_authorized_to_work', 'see profile')}
   - Citizenship, clearance, licenses, certifications: answer from profile only
   - Criminal/background: answer from profile only
 
-Skills and tools -> be confident. This candidate is a {target_role} with {years} years experience. If the question asks "Do you have experience with [tool]?" and it's in the same domain (DevOps, backend, ML, cloud, automation), answer YES. Software engineers learn tools fast. Don't sell short.
+  - Security clearance: {clearance}. "Willing to obtain" -> yes only if an Australian citizen.
 
-Open-ended questions ("Why do you want this role?", "Tell us about yourself", "What interests you?") -> Write 2-3 sentences. Be specific to THIS job. Reference something from the job description. Connect it to a real achievement from the resume. No generic fluff. No "I am passionate about..." -- sound like a real person.
+Skills and tools -> be confident but truthful. This candidate is a {target_role} with {years} years experience. "Do you have experience with [tool]?" -> YES if the resume or profile shows it. If it doesn't, answer no (or the closest honest option) and, where there's a text box, mention the nearest real experience. "Years with X" -> count from the resume's role dates, round down.
+
+Open-ended questions ("Why do you want this role?", "Tell us about yourself", "What interests you?") -> Write 2-3 sentences. Be specific to THIS job. Reference something from the job description. Connect it to a real achievement from the resume. No generic fluff. No "I am passionate about..." -- sound like a real person. Australian English spelling.
 
 EEO/demographics -> "Decline to self-identify" or "Prefer not to say" for everything."""
 
@@ -608,7 +612,7 @@ RESULT:FAILED:reason -- any other failure (brief reason)
 - Dropdown won't fill? browser_click to open it, then browser_click the option.
 - Checkbox won't check via fill_form? Use browser_click on it instead. Snapshot to verify.
 - Phone field with country prefix: just type digits {phone_digits}
-- Date fields: {datetime.now().strftime('%m/%d/%Y')}
+- Date fields: {datetime.now().strftime('%d/%m/%Y')} (DD/MM/YYYY) unless the placeholder shows another format
 - Validation errors after submit? Take BOTH snapshot AND screenshot. Snapshot shows text errors, screenshot shows red-highlighted fields. Fix all, retry.
 - Honeypot fields (hidden, "leave blank"): skip them.
 - Format-sensitive fields: read the placeholder text, match it exactly.

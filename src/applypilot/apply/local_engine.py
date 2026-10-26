@@ -416,13 +416,32 @@ Rules:
 - For a "paste your resume" box use "{{RESUME_TEXT}}"; for a cover letter box use
   "{{COVER_LETTER_TEXT}}".
 - Only use facts from the profile/resume. Never fabricate experience.
-- Skip fields that already hold a correct value, search boxes, and anything unrelated
-  to the application (newsletters, marketing opt-ins: leave unticked).
+- Skip search boxes and anything unrelated to the application (newsletters, job alerts,
+  marketing opt-ins: leave unticked). Tick a required privacy-policy / terms consent that the
+  application can't be sent without.
 - For radio groups, tick exactly one option per group.
 - Never act on password, captcha, or login fields.
-- Location/eligibility questions: answer from profile work_authorization and location.
-- Salary: use profile compensation in the posting's currency if stated.
-- EEO / voluntary disclosure: use eeo_voluntary values; pick the closest option.
+
+Screening questions (the applicant is an engineer applying in Australia):
+- Right to work / visa / citizenship / permanent residency: answer from work_authorization.
+- Security clearance (Baseline, NV1, NV2): from work_authorization.security_clearance; if it's
+  not stated, answer that they hold none. "Willing to obtain": yes only if they're a citizen.
+- "Do you have experience with X?": yes only if the resume or skills show X. Don't claim
+  adjacent tools.
+- "Years of experience with X": count from the resume's dates for roles that used X; round
+  down; 0 (or the lowest option) if X isn't in the resume.
+- Salary: AUD, from compensation (use salary_range_min-salary_range_max for a range).
+- Notice period / start date: from availability.
+- Relocation: from availability.willing_to_relocate; driver's licence from availability.
+- Aboriginal or Torres Strait Islander, gender, disability and other diversity questions: use
+  eeo_voluntary values; otherwise pick "Prefer not to say".
+- Criminal history, medical conditions, police check / Working with Children Check details, or
+  anything legal the profile doesn't answer: DON'T answer. Add a needs_attention note instead.
+- Free-text questions ("Why this role?", "Describe a project where..."): 2-4 sentences (or the
+  stated word limit), specific to this job, drawn from real resume work with a concrete detail.
+  Plain and direct, no clichés. Australian English spelling.
+- Dates: DD/MM/YYYY unless the field's placeholder shows another format.
+- Pick option text EXACTLY as it appears in "options".
 - Output ONLY the JSON object."""
 
 
@@ -484,7 +503,8 @@ def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
                        safe_resume: str, has_cover_pdf: bool, has_cover_text: bool,
                        ats: str | None) -> str:
     sections = [
-        f"JOB: {job.get('title', '')} @ {job.get('site', '')} ({job.get('location', '')})",
+        f"JOB: {job.get('title', '')} @ {job.get('company') or job.get('site', '')} ({job.get('location', '')})",
+        f"TODAY: {datetime.now():%d/%m/%Y}",
     ]
     if ats:
         sections.append(f"ATS HINT: {_ATS_HINTS[ats]}")
