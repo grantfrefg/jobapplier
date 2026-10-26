@@ -109,13 +109,14 @@ def _setup_profile() -> dict:
     profile["work_authorization"] = {
         "legally_authorized_to_work": Confirm.ask("Are you legally authorized to work in your target country?"),
         "require_sponsorship": Confirm.ask("Will you now or in the future need sponsorship?"),
-        "work_permit_type": Prompt.ask("Work permit type (e.g. Citizen, PR, Open Work Permit — leave blank if N/A)", default=""),
+        "work_permit_type": Prompt.ask("Work rights (e.g. Australian citizen, Permanent resident, 482 visa — leave blank if N/A)", default=""),
+        "security_clearance": Prompt.ask("Security clearance held (e.g. Baseline, NV1 — leave blank if none)", default=""),
     }
 
     # -- Compensation --
     console.print("\n[bold cyan]Compensation[/bold cyan]")
     salary = Prompt.ask("Expected annual salary (number)", default="")
-    salary_currency = Prompt.ask("Currency", default="USD")
+    salary_currency = Prompt.ask("Currency", default="AUD")
     salary_range = Prompt.ask("Acceptable range (e.g. 80000-120000)", default="")
     range_parts = salary_range.split("-") if "-" in salary_range else [salary, salary]
     profile["compensation"] = {
@@ -163,15 +164,19 @@ def _setup_profile() -> dict:
 
     # -- EEO Voluntary (defaults) --
     profile["eeo_voluntary"] = {
-        "gender": "Decline to self-identify",
-        "race_ethnicity": "Decline to self-identify",
-        "veteran_status": "Decline to self-identify",
-        "disability_status": "Decline to self-identify",
+        "gender": "Prefer not to say",
+        "aboriginal_or_torres_strait_islander": "Prefer not to say",
+        "race_ethnicity": "Prefer not to say",
+        "veteran_status": "Prefer not to say",
+        "disability_status": "Prefer not to say",
     }
 
     # -- Availability --
     profile["availability"] = {
         "earliest_start_date": Prompt.ask("Earliest start date", default="Immediately"),
+        "notice_period": Prompt.ask("Notice period", default="2 weeks"),
+        "willing_to_relocate": "Yes" if Confirm.ask("Willing to relocate?", default=False) else "No",
+        "drivers_licence": "Yes" if Confirm.ask("Do you have a driver's licence?", default=True) else "No",
     }
 
     # Save

@@ -49,13 +49,16 @@ Visits each job page and extracts the full description and the application link.
 
 1. **Title skip list (free).** Jobs whose title contains an `exclude_titles` entry get score 0, with the reason recorded and no AI request.
 2. **Batch scoring.** The rest are rated 1–10 against your resume, 10 jobs per request, as structured (JSON) output. A job that doesn't get a valid score stays unscored and is retried on the next run.
+3. **Deal-breakers.** The scorer also sees your target role, years, location, work rights and security clearance from your profile. A job you can't take (citizenship or a clearance you don't hold, onsite elsewhere when you won't relocate, far too senior or junior, a mandatory registration you don't have) scores 3 or lower.
+
+The prompts are written for engineers (software first, other disciplines too) applying in Australia: Australian English, 2-page resumes, DD/MM/YYYY dates, AUD.
 
 ## Tailor
 
 For jobs scoring at or above `--min-score` (default 7), the AI rewrites your resume for the role:
-- it reorders and rephrases;
-- it emphasises relevant experience;
-- it uses the job's keywords.
+- it reorders, and rewords bullets where the job uses different terms for the same work;
+- it leads with the must-haves the scorer found in your resume;
+- it never adds a tool, skill or number that isn't in your resume or `skills_boundary`.
 
 The tailored resume and a short, specific cover letter come from **one AI request**.
 
