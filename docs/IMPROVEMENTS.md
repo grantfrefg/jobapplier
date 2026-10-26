@@ -25,9 +25,9 @@ estimates from the code paths, not measurements.
 
 | # | Improvement | Effort | Saving | Status |
 |---|---|---|---|---|
-| A1 | Free filters before any AI (`exclude_titles`) | Small | Varies with your filters | In progress: PR #4 |
-| A2 | Batch scoring | Small–medium | ~200 → ~20 requests | In progress: PR #4 |
-| A3 | Structured (JSON) output | Small | Retries from unreadable replies | Scoring: PR #4. Writing: with B |
+| A1 | Free filters before any AI (`exclude_titles`) | Small | Varies with your filters | **Done** (#4) |
+| A2 | Batch scoring | Small–medium | ~200 → ~20 requests | **Done** (#4) |
+| A3 | Structured (JSON) output | Small | Retries from unreadable replies | Scoring **done** (#4). Writing: with B |
 | B | One writing request per job | Medium | ~3–12 → ~1–2 per job | Planned |
 | C | Remember how to read each site | Small | ~2 per title per run → ~0 | Planned |
 | D | Daily request budget | Medium | Spends requests on the best jobs | Planned |
