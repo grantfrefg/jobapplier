@@ -253,3 +253,15 @@ def test_saved_answers_list_and_delete(client):
     assert [(r["question"], r["source"]) for r in rows] == [("Notice period", "user"), ("Expected salary", "ai")]
     client.post("/api/answers/delete", json={"question_key": "notice period"})
     assert [r["question"] for r in client.get("/api/answers").json()] == ["Expected salary"]
+
+
+def test_status_shows_gemini_budget(client, monkeypatch):
+    from applypilot import budget
+    assert client.get("/api/status").json()["budget"] is None  # no Gemini key yet
+    client.post("/api/settings", json={"GEMINI_API_KEY": "k-12345678", "GEMINI_DAILY_LIMIT": "200"})
+    monkeypatch.setenv("GEMINI_API_KEY", "k-12345678")
+    monkeypatch.setenv("GEMINI_DAILY_LIMIT", "200")
+    budget.record(config.get_local_engine_model(), 20)
+    b = client.get("/api/status").json()["budget"]
+    assert (b["used"], b["limit"], b["left"], b["pipeline_left"]) == (20, 200, 180, 130)
+    assert client.post("/api/settings", json={"GEMINI_DAILY_LIMIT": "lots"}).status_code == 400

@@ -24,6 +24,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   reuses screening answers (yours win over the AI's), so known pages cost no Gemini request. Setup → Saved answers.
 - **Saved site plans:** smart extract (Jora) remembers how to read each site in `~/.applypilot/site_plans/`
   and only asks the AI again when that stops working.
+- **Daily Gemini budget:** requests are counted per day; finding and preparing jobs stops cleanly and keeps a
+  reserve for applying (`GEMINI_DAILY_LIMIT`, `GEMINI_APPLY_RESERVE`). Requests left today are shown in the UI.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed

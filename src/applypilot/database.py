@@ -145,6 +145,8 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
 
     from applypilot.apply.answers import ensure_table
     ensure_table(conn)  # the answer bank (screening-question answers)
+    from applypilot import budget
+    budget.ensure_table(conn)  # daily Gemini request counts
 
     # Older JobSpy imports stored the text "None" (or a relative path) as the
     # application link when a board gave none; treat those as no link.

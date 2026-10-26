@@ -55,6 +55,18 @@ _UPSTREAM: dict[str, str | None] = {
 }
 
 
+def _print_budget() -> None:
+    """Today's Gemini usage, when Gemini is the provider."""
+    import os
+    from applypilot import budget, config
+    if not os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_URL"):
+        return
+    b = budget.status(config.get_local_engine_model())
+    if b:
+        console.print(f"    Gemini today:   {b['used']}/{b['limit']} requests used, {b['left']} left "
+                      f"({b['pipeline_left']} for finding jobs; resets in ~{b['resets_in_hours']:g}h)")
+
+
 # ---------------------------------------------------------------------------
 # Individual stage runners
 # ---------------------------------------------------------------------------
@@ -536,6 +548,7 @@ def run_pipeline(
     console.print(f"    Cover letters:  {final['with_cover_letter']}")
     console.print(f"    Ready to apply: {final['ready_to_apply']}")
     console.print(f"    Applied:        {final['applied']}")
+    _print_budget()
     console.print(f"{'=' * 70}\n")
 
     return result
