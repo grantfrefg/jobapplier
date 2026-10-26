@@ -34,13 +34,13 @@ def test_jobspy_keeps_only_real_application_links(conn):
 
 
 def test_existing_bad_links_are_cleaned_on_startup(tmp_path):
-    """Databases from before the fix hold the text 'None'; init_db clears it."""
+    """Databases from before the fix hold the text 'None'; init_db clears it and resolves relative links."""
     path = tmp_path / "old.db"
     database.init_db(path)
     raw = sqlite3.connect(path)
     raw.executemany("INSERT INTO jobs (url, application_url) VALUES (?, ?)", [
         ("https://linkedin.com/jobs/view/1", "None"),
-        ("https://au.jora.com/job/2", "/job/2"),
+        ("https://au.jora.com/job/2", "/job/rd/2"),
         ("https://au.indeed.com/viewjob?jk=3", "https://careers.acme.com.au/jobs/3"),
     ])
     raw.commit()
@@ -52,7 +52,7 @@ def test_existing_bad_links_are_cleaned_on_startup(tmp_path):
     database.close_connection(path)
     assert links == {
         "https://linkedin.com/jobs/view/1": None,
-        "https://au.jora.com/job/2": None,
+        "https://au.jora.com/job/2": "https://au.jora.com/job/rd/2",  # Jora's redirect to the employer
         "https://au.indeed.com/viewjob?jk=3": "https://careers.acme.com.au/jobs/3",
     }
 
@@ -61,7 +61,8 @@ def test_existing_bad_links_are_cleaned_on_startup(tmp_path):
     ("https://careers.acme.com.au/jobs/3", "https://careers.acme.com.au/jobs/3"),
     (None, "https://linkedin.com/jobs/view/1"),
     ("None", "https://linkedin.com/jobs/view/1"),
-    ("/apply/3", "https://linkedin.com/jobs/view/1"),
+    ("/apply/3", "https://linkedin.com/apply/3"),  # relative: on the listing's site
+    ("apply/3", "https://linkedin.com/jobs/view/1"),
 ])
 def test_apply_link(application_url, expected, conn):
     job = {"url": "https://linkedin.com/jobs/view/1", "application_url": application_url}
@@ -70,3 +71,37 @@ def test_apply_link(application_url, expected, conn):
     conn.execute("INSERT INTO jobs (url) VALUES (?)", (job["url"],))
     row = conn.execute("SELECT url, ? AS application_url FROM jobs", (application_url,)).fetchone()
     assert database.apply_link(row) == expected
+
+
+def test_relative_application_link_resolves_against_listing():
+    from applypilot.database import apply_link
+    job = {"url": "https://au.jora.com/job/Data-Scientist-abc?sp=serp", "application_url": "/job/rd/abc?asp=jdv"}
+    assert apply_link(job) == "https://au.jora.com/job/rd/abc?asp=jdv"
+    assert apply_link({"url": "https://x.com/j", "application_url": "None"}) == "https://x.com/j"
+
+
+def test_init_db_keeps_relative_links_as_absolute(tmp_path):
+    from applypilot import database
+    db = tmp_path / "links.db"
+    conn = database.init_db(db)
+    conn.executemany("INSERT INTO jobs (url, application_url) VALUES (?, ?)", [
+        ("https://au.jora.com/job/a", "/job/rd/a"), ("https://x.com/b", "None")])
+    conn.commit()
+    conn = database.init_db(db)
+    rows = dict(conn.execute("SELECT url, application_url FROM jobs").fetchall())
+    assert rows == {"https://au.jora.com/job/a": "https://au.jora.com/job/rd/a", "https://x.com/b": None}
+    database.close_connection(db)
+
+
+@pytest.mark.parametrize("url, listing", [
+    ("https://au.jora.com/job/Data-Scientist-1bbb311f38c36?sp=serp", True),
+    ("https://au.jora.com/job/rd/1bbb311f38c36?asp=jdv", False),
+    ("https://www.seek.com.au/job/81234567", True),
+    ("https://www.seek.com.au/job/81234567/apply", False),
+    ("https://au.indeed.com/viewjob?jk=abc", True),
+    ("https://www.linkedin.com/jobs/view/123456/", True),
+    ("https://boards.greenhouse.io/acme/jobs/1", False),
+])
+def test_is_job_listing(url, listing):
+    from applypilot.apply.local_engine import _is_job_listing
+    assert _is_job_listing(url) is listing

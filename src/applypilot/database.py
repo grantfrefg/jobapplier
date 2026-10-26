@@ -10,7 +10,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from applypilot.config import DB_PATH
 
@@ -148,23 +148,35 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     from applypilot import budget
     budget.ensure_table(conn)  # daily Gemini request counts
 
-    # Older JobSpy imports stored the text "None" (or a relative path) as the
-    # application link when a board gave none; treat those as no link.
-    conn.execute(
-        "UPDATE jobs SET application_url = NULL "
+    # Older JobSpy imports stored the text "None" as the application link when a
+    # board gave none; treat those as no link. Relative links (Jora's
+    # "/job/rd/..." redirect to the employer's site) are made absolute.
+    for url, link in conn.execute(
+        "SELECT url, application_url FROM jobs "
         "WHERE application_url IS NOT NULL AND application_url NOT LIKE 'http%'"
-    )
+    ).fetchall():
+        conn.execute("UPDATE jobs SET application_url = ? WHERE url = ?", (_absolute_link(url, link), url))
     conn.commit()
 
     return conn
 
 
+def _absolute_link(page_url: str, link) -> str | None:
+    """`link` as an absolute http(s) URL, resolving "/path" against the listing; None if it isn't a link."""
+    if not isinstance(link, str):
+        return None
+    link = link.strip()
+    if link.startswith(("http://", "https://")):
+        return link
+    if link.startswith("/") and not link.startswith("//") and str(page_url or "").startswith(("http://", "https://")):
+        return urljoin(page_url, link)
+    return None
+
+
 def apply_link(job) -> str:
     """The page to open to apply: the application link if it's a real URL, else the listing."""
     link = job["application_url"] if "application_url" in job.keys() else None
-    if isinstance(link, str) and link.startswith(("http://", "https://")):
-        return link
-    return job["url"]
+    return _absolute_link(job["url"], link) or job["url"]
 
 
 # Complete column registry: column_name -> SQL type with optional default.
