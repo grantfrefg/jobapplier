@@ -1,0 +1,450 @@
+"""Local web UI: setup, pipeline runs, and human-approved applying.
+
+Run with ``applypilot ui`` and open http://localhost:8000. Everything the
+terminal flow does is available here:
+
+  * Setup     - .env keys and engine, resume, profile.json, searches.yaml
+  * Find jobs - runs ``applypilot run <stages>`` as a subprocess, streams its log
+  * Apply     - lists tailored jobs; with EXECUTION_ENGINE=local_playwright the
+                local engine fills the form and the approval gate becomes
+                buttons on this page instead of a terminal prompt.
+
+The server is meant to listen on localhost only: it can read and write your
+API keys and drive a browser.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import queue
+import shutil
+import subprocess
+import sys
+import threading
+from collections import deque
+from pathlib import Path
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
+
+from applypilot import config
+
+STATIC_DIR = Path(__file__).parent / "static"
+PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
+
+ENV_KEYS = ("EXECUTION_ENGINE", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY", "CAPSOLVER_API_KEY")
+SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "CAPSOLVER_API_KEY"}
+VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
+GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
+
+
+# ---------------------------------------------------------------------------
+# Background work: subprocess tasks and the local apply session
+# ---------------------------------------------------------------------------
+
+class SubprocessTask:
+    """One `python -m applypilot ...` child process with a rolling log."""
+
+    def __init__(self) -> None:
+        self.lines: deque[str] = deque(maxlen=3000)
+        self.proc: subprocess.Popen | None = None
+        self.label = ""
+        self.returncode: int | None = None
+        self._lock = threading.Lock()
+
+    @property
+    def running(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
+
+    def start(self, label: str, args: list[str]) -> None:
+        with self._lock:
+            if self.running:
+                raise HTTPException(409, f"'{self.label}' is still running")
+            env = os.environ.copy()
+            env.update(NO_COLOR="1", TERM="dumb", COLUMNS="120", PYTHONUNBUFFERED="1")
+            self.lines.clear()
+            self.lines.append(f"$ applypilot {' '.join(args)}")
+            self.label, self.returncode = label, None
+            self.proc = subprocess.Popen(
+                [sys.executable, "-m", "applypilot", *args],
+                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace", env=env,
+            )
+            threading.Thread(target=self._pump, args=(self.proc,), daemon=True).start()
+
+    def _pump(self, proc: subprocess.Popen) -> None:
+        for line in proc.stdout:
+            self.lines.append(line.rstrip("\n"))
+        self.returncode = proc.wait()
+        self.lines.append(f"[finished with exit code {self.returncode}]")
+
+    def stop(self) -> None:
+        if self.running:
+            self.proc.terminate()
+
+    def snapshot(self) -> dict:
+        return {"label": self.label, "running": self.running,
+                "returncode": self.returncode, "log": list(self.lines)[-400:]}
+
+
+class ApplySession:
+    """Runs the local engine for one job in a thread; the gate waits on the UI."""
+
+    def __init__(self) -> None:
+        self.state = "idle"   # idle | filling | waiting | done | error
+        self.job: dict | None = None
+        self.needs: list[str] = []
+        self.result: str | None = None
+        self.message = ""
+        self._decisions: queue.Queue[str] = queue.Queue()
+        self._thread: threading.Thread | None = None
+
+    @property
+    def busy(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(self, url: str, min_score: int) -> None:
+        if self.busy:
+            raise HTTPException(409, "An application is already in progress")
+        self.state, self.job, self.needs, self.result, self.message = "filling", None, [], None, ""
+        self._decisions = queue.Queue()
+        self._thread = threading.Thread(target=self._run, args=(url, min_score), daemon=True)
+        self._thread.start()
+
+    def _run(self, url: str, min_score: int) -> None:
+        from applypilot.apply import launcher, local_engine
+
+        job = launcher.acquire_job(target_url=url, min_score=min_score, worker_id=0)
+        if not job:
+            self.state = "error"
+            self.message = "That job isn't ready to apply (no tailored resume, already in progress, or manual ATS)."
+            return
+        self.job = {k: job.get(k) for k in ("url", "title", "site", "location", "fit_score", "application_url")}
+        try:
+            result, duration_ms = local_engine.run_job(job, gate=self._gate)
+        except Exception as e:  # browser failed to launch, profile missing, ...
+            launcher.release_lock(job["url"])
+            self.state, self.message = "error", str(e)[:300]
+            return
+        launcher.record_result(job, result, duration_ms)
+        self.state, self.result = "done", result
+
+    def _gate(self, page, needs_attention: list[str], dry_run: bool) -> str:
+        """Same contract as local_engine._approval_gate, answered from the UI."""
+        self.needs, self.state = needs_attention, "waiting"
+        while True:
+            try:
+                decision = self._decisions.get(timeout=1)
+                break
+            except queue.Empty:
+                if page.is_closed():  # user closed the browser window
+                    decision = "manual"
+                    break
+        self.state = "filling" if decision == "rescan" else "closing"
+        return decision
+
+    def decide(self, decision: str) -> None:
+        if self.state != "waiting":
+            raise HTTPException(409, "Nothing is waiting for your approval")
+        self._decisions.put(decision)
+
+    def snapshot(self) -> dict:
+        return {"state": self.state, "busy": self.busy, "job": self.job, "needs_attention": self.needs,
+                "result": self.result, "message": self.message}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    out = dict(base)
+    for k, v in override.items():
+        out[k] = _deep_merge(base[k], v) if isinstance(v, dict) and isinstance(base.get(k), dict) else v
+    return out
+
+
+def _read_env_file() -> dict[str, str]:
+    from dotenv import dotenv_values
+    if not config.ENV_PATH.exists():
+        return {}
+    return {k: v or "" for k, v in dotenv_values(config.ENV_PATH).items()}
+
+
+def _write_env(updates: dict[str, str]) -> None:
+    """Merge updates into ~/.applypilot/.env and this process's environment."""
+    from dotenv import set_key, unset_key
+    config.ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    config.ENV_PATH.touch(exist_ok=True)
+    for key, value in updates.items():
+        if value:
+            set_key(str(config.ENV_PATH), key, value, quote_mode="never")
+            os.environ[key] = value
+        else:
+            unset_key(str(config.ENV_PATH), key, quote_mode="never")
+            os.environ.pop(key, None)
+
+
+def _job_file(url: str, kind: str) -> Path:
+    from applypilot.database import get_connection
+    column = {"resume": "tailored_resume_path", "cover": "cover_letter_path"}.get(kind)
+    if not column:
+        raise HTTPException(400, "kind must be resume or cover")
+    row = get_connection().execute(f"SELECT {column} FROM jobs WHERE url = ?", (url,)).fetchone()
+    if not row or not row[0]:
+        raise HTTPException(404, "No file for that job")
+    pdf = Path(row[0]).with_suffix(".pdf")
+    if not pdf.exists():
+        raise HTTPException(404, "PDF not generated yet (run the pdf stage)")
+    return pdf
+
+
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
+
+def create_app() -> FastAPI:
+    from applypilot.database import get_connection, get_stats, init_db
+
+    config.load_env()
+    config.ensure_dirs()
+    init_db()
+
+    app = FastAPI(title="ApplyPilot", docs_url=None, redoc_url=None)
+    task = SubprocessTask()
+    session = ApplySession()
+    app.state.task, app.state.session = task, session
+
+    @app.get("/", response_class=HTMLResponse)
+    def index() -> str:
+        return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+
+    # -- status ------------------------------------------------------------
+
+    @app.get("/api/status")
+    def status() -> dict:
+        tier = config.get_tier()
+        stats = get_stats()
+        return {
+            "engine": config.get_execution_engine(),
+            "local_model": config.get_local_engine_model(),
+            "tier": tier,
+            "tier_label": config.TIER_LABELS.get(tier, ""),
+            "checks": {
+                "profile": config.PROFILE_PATH.exists(),
+                "resume_txt": config.RESUME_PATH.exists(),
+                "resume_pdf": config.RESUME_PDF_PATH.exists(),
+                "searches": config.SEARCH_CONFIG_PATH.exists(),
+                "gemini_key": bool(os.environ.get("GEMINI_API_KEY")),
+                "llm_key": any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL")),
+                "playwright": config.has_playwright(),
+                "claude_cli": shutil.which("claude") is not None,
+            },
+            "stats": {k: stats.get(k, 0) for k in
+                      ("total", "scored", "tailored", "with_cover_letter", "applied", "ready_to_apply")},
+            "vnc_url": os.environ.get("APPLYPILOT_VNC_URL", ""),
+            "data_dir": str(config.APP_DIR),
+        }
+
+    # -- settings (.env) ------------------------------------------------------
+
+    @app.get("/api/settings")
+    def get_settings() -> dict:
+        file_values = _read_env_file()
+        out: dict = {}
+        for key in ENV_KEYS:
+            value = file_values.get(key) or os.environ.get(key, "")
+            if key in SECRET_KEYS:
+                out[key] = {"set": bool(value), "hint": f"…{value[-4:]}" if len(value) > 8 else ""}
+            else:
+                out[key] = value
+        out["EXECUTION_ENGINE"] = out["EXECUTION_ENGINE"] or config.ENGINE_CLAUDE_CODE
+        return out
+
+    @app.post("/api/settings")
+    def save_settings(body: dict) -> dict:
+        updates: dict[str, str] = {}
+        for key in ENV_KEYS:
+            if key not in body:
+                continue
+            value = str(body[key] or "").strip()
+            if key in SECRET_KEYS and not value:
+                continue  # blank secret field = keep the saved one
+            if key == "EXECUTION_ENGINE" and value not in config.EXECUTION_ENGINES:
+                raise HTTPException(400, f"EXECUTION_ENGINE must be one of {config.EXECUTION_ENGINES}")
+            updates[key] = value
+        for key in body.get("clear", []):
+            if key in SECRET_KEYS:
+                updates[key] = ""
+        _write_env(updates)
+        return get_settings()
+
+    # -- resume ------------------------------------------------------------
+
+    @app.get("/api/resume")
+    def get_resume() -> dict:
+        text = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
+        return {"text": text, "has_pdf": config.RESUME_PDF_PATH.exists()}
+
+    @app.post("/api/resume")
+    async def save_resume(text: str = Form(""), pdf: UploadFile | None = File(None)) -> dict:
+        if text.strip():
+            config.RESUME_PATH.write_text(text.strip() + "\n", encoding="utf-8")
+        if pdf is not None and pdf.filename:
+            data = await pdf.read()
+            if not data.startswith(b"%PDF"):
+                raise HTTPException(400, "That file isn't a PDF")
+            config.RESUME_PDF_PATH.write_bytes(data)
+        return get_resume()
+
+    # -- profile -----------------------------------------------------------
+
+    @app.get("/api/profile")
+    def get_profile() -> dict:
+        template = json.loads(PROFILE_TEMPLATE_PATH.read_text(encoding="utf-8"))
+        saved = json.loads(config.PROFILE_PATH.read_text(encoding="utf-8")) if config.PROFILE_PATH.exists() else None
+        return {"exists": saved is not None, "profile": _deep_merge(template, saved or {}),
+                "template": template}
+
+    @app.post("/api/profile")
+    def save_profile(body: dict) -> dict:
+        personal = body.get("personal") or {}
+        missing = [k for k in ("full_name", "email", "phone") if not str(personal.get(k, "")).strip()]
+        if missing:
+            raise HTTPException(400, f"Required: {', '.join(missing)}")
+        config.PROFILE_PATH.write_text(json.dumps(body, indent=2, ensure_ascii=False), encoding="utf-8")
+        return get_profile()
+
+    # -- searches ----------------------------------------------------------
+
+    @app.get("/api/searches")
+    def get_searches() -> dict:
+        if config.SEARCH_CONFIG_PATH.exists():
+            import yaml
+            text = config.SEARCH_CONFIG_PATH.read_text(encoding="utf-8")
+            try:
+                parsed = yaml.safe_load(text) or {}
+                defaults = parsed.get("defaults") or {}
+                simple = {
+                    "location": str(defaults.get("location", "")),
+                    "distance": int(defaults.get("distance") or 0),
+                    "roles": [str(q.get("query", "")) for q in parsed.get("queries") or [] if isinstance(q, dict)],
+                }
+            except (yaml.YAMLError, AttributeError, TypeError, ValueError):
+                simple = None
+            return {"exists": True, "yaml": text, "simple": simple}
+        example = config.CONFIG_DIR / "searches.example.yaml"
+        return {"exists": False, "yaml": example.read_text(encoding="utf-8") if example.exists() else ""}
+
+    @app.post("/api/searches")
+    def save_searches(body: dict) -> dict:
+        import yaml
+        if "yaml" in body:
+            text = str(body["yaml"])
+        else:
+            from applypilot.wizard.init import build_search_yaml
+            roles = [r.strip() for r in body.get("roles", []) if str(r).strip()]
+            if not roles:
+                raise HTTPException(400, "Add at least one job title")
+            text = build_search_yaml(str(body.get("location") or "Remote"), int(body.get("distance") or 0), roles)
+        try:
+            parsed = yaml.safe_load(text)
+        except yaml.YAMLError as e:
+            raise HTTPException(400, f"Invalid YAML: {e}") from e
+        if not isinstance(parsed, dict) or not parsed.get("queries"):
+            raise HTTPException(400, "searches.yaml needs a 'queries' list")
+        config.SEARCH_CONFIG_PATH.write_text(text, encoding="utf-8")
+        return get_searches()
+
+    # -- pipeline (subprocess) ---------------------------------------------
+
+    @app.post("/api/pipeline")
+    def run_pipeline(body: dict) -> dict:
+        stages = [s for s in body.get("stages", []) if s in VALID_STAGES] or ["all"]
+        args = ["run", *stages, "--min-score", str(int(body.get("min_score", 7)))]
+        if body.get("validation") in ("strict", "normal", "lenient"):
+            args += ["--validation", body["validation"]]
+        task.start("Find jobs: " + ", ".join(stages), args)
+        return task.snapshot()
+
+    @app.get("/api/pipeline")
+    def pipeline_state() -> dict:
+        return task.snapshot()
+
+    @app.post("/api/pipeline/stop")
+    def stop_pipeline() -> dict:
+        task.stop()
+        return task.snapshot()
+
+    # -- jobs --------------------------------------------------------------
+
+    @app.get("/api/jobs")
+    def list_jobs(view: str = "ready") -> list[dict]:
+        where = {
+            "ready": "tailored_resume_path IS NOT NULL AND applied_at IS NULL "
+                     "AND COALESCE(apply_status, '') NOT IN ('applied', 'in_progress')",
+            "applied": "applied_at IS NOT NULL",
+            "all": "1 = 1",
+        }.get(view)
+        if where is None:
+            raise HTTPException(400, "view must be ready, applied or all")
+        rows = get_connection().execute(f"""
+            SELECT url, title, site, location, fit_score, application_url, apply_status,
+                   apply_error, applied_at,
+                   tailored_resume_path IS NOT NULL AS tailored,
+                   cover_letter_path IS NOT NULL AS has_cover
+            FROM jobs WHERE {where}
+            ORDER BY fit_score IS NULL, fit_score DESC, discovered_at DESC
+            LIMIT 500
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+    @app.post("/api/jobs/reset")
+    def reset_job(body: dict) -> dict:
+        conn = get_connection()
+        conn.execute("""UPDATE jobs SET apply_status = NULL, apply_error = NULL, apply_attempts = 0,
+                        agent_id = NULL WHERE url = ? AND applied_at IS NULL""", (body.get("url"),))
+        conn.commit()
+        return {"ok": True}
+
+    @app.get("/api/jobs/file")
+    def job_file(url: str, kind: str = "resume") -> FileResponse:
+        return FileResponse(_job_file(url, kind), media_type="application/pdf")
+
+    # -- apply -------------------------------------------------------------
+
+    @app.post("/api/apply")
+    def start_apply(body: dict) -> dict:
+        url = str(body.get("url") or "").strip()
+        if not url:
+            raise HTTPException(400, "Pick a job to apply to")
+        if not config.PROFILE_PATH.exists():
+            raise HTTPException(400, "Save your profile first (Setup tab)")
+        if config.get_execution_engine() == config.ENGINE_LOCAL_PLAYWRIGHT:
+            if not os.environ.get("GEMINI_API_KEY"):
+                raise HTTPException(400, "Add your Gemini API key first (Setup tab)")
+            session.start(url, int(body.get("min_score", 0)))
+            return {"mode": "local", **session.snapshot()}
+        # Claude Code engine is autonomous: run the normal CLI as a subprocess
+        task.start(f"Apply (Claude Code): {url}", ["apply", "--url", url])
+        return {"mode": "claude_code", **task.snapshot()}
+
+    @app.get("/api/apply")
+    def apply_state() -> dict:
+        return session.snapshot()
+
+    @app.post("/api/apply/decision")
+    def apply_decision(body: dict) -> dict:
+        decision = body.get("decision")
+        if decision not in GATE_DECISIONS:
+            raise HTTPException(400, f"decision must be one of {GATE_DECISIONS}")
+        session.decide(decision)
+        return session.snapshot()
+
+    return app
+
+
+def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
+    import uvicorn
+    uvicorn.run(create_app(), host=host, port=port, log_level="warning")

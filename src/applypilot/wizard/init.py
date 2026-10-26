@@ -184,6 +184,31 @@ def _setup_profile() -> dict:
 # Search config
 # ---------------------------------------------------------------------------
 
+def build_search_yaml(location: str, distance: int, roles: list[str]) -> str:
+    """Render searches.yaml content (shared by this wizard and the web UI)."""
+    # json.dumps gives a valid double-quoted YAML scalar, escaping any quotes
+    lines = [
+        "# ApplyPilot search configuration",
+        "# Edit this file to refine your job search queries.",
+        "",
+        "defaults:",
+        f"  location: {json.dumps(location)}",
+        f"  distance: {distance}",
+        "  hours_old: 72",
+        "  results_per_site: 50",
+        "",
+        "locations:",
+        f"  - location: {json.dumps(location)}",
+        f"    remote: {str(distance == 0).lower()}",
+        "",
+        "queries:",
+    ]
+    for i, role in enumerate(roles):
+        lines.append(f"  - query: {json.dumps(role)}")
+        lines.append(f"    tier: {min(i + 1, 3)}")
+    return "\n".join(lines) + "\n"
+
+
 def _setup_searches() -> None:
     """Generate a searches.yaml from user input."""
     console.print(Panel("[bold]Step 3: Job Search Config[/bold]\nDefine what you're looking for."))
@@ -204,28 +229,7 @@ def _setup_searches() -> None:
         console.print("[yellow]No roles provided. Using a default set.[/yellow]")
         roles = ["Software Engineer"]
 
-    # Build YAML content
-    lines = [
-        "# ApplyPilot search configuration",
-        "# Edit this file to refine your job search queries.",
-        "",
-        "defaults:",
-        f'  location: "{location}"',
-        f"  distance: {distance}",
-        "  hours_old: 72",
-        "  results_per_site: 50",
-        "",
-        "locations:",
-        f'  - location: "{location}"',
-        f"    remote: {str(distance == 0).lower()}",
-        "",
-        "queries:",
-    ]
-    for i, role in enumerate(roles):
-        lines.append(f'  - query: "{role}"')
-        lines.append(f"    tier: {min(i + 1, 3)}")
-
-    SEARCH_CONFIG_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    SEARCH_CONFIG_PATH.write_text(build_search_yaml(location, distance, roles), encoding="utf-8")
     console.print(f"[green]Search config saved to {SEARCH_CONFIG_PATH}[/green]")
 
 

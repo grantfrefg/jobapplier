@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ApplyPilot</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #e3e6eb;
+    --accent: #2f6fed; --accent-text: #ffffff; --ok: #12805c; --warn: #b54708; --bad: #c0362c;
+    --ok-bg: #e7f6ef; --warn-bg: #fff4e5; --bad-bg: #fdecea; --code-bg: #0f1420; --code-text: #d7dce5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10131a; --panel: #171b24; --text: #e6e9ef; --muted: #98a2b3; --border: #2a3040;
+      --accent: #5b8cff; --accent-text: #0b0e14; --ok: #3ccf91; --warn: #f5a524; --bad: #ff6b5e;
+      --ok-bg: #11291f; --warn-bg: #2d2210; --bad-bg: #2e1513; --code-bg: #0b0e14; --code-text: #c9d1dd;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+           padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 18px; margin: 0 12px 0 0; }
+  nav { display: flex; gap: 4px; }
+  nav button { background: none; border: 0; padding: 8px 14px; border-radius: 8px; color: var(--muted);
+               font: inherit; cursor: pointer; }
+  nav button.active { background: var(--bg); color: var(--text); font-weight: 600; }
+  .badges { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+           color: var(--muted); white-space: nowrap; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; }
+  .card p.sub { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input[type=text], input[type=password], input[type=email], input[type=number], select, textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); font: inherit; }
+  textarea { min-height: 160px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  button.btn { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px;
+               padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  button.btn.secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  button.btn.danger { background: var(--bad); color: #fff; }
+  button.btn.ok { background: var(--ok); color: #fff; }
+  button.btn:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--border);
+            border-radius: 8px; margin-top: 8px; cursor: pointer; color: var(--text); font-size: 14px; }
+  .choice input { margin-top: 4px; }
+  .choice small { display: block; color: var(--muted); }
+  .checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px;
+               grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .checklist li::before { content: "○"; margin-right: 8px; color: var(--muted); }
+  .checklist li.done::before { content: "✓"; color: var(--ok); font-weight: 700; }
+  fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0 0; padding: 4px 12px 12px; }
+  legend { font-weight: 600; font-size: 13px; padding: 0 6px; }
+  .fields { display: grid; gap: 0 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  pre.log { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 12px;
+            height: 320px; overflow: auto; font-size: 12px; margin: 12px 0 0; white-space: pre-wrap; }
+  .stats { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-bottom: 16px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  td a { color: var(--accent); }
+  .score { font-weight: 700; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .table-wrap { overflow-x: auto; }
+  .gate { border: 2px solid var(--warn); background: var(--warn-bg); }
+  .gate h2 { color: var(--warn); }
+  .gate .row button { flex: 1 1 180px; }
+  iframe.vnc { width: 100%; aspect-ratio: 1440 / 1000; border: 1px solid var(--border); border-radius: 8px;
+               background: #000; margin-top: 12px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 16px;
+           border-radius: 8px; background: var(--text); color: var(--panel); display: none; max-width: 90vw;
+           z-index: 10; }
+  #toast.bad { background: var(--bad); color: #fff; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+             border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;
+             vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ApplyPilot</h1>
+  <nav>
+    <button data-tab="setup" class="active">1. Setup</button>
+    <button data-tab="find">2. Find jobs</button>
+    <button data-tab="apply">3. Apply</button>
+  </nav>
+  <div class="badges"><span class="badge" id="engine-badge">…</span><span class="badge" id="tier-badge">…</span></div>
+</header>
+
+<main>
+<!-- ============================== SETUP ============================== -->
+<section class="tab active" id="tab-setup">
+  <div class="card" style="margin-bottom:16px">
+    <h2>Checklist</h2>
+    <p class="sub">Everything is saved on this computer, in <code id="data-dir"></code>.</p>
+    <ul class="checklist" id="checklist"></ul>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>How to apply</h2>
+      <p class="sub">Choose how applications get filled in.</p>
+      <label class="choice"><input type="radio" name="engine" value="local_playwright">
+        <span><b>Free: Gemini + local browser</b>
+        <small>Fills the form in a visible browser, then waits for you to click Submit. Personal details stay on this computer.</small></span></label>
+      <label class="choice"><input type="radio" name="engine" value="claude_code">
+        <span><b>Paid: Claude Code</b>
+        <small>Fully automatic and submits for you. Needs the Claude Code CLI, Chrome and Node.js.</small></span></label>
+
+      <label for="gemini">Gemini API key <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">(get one free)</a></label>
+      <input type="password" id="gemini" placeholder="Paste your key" autocomplete="off">
+      <label for="model">Gemini model</label>
+      <input type="text" id="model" placeholder="gemini-2.5-flash">
+      <details><summary>Optional keys</summary>
+        <label for="openai">OpenAI API key (instead of Gemini, for scoring and tailoring only)</label>
+        <input type="password" id="openai" autocomplete="off">
+        <label for="capsolver">CapSolver API key (CAPTCHAs, Claude Code engine only)</label>
+        <input type="password" id="capsolver" autocomplete="off">
+      </details>
+      <div class="row"><button class="btn" id="save-settings">Save</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Your resume</h2>
+      <p class="sub">Paste the plain text (the AI reads this) and optionally upload your PDF.</p>
+      <textarea id="resume-text" placeholder="Paste your full resume as plain text…"></textarea>
+      <label for="resume-pdf">Resume PDF <span id="pdf-state" class="muted"></span></label>
+      <input type="file" id="resume-pdf" accept="application/pdf">
+      <div class="row"><button class="btn" id="save-resume">Save resume</button></div>
+    </div>
+
+    <div class="card">
+      <h2>What jobs to look for</h2>
+      <p class="sub">Used by "Find jobs" to search job boards.</p>
+      <label for="s-location">Location</label>
+      <input type="text" id="s-location" placeholder="e.g. Sydney, NSW or Remote">
+      <label for="s-distance">Search radius in miles (0 = remote only)</label>
+      <input type="number" id="s-distance" value="0" min="0">
+      <label for="s-roles">Job titles, comma separated</label>
+      <input type="text" id="s-roles" placeholder="Data Analyst, Business Analyst">
+      <div class="row"><button class="btn" id="save-searches">Save search</button></div>
+      <details><summary>Advanced: edit searches.yaml directly</summary>
+        <textarea id="searches-yaml"></textarea>
+        <div class="row"><button class="btn secondary" id="save-yaml">Save YAML</button></div>
+      </details>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>Your profile</h2>
+    <p class="sub">The answers used to fill application forms. With the free engine, your name, contact details, address and any ID numbers are sent to Gemini only as placeholders.</p>
+    <form id="profile-form"></form>
+    <div class="row"><button class="btn" id="save-profile">Save profile</button></div>
+  </div>
+</section>
+
+<!-- ============================== FIND JOBS ============================== -->
+<section class="tab" id="tab-find">
+  <div class="stats" id="stats"></div>
+  <div class="card">
+    <h2>Find and prepare jobs</h2>
+    <p class="sub">Searches job boards, scores each job against your resume, then writes a tailored resume and cover letter for the good matches. This can take a while.</p>
+    <div class="row" id="stage-boxes"></div>
+    <div class="row">
+      <label style="margin:0">Minimum score <input type="number" id="min-score" value="7" min="1" max="10" style="width:70px"></label>
+      <label style="margin:0">Strictness
+        <select id="validation" style="width:auto">
+          <option value="normal">normal</option><option value="lenient">lenient (fewest API calls)</option>
+          <option value="strict">strict</option></select></label>
+    </div>
+    <div class="row">
+      <button class="btn" id="run-pipeline">Run</button>
+      <button class="btn secondary" id="stop-pipeline" disabled>Stop</button>
+      <span id="pipeline-state" class="muted"></span>
+    </div>
+    <pre class="log" id="pipeline-log"></pre>
+  </div>
+</section>
+
+<!-- ============================== APPLY ============================== -->
+<section class="tab" id="tab-apply">
+  <div class="card" id="apply-panel" style="margin-bottom:16px">
+    <h2 id="apply-title">Pick a job below and press Apply</h2>
+    <p class="sub" id="apply-sub"></p>
+    <ul id="needs" class="muted"></ul>
+    <div class="row" id="gate-buttons" style="display:none">
+      <button class="btn ok" data-decision="applied">I submitted it</button>
+      <button class="btn secondary" data-decision="manual">Not yet: save for later</button>
+      <button class="btn secondary" data-decision="rescan">Fill this page again</button>
+      <button class="btn danger" data-decision="declined">Never apply to this job</button>
+    </div>
+    <div id="vnc-wrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-top:0">
+      <h2 style="margin:0">Jobs</h2>
+      <select id="job-view" style="width:auto">
+        <option value="ready">Ready to apply</option><option value="applied">Applied</option>
+        <option value="all">All jobs</option></select>
+      <button class="btn secondary" id="refresh-jobs">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Score</th><th>Job</th><th>Status</th><th>Documents</th><th></th></tr></thead>
+        <tbody id="jobs"></tbody></table>
+    </div>
+    <p class="muted" id="jobs-empty"></p>
+  </div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+let status = null;
+
+// ---------- helpers ----------
+async function api(path, opts = {}) {
+  const headers = opts.body && !(opts.body instanceof FormData) ? { "Content-Type": "application/json" } : {};
+  const r = await fetch(path, { ...opts, headers });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : r.statusText);
+  return data;
+}
+const post = (p, b = {}) => api(p, { method: "POST", body: b instanceof FormData ? b : JSON.stringify(b) });
+
+function toast(msg, bad = false) {
+  const t = $("#toast");
+  t.textContent = msg; t.className = bad ? "bad" : ""; t.style.display = "block";
+  clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = "none"), 3500);
+}
+async function guarded(fn, okMsg) {
+  try { await fn(); if (okMsg) toast(okMsg); } catch (e) { toast(e.message, true); }
+}
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) n.append(k instanceof Node ? k : document.createTextNode(k ?? ""));
+  return n;
+}
+const human = (k) => k.replace(/_/g, " ").replace(/\b\w/, (c) => c.toUpperCase());
+
+// ---------- tabs ----------
+$$("nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+function showTab(name) {
+  $$("nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  $$("section.tab").forEach((s) => s.classList.toggle("active", s.id === "tab-" + name));
+  try { localStorage.setItem("ap-tab", name); } catch {}
+  if (name === "apply") { loadJobs(); ensureVnc(); }
+}
+
+// ---------- status ----------
+async function refreshStatus() {
+  try { status = await api("/api/status"); } catch { return; }
+  const local = status.engine === "local_playwright";
+  const eb = $("#engine-badge");
+  eb.textContent = local ? "Free engine (Gemini " + status.local_model + ")" : "Claude Code engine";
+  eb.className = "badge " + (local ? "ok" : "");
+  const tb = $("#tier-badge");
+  tb.textContent = "Tier " + status.tier + ": " + status.tier_label;
+  tb.className = "badge " + (status.tier === 3 ? "ok" : "warn");
+  $("#data-dir").textContent = status.data_dir;
+
+  const c = status.checks;
+  const items = [
+    ["AI key saved", local ? c.gemini_key : c.llm_key],
+    ["Resume text", c.resume_txt],
+    ["Resume PDF", c.resume_pdf],
+    ["Profile", c.profile],
+    ["Job search", c.searches],
+    local ? ["Browser automation installed", c.playwright] : ["Claude Code CLI found", c.claude_cli],
+  ];
+  $("#checklist").replaceChildren(...items.map(([t, ok]) => el("li", { class: ok ? "done" : "" }, t)));
+
+  const s = status.stats;
+  $("#stats").replaceChildren(...[
+    ["Found", s.total], ["Scored", s.scored], ["Tailored", s.tailored],
+    ["Cover letters", s.with_cover_letter], ["Ready", s.ready_to_apply], ["Applied", s.applied],
+  ].map(([l, v]) => el("div", { class: "stat" }, el("b", {}, String(v)), el("span", {}, l))));
+}
+
+// ---------- setup: settings ----------
+async function loadSettings() {
+  const s = await api("/api/settings");
+  $$("input[name=engine]").forEach((r) => (r.checked = r.value === s.EXECUTION_ENGINE));
+  $("#model").value = s.LLM_MODEL || "";
+  for (const [id, key] of [["gemini", "GEMINI_API_KEY"], ["openai", "OPENAI_API_KEY"], ["capsolver", "CAPSOLVER_API_KEY"]]) {
+    $("#" + id).value = "";
+    $("#" + id).placeholder = s[key].set ? "Saved " + s[key].hint + " (leave blank to keep)" : "Paste your key";
+  }
+}
+$("#save-settings").addEventListener("click", () => guarded(async () => {
+  await post("/api/settings", {
+    EXECUTION_ENGINE: ($("input[name=engine]:checked") || {}).value || "claude_code",
+    GEMINI_API_KEY: $("#gemini").value, OPENAI_API_KEY: $("#openai").value,
+    CAPSOLVER_API_KEY: $("#capsolver").value, LLM_MODEL: $("#model").value,
+  });
+  await loadSettings(); await refreshStatus();
+}, "Settings saved"));
+
+// ---------- setup: resume ----------
+async function loadResume() {
+  const r = await api("/api/resume");
+  $("#resume-text").value = r.text;
+  $("#pdf-state").textContent = r.has_pdf ? "(saved; choose a file to replace)" : "(none yet)";
+}
+$("#save-resume").addEventListener("click", () => guarded(async () => {
+  const fd = new FormData();
+  fd.append("text", $("#resume-text").value);
+  if ($("#resume-pdf").files[0]) fd.append("pdf", $("#resume-pdf").files[0]);
+  await post("/api/resume", fd);
+  $("#resume-pdf").value = "";
+  await loadResume(); await refreshStatus();
+}, "Resume saved"));
+
+// ---------- setup: searches ----------
+async function loadSearches() {
+  const s = await api("/api/searches");
+  $("#searches-yaml").value = s.yaml;
+  if (s.exists && s.simple) {
+    $("#s-location").value = s.simple.location;
+    $("#s-distance").value = s.simple.distance;
+    $("#s-roles").value = s.simple.roles.join(", ");
+  }
+}
+$("#save-searches").addEventListener("click", () => guarded(async () => {
+  await post("/api/searches", {
+    location: $("#s-location").value, distance: Number($("#s-distance").value || 0),
+    roles: $("#s-roles").value.split(","),
+  });
+  await loadSearches(); await refreshStatus();
+}, "Job search saved"));
+$("#save-yaml").addEventListener("click", () => guarded(async () => {
+  await post("/api/searches", { yaml: $("#searches-yaml").value }); await refreshStatus();
+}, "searches.yaml saved"));
+
+// ---------- setup: profile (form generated from the template's shape) ----------
+const REQUIRED = new Set(["personal.full_name", "personal.email", "personal.phone"]);
+async function loadProfile() {
+  const { profile } = await api("/api/profile");
+  const form = $("#profile-form");
+  form.replaceChildren();
+  for (const [section, fields] of Object.entries(profile)) {
+    if (typeof fields !== "object" || Array.isArray(fields)) continue;
+    const box = el("div", { class: "fields" });
+    for (const [key, value] of Object.entries(fields)) {
+      const path = section + "." + key;
+      const isList = Array.isArray(value);
+      const type = key.includes("password") ? "password" : key === "email" ? "email" : "text";
+      const id = "p-" + path.replace(".", "-");
+      box.append(el("div", {},
+        el("label", { for: id }, human(key) + (REQUIRED.has(path) ? " *" : "") + (isList ? " (comma separated)" : "")),
+        el("input", { id, type, "data-path": path, "data-list": isList ? "1" : false,
+                      value: isList ? value.join(", ") : String(value ?? "") })));
+    }
+    form.append(el("fieldset", {}, el("legend", {}, human(section)), box));
+  }
+}
+$("#save-profile").addEventListener("click", () => guarded(async () => {
+  const out = {};
+  for (const input of $$("#profile-form input")) {
+    const [section, key] = input.dataset.path.split(".");
+    out[section] ??= {};
+    out[section][key] = input.dataset.list
+      ? input.value.split(",").map((v) => v.trim()).filter(Boolean) : input.value.trim();
+  }
+  await post("/api/profile", out); await refreshStatus();
+}, "Profile saved"));
+
+// ---------- find jobs ----------
+const STAGES = ["discover", "enrich", "score", "tailor", "cover", "pdf"];
+$("#stage-boxes").replaceChildren(...STAGES.map((s) =>
+  el("label", { class: "choice", style: "margin:0" }, el("input", { type: "checkbox", value: s, checked: true }), human(s))));
+$("#run-pipeline").addEventListener("click", () => guarded(async () => {
+  const stages = $$("#stage-boxes input:checked").map((i) => i.value);
+  await post("/api/pipeline", {
+    stages: stages.length === STAGES.length ? [] : stages,
+    min_score: Number($("#min-score").value || 7), validation: $("#validation").value,
+  });
+  pollPipeline();
+}));
+$("#stop-pipeline").addEventListener("click", () => guarded(() => post("/api/pipeline/stop")));
+
+let lastLogLen = -1, wasRunning = false;
+async function pollPipeline() {
+  let t; try { t = await api("/api/pipeline"); } catch { return; }
+  $("#run-pipeline").disabled = t.running;
+  $("#stop-pipeline").disabled = !t.running;
+  $("#pipeline-state").replaceChildren(t.running ? el("span", { class: "spinner" }) : "",
+    t.running ? "Running: " + t.label : t.label ? (t.returncode === 0 ? "Finished" : "Stopped (exit " + t.returncode + ")") : "");
+  const log = $("#pipeline-log");
+  if (t.log.length !== lastLogLen) {
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    log.textContent = t.log.join("\n") || "Nothing has run yet.";
+    if (atBottom) log.scrollTop = log.scrollHeight;
+    lastLogLen = t.log.length;
+  }
+  if (wasRunning && !t.running) { refreshStatus(); loadJobs(); }
+  wasRunning = t.running;
+}
+
+// ---------- apply ----------
+async function loadJobs() {
+  let jobs; try { jobs = await api("/api/jobs?view=" + $("#job-view").value); } catch (e) { return toast(e.message, true); }
+  const busy = applyState && applyState.busy;
+  $("#jobs").replaceChildren(...jobs.map((j) => {
+    const link = j.application_url || j.url;
+    const docs = [];
+    if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank" }, "Resume"));
+    if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank" }, "Cover letter"));
+    const statusText = j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
+      : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ? "Ready" : "Not tailored");
+    const actions = [];
+    if (j.tailored && !j.applied_at) {
+      actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
+    }
+    if (["manual", "failed"].includes(j.apply_status) && !j.applied_at) {
+      actions.push(" ", el("button", { class: "btn secondary", onclick: () => guarded(async () => {
+        await post("/api/jobs/reset", { url: j.url }); loadJobs(); }, "Job reset") }, "Reset"));
+    }
+    return el("tr", {},
+      el("td", { class: "score" }, j.fit_score ?? "–"),
+      el("td", {}, el("a", { href: link, target: "_blank", rel: "noopener" }, j.title || link),
+        el("div", { class: "muted" }, [j.site, j.location].filter(Boolean).join(" · "))),
+      el("td", { class: "muted" }, statusText),
+      el("td", {}, docs.length ? docs : el("span", { class: "muted" }, "–")),
+      el("td", { style: "white-space:nowrap" }, actions));
+  }));
+  $("#jobs-empty").textContent = jobs.length ? "" :
+    $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first." : "Nothing here yet.";
+}
+$("#job-view").addEventListener("change", loadJobs);
+$("#refresh-jobs").addEventListener("click", loadJobs);
+
+async function startApply(url) {
+  await guarded(async () => {
+    const r = await post("/api/apply", { url });
+    if (r.mode === "claude_code") {
+      toast("Claude Code is applying. Follow along in the Find jobs log.");
+      showTab("find"); pollPipeline();
+    } else { pollApply(); }
+  });
+}
+$$("#gate-buttons button").forEach((b) => b.addEventListener("click", () =>
+  guarded(async () => { await post("/api/apply/decision", { decision: b.dataset.decision }); pollApply(); })));
+
+function ensureVnc() {
+  const wrap = $("#vnc-wrap");
+  if (wrap.dataset.ready || !status) return;
+  wrap.dataset.ready = "1";
+  if (status.vnc_url) {
+    wrap.append(el("div", { class: "row" }, el("b", {}, "Live browser"),
+      el("a", { href: status.vnc_url, target: "_blank", rel: "noopener", class: "muted" }, "open in a new tab")),
+      el("iframe", { class: "vnc", src: status.vnc_url, title: "Live browser" }));
+  } else {
+    wrap.append(el("p", { class: "muted" }, "When you press Apply, a browser window opens on this computer's desktop."));
+  }
+}
+
+const RESULT_TEXT = {
+  applied: ["Marked as applied", "Nice work. Pick the next job when you're ready."],
+  manual: ["Saved for later", "It's parked under \"Saved for later\". Press Reset to try again."],
+  "failed:user_declined": ["Won't show this job again", ""],
+};
+let applyState = null, wasBusy = false;
+async function pollApply() {
+  try { applyState = await api("/api/apply"); } catch { return; }
+  const s = applyState, job = s.job;
+  const jobName = job ? (job.title || "") + (job.site ? " at " + job.site : "") : "";
+  let title = "Pick a job below and press Apply", sub = "";
+  const forJob = jobName ? ": " + jobName : "";
+  if (s.state === "filling") { title = "Filling in the form" + forJob + "…"; sub = "Watch the browser."; }
+  else if (s.state === "closing") { title = "Closing the browser…"; sub = jobName; }
+  else if (s.state === "waiting") {
+    title = "Your turn: review and submit" + forJob;
+    sub = "Check the form in the browser and fix anything that's wrong. Submit buttons are outlined in red. " +
+          "Click Submit in the browser yourself if it looks right, then tell us what you did.";
+  } else if (s.state === "done") {
+    const [t, d] = RESULT_TEXT[s.result] || ["Didn't finish", (s.result || "").replace(/^failed:/, "")];
+    title = t; sub = d;
+  } else if (s.state === "error") { title = "Couldn't start"; sub = s.message; }
+  $("#apply-title").replaceChildren(s.busy && s.state !== "waiting" ? el("span", { class: "spinner" }) : "", title);
+  $("#apply-sub").textContent = sub;
+  $("#apply-panel").classList.toggle("gate", s.state === "waiting");
+  $("#gate-buttons").style.display = s.state === "waiting" ? "flex" : "none";
+  $("#needs").replaceChildren(...(s.state === "waiting" ? s.needs_attention : []).map((n) => el("li", {}, n)));
+  if (wasBusy && !s.busy) { loadJobs(); refreshStatus(); }
+  if (wasBusy !== s.busy) { wasBusy = s.busy; loadJobs(); }
+}
+
+// ---------- boot ----------
+(async () => {
+  await refreshStatus();
+  await Promise.all([loadSettings(), loadResume(), loadSearches(), loadProfile()]).catch((e) => toast(e.message, true));
+  let tab = "setup"; try { tab = localStorage.getItem("ap-tab") || tab; } catch {}
+  showTab(tab);
+  pollPipeline(); pollApply();
+  setInterval(pollPipeline, 1500);
+  setInterval(pollApply, 1500);
+  setInterval(refreshStatus, 6000);
+})();
+</script>
+</body>
+</html>

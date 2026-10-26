@@ -42,6 +42,45 @@ applypilot apply --dry-run  # fill forms without submitting
 
 ---
 
+## Easiest setup: dev container + web UI (no terminal needed)
+
+Recommended on Windows. Everything runs inside a Linux container, so you don't install Python, Playwright or Chromium on your machine.
+
+**You need:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and [VS Code](https://code.visualstudio.com/) with the **Dev Containers** extension.
+
+1. Open this folder in VS Code and choose **Reopen in Container** when prompted (or `F1` → *Dev Containers: Reopen in Container*). The first build takes a few minutes.
+2. Open **http://localhost:8000** in your browser. The ApplyPilot UI starts automatically every time the container starts.
+3. Work through the three tabs:
+   - **1. Setup:** pick the free or paid engine, paste your Gemini API key, paste your resume text (and upload the PDF), choose job titles and location, and fill in your profile. The checklist at the top turns green as you go.
+   - **2. Find jobs:** press **Run**. It discovers jobs, scores them, and writes tailored resumes and cover letters. The log streams on the page.
+   - **3. Apply:** press **Apply** next to a job. With the free engine, the live browser appears right on the page and fills in the form. When it stops at **Your turn: review and submit**, check the form, click Submit inside the live browser yourself, then press **I submitted it**. Other options: **Not yet: save for later**, **Fill this page again** (e.g. after you log in to SEEK), or **Never apply to this job**.
+
+You can also watch the browser on its own at **http://localhost:6080**. Your data (profile, keys, resumes, job database) lives in a Docker volume called `applypilot-data`, so it survives container rebuilds. If VS Code forwards a port to a different number because 8000 or 6080 is busy, use the number shown in the **Ports** panel.
+
+### Testing from the terminal inside the container
+
+In VS Code's terminal (which runs inside the container), every command from this README works as-is. Browser windows show up in the live view at http://localhost:6080:
+
+```bash
+applypilot doctor                      # check setup
+applypilot init                        # terminal setup wizard (alternative to the UI)
+applypilot run                         # find + prepare jobs
+EXECUTION_ENGINE=local_playwright applypilot apply --url <job-url>   # one job, free engine
+pytest tests/                          # run the test suite
+```
+
+### Without a dev container
+
+```bash
+pip install -e ".[ui]"
+python -m playwright install chromium
+applypilot ui        # → http://localhost:8000
+```
+
+On a normal desktop, the browser window opens on your screen instead of inside the page.
+
+---
+
 ## Two Paths
 
 ### Full Pipeline (recommended)

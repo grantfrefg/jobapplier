@@ -579,12 +579,8 @@ def _find_apply_link(controls: list[dict]) -> str | None:
 # Human approval gate
 # ---------------------------------------------------------------------------
 
-def _approval_gate(page, controls: list[dict], frame_by_id: dict,
-                   needs_attention: list[str], dry_run: bool) -> str:
-    """Freeze until the human has reviewed (and possibly submitted) the form.
-
-    Returns "applied", "manual" (reviewed, not submitted), "declined", or "rescan".
-    """
+def _highlight_submit(controls: list[dict], frame_by_id: dict) -> None:
+    """Outline every Submit/Apply/Send control in red so the human can find it."""
     submit_ids = [c["id"] for c in controls if classify_control(c["text"]) == "submit"]
     for frame in {frame_by_id[i] for i in submit_ids}:
         try:
@@ -592,6 +588,14 @@ def _approval_gate(page, controls: list[dict], frame_by_id: dict,
         except Exception:
             pass
 
+
+def _approval_gate(page, needs_attention: list[str], dry_run: bool) -> str:
+    """Terminal gate: freeze until the human has reviewed (and maybe submitted).
+
+    This is the default gate; the web UI passes its own with the same
+    signature. Returns "applied", "manual" (reviewed, not submitted),
+    "declined", or "rescan".
+    """
     bar = "=" * 64
     print(f"\n{bar}")
     print("  SAFETY GATE — automation has stopped before Submit.")
@@ -670,14 +674,19 @@ def _load_documents(job: dict, profile: dict) -> tuple[dict[str, str], dict[str,
     return text_values, file_values
 
 
-def run_job(job: dict, worker_id: int = 0, dry_run: bool = False) -> tuple[str, int]:
+def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
+            gate=None) -> tuple[str, int]:
     """Fill one application in a visible local browser and wait for the human.
+
+    ``gate(page, needs_attention, dry_run) -> decision`` blocks until the
+    human decides; it defaults to the terminal prompt (_approval_gate).
 
     Returns (status, duration_ms): 'applied', 'manual' (left for the user to
     submit), or 'failed:<reason>', as consumed by launcher.worker_loop.
     """
     from playwright.sync_api import sync_playwright
 
+    gate = gate or _approval_gate
     start = time.time()
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
@@ -765,7 +774,8 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False) -> tuple[str, 
                     step += 1
                     continue
 
-                decision = _approval_gate(page, controls, frame_by_id, needs, dry_run)
+                _highlight_submit(controls, frame_by_id)
+                decision = gate(page, needs, dry_run)
                 if decision == "rescan":
                     last_signature = None
                     continue
@@ -778,7 +788,7 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False) -> tuple[str, 
             lf.write(f"  ERROR: {e}\n")
             print(f"  Local engine error: {e}\n  The browser stays open for manual completion.")
             try:
-                decision = _approval_gate(page, [], {}, [], dry_run)
+                decision = gate(page, [f"Automation error: {str(e)[:120]}"], dry_run)
                 status = {"applied": "applied", "declined": "failed:user_declined"}.get(decision, "manual")
             except Exception:
                 status = f"failed:{str(e)[:100]}"

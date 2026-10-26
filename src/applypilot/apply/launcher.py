@@ -111,7 +111,7 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
                 FROM jobs
                 WHERE (url = ? OR application_url = ? OR application_url LIKE ? OR url LIKE ?)
                   AND tailored_resume_path IS NOT NULL
-                  AND apply_status != 'in_progress'
+                  AND COALESCE(apply_status, '') != 'in_progress'
                 LIMIT 1
             """, (target_url, target_url, like, like)).fetchone()
         else:
@@ -549,6 +549,22 @@ def _is_permanent_failure(result: str) -> bool:
     )
 
 
+def record_result(job: dict, result: str, duration_ms: int | None = None) -> None:
+    """Persist a run_job result (anything but 'skipped') to the database."""
+    if result == "manual":
+        # Local engine: user reviewed but did not submit — park it
+        # so the queue moves on (--reset-failed brings it back).
+        mark_result(job["url"], "manual", "left for manual submission",
+                    duration_ms=duration_ms)
+    elif result == "applied":
+        mark_result(job["url"], "applied", duration_ms=duration_ms)
+    else:
+        reason = result.split(":", 1)[-1] if ":" in result else result
+        mark_result(job["url"], "failed", reason,
+                    permanent=_is_permanent_failure(result),
+                    duration_ms=duration_ms)
+
+
 # ---------------------------------------------------------------------------
 # Worker loop
 # ---------------------------------------------------------------------------
@@ -619,21 +635,12 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
                 release_lock(job["url"])
                 add_event(f"[W{worker_id}] Skipped: {job['title'][:30]}")
                 continue
-            elif result == "manual":
-                # Local engine: user reviewed but did not submit — park it
-                # so the queue moves on (--reset-failed brings it back).
-                mark_result(job["url"], "manual", "left for manual submission",
-                            duration_ms=duration_ms)
-            elif result == "applied":
-                mark_result(job["url"], "applied", duration_ms=duration_ms)
+            record_result(job, result, duration_ms)
+            if result == "applied":
                 applied += 1
                 update_state(worker_id, jobs_applied=applied,
                              jobs_done=applied + failed)
-            else:
-                reason = result.split(":", 1)[-1] if ":" in result else result
-                mark_result(job["url"], "failed", reason,
-                            permanent=_is_permanent_failure(result),
-                            duration_ms=duration_ms)
+            elif result != "manual":
                 failed += 1
                 update_state(worker_id, jobs_failed=failed,
                              jobs_done=applied + failed)

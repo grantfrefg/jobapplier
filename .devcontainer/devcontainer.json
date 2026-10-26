@@ -1,0 +1,44 @@
+{
+  // ApplyPilot dev container: Python 3.12 + a virtual desktop, so the visible
+  // browser used by the free local engine works on Windows/macOS hosts.
+  // Open http://localhost:8000 for the ApplyPilot UI and
+  // http://localhost:6080 to watch the browser directly.
+  "name": "ApplyPilot",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "features": {
+    // Lightweight desktop (Xvfb + fluxbox) exposed in your web browser via noVNC
+    "ghcr.io/devcontainers/features/desktop-lite:1": {
+      "password": "vscode",
+      "webPort": "6080",
+      "vncPort": "5901"
+    },
+    // Only needed for the paid claude_code engine (npx Playwright MCP)
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" }
+  },
+  // Chromium crashes with Docker's default 64MB /dev/shm
+  "runArgs": ["--shm-size=1g"],
+  "containerEnv": {
+    "DISPLAY": ":1",
+    "VNC_RESOLUTION": "1440x1000x24",
+    "APPLYPILOT_VNC_URL": "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&password=vscode"
+  },
+  // Your profile, resumes, API keys and job database live in a Docker volume
+  // (not the Windows-mounted repo folder) so they survive rebuilds and SQLite
+  // locking works reliably.
+  "mounts": [
+    "source=applypilot-data,target=/home/vscode/.applypilot,type=volume"
+  ],
+  "forwardPorts": [8000, 6080],
+  "portsAttributes": {
+    "8000": { "label": "ApplyPilot UI", "onAutoForward": "openBrowser" },
+    "6080": { "label": "Browser desktop (noVNC)", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/start-ui.sh",
+  "remoteUser": "vscode",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+    }
+  }
+}
