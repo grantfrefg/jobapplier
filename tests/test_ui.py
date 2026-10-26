@@ -87,13 +87,14 @@ def test_profile_resume_searches(client):
 
 def test_pipeline_runs_subprocess(client):
     client.post("/api/pipeline", json={"stages": ["bogus-is-dropped", "pdf"]})
-    for _ in range(100):
+    for _ in range(600):  # cold Python start on Windows CI can take a while
         state = client.get("/api/pipeline").json()
         if not state["running"]:
             break
         time.sleep(0.1)
+    assert not state["running"], state
     assert state["log"][0] == "$ applypilot run pdf --min-score 7"
-    assert state["returncode"] is not None
+    assert state["returncode"] is not None  # never "finished" without an exit code
 
 
 def _seed_job(tmp_path, url):
