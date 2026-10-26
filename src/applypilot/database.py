@@ -143,7 +143,23 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     # Run migrations for any columns added after initial schema
     ensure_columns(conn)
 
+    # Older JobSpy imports stored the text "None" (or a relative path) as the
+    # application link when a board gave none; treat those as no link.
+    conn.execute(
+        "UPDATE jobs SET application_url = NULL "
+        "WHERE application_url IS NOT NULL AND application_url NOT LIKE 'http%'"
+    )
+    conn.commit()
+
     return conn
+
+
+def apply_link(job) -> str:
+    """The page to open to apply: the application link if it's a real URL, else the listing."""
+    link = job["application_url"] if "application_url" in job.keys() else None
+    if isinstance(link, str) and link.startswith(("http://", "https://")):
+        return link
+    return job["url"]
 
 
 # Complete column registry: column_name -> SQL type with optional default.
@@ -465,8 +481,7 @@ def get_stats(conn: sqlite3.Connection | None = None) -> dict:
     stats["ready_to_apply"] = conn.execute(
         "SELECT COUNT(*) FROM jobs "
         "WHERE tailored_resume_path IS NOT NULL "
-        "AND applied_at IS NULL "
-        "AND application_url IS NOT NULL AND duplicate_of IS NULL"
+        "AND applied_at IS NULL AND duplicate_of IS NULL"
     ).fetchone()[0]
 
     stats["duplicates"] = conn.execute(
