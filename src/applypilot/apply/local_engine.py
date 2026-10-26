@@ -434,6 +434,13 @@ def _call_gemini(prompt: str, api_key: str, model: str) -> dict:
                 logger.warning("Gemini HTTP %s, retrying in %ds", resp.status_code, wait)
                 time.sleep(wait)
                 continue
+            if 400 <= resp.status_code < 500:
+                # Surface Gemini's own message, e.g. "API key not valid".
+                try:
+                    detail = resp.json()["error"]["message"]
+                except Exception:
+                    detail = resp.text[:200]
+                raise RuntimeError(f"Gemini error ({resp.status_code}): {detail}")
             resp.raise_for_status()
             break
     data = resp.json()
@@ -630,6 +637,46 @@ def _approval_gate(page, needs_attention: list[str], dry_run: bool) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Browser
+# ---------------------------------------------------------------------------
+
+def launch_browser(p):
+    """Open a visible browser with the persistent ApplyPilot profile.
+
+    Tries CHROME_PATH, then Playwright's own Chromium, then an installed
+    Chrome / Edge, so most Windows and Mac users need no extra download.
+    """
+    candidates: list[str | None] = []
+    env_path = os.environ.get("CHROME_PATH")
+    if env_path and Path(env_path).exists():
+        candidates.append(env_path)
+    try:
+        if Path(p.chromium.executable_path).exists():
+            candidates.append(None)  # Playwright-managed Chromium
+    except Exception:
+        pass
+    candidates += [b for b in config.find_system_browsers() if b not in candidates]
+
+    width, height = (int(x) for x in config.DEFAULTS["viewport"].split("x"))
+    errors: list[str] = []
+    for exe in candidates:
+        try:
+            return p.chromium.launch_persistent_context(
+                str(config.LOCAL_BROWSER_PROFILE_DIR),
+                headless=False,
+                executable_path=exe,
+                viewport={"width": width, "height": height},
+            )
+        except Exception as e:
+            errors.append(f"{exe or 'Playwright Chromium'}: {str(e).strip().splitlines()[0][:150]}")
+    detail = ("\n  " + "\n  ".join(errors)) if errors else ""
+    raise RuntimeError(
+        "No usable browser found. Install Google Chrome or Microsoft Edge, "
+        "or use 'Install browser' on the Setup page." + detail
+    )
+
+
+# ---------------------------------------------------------------------------
 # Entry point (called from launcher.run_job)
 # ---------------------------------------------------------------------------
 
@@ -720,16 +767,7 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
     with open(worker_log, "a", encoding="utf-8") as lf, sync_playwright() as p:
         lf.write(f"\n{'=' * 60}\n[{datetime.now():%Y-%m-%d %H:%M:%S}] {job['title']}\n"
                  f"URL: {target}\nModel: {ctx['model']}\n{'=' * 60}\n")
-        launch_kwargs: dict = {"headless": False}
-        chrome_path = os.environ.get("CHROME_PATH")
-        if chrome_path and Path(chrome_path).exists():
-            launch_kwargs["executable_path"] = chrome_path
-        width, height = (int(x) for x in config.DEFAULTS["viewport"].split("x"))
-        context = p.chromium.launch_persistent_context(
-            str(config.LOCAL_BROWSER_PROFILE_DIR),
-            viewport={"width": width, "height": height},
-            **launch_kwargs,
-        )
+        context = launch_browser(p)
         try:
             page = context.pages[0] if context.pages else context.new_page()
             page.goto(target, wait_until="domcontentloaded", timeout=60000)

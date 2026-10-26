@@ -161,3 +161,22 @@ def test_apply_through_web_gate(client, tmp_path, monkeypatch):
     assert row["apply_status"] == "applied" and row["applied_at"]
     assert client.get("/api/jobs?view=applied").json()[0]["url"] == url
     assert json.dumps(prompts).count("Jane") == 0
+
+
+def test_launcher_importable_from_worker_thread():
+    """The UI first imports launcher from a worker thread; that must not crash."""
+    import subprocess
+    import sys
+    code = (
+        "import threading, traceback\n"
+        "err = []\n"
+        "def go():\n"
+        "    try:\n"
+        "        import applypilot.apply.launcher\n"
+        "    except Exception:\n"
+        "        err.append(traceback.format_exc())\n"
+        "t = threading.Thread(target=go); t.start(); t.join()\n"
+        "print(err[0] if err else 'OK')\n"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+    assert out.stdout.strip().endswith("OK"), out.stdout + out.stderr
