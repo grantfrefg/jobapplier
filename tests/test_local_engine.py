@@ -317,3 +317,13 @@ def test_pipeline_llm_error_includes_google_message():
     with pytest.raises(httpx.HTTPStatusError, match="Please pass a valid API key"):
         client.ask("hi")
     assert llm.DEFAULT_GEMINI_MODEL == config.DEFAULT_GEMINI_MODEL == "gemini-3.5-flash-lite"
+
+
+def test_env_example_values_are_really_empty():
+    """'KEY=   # comment' parses as the comment text, which then gets sent as an API key."""
+    from pathlib import Path
+    from dotenv import dotenv_values
+    example = Path(__file__).resolve().parent.parent / ".env.example"
+    values = dotenv_values(example)
+    assert values.pop("EXECUTION_ENGINE") == "claude_code"
+    assert values == {"GEMINI_API_KEY": "", "CAPSOLVER_API_KEY": ""}
