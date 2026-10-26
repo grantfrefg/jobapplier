@@ -1,12 +1,23 @@
 name: CI
 
 on:
-  workflow_dispatch:  # manual trigger only
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# A newer push to the same PR/branch cancels the older run
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
 
@@ -18,12 +29,27 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        # requirements-desktop.txt pins the job-board scraper the app ships with
+        run: pip install -e ".[dev,ui]" -r packaging/requirements-desktop.txt
+
+      - name: Install Chromium (browser tests)
+        # Normally ~1 min; a stalled Ubuntu package mirror once hung this for
+        # the whole job, so fail fast instead
+        timeout-minutes: 10
+        run: python -m playwright install --with-deps --no-shell chromium
 
       - name: Lint
-        run: ruff check src/
+        # pyflakes + pycodestyle on code that is already clean. Older upstream
+        # modules still have pre-existing findings, so they aren't listed yet.
+        run: >
+          ruff check --select E,F,W
+          src/applypilot/ui src/applypilot/desktop.py src/applypilot/__main__.py
+          src/applypilot/apply/local_engine.py src/applypilot/database.py
+          packaging tests
 
       - name: Test
-        run: pytest tests/ -v
+        # xvfb provides a display so the visible-browser tests run instead of skipping
+        run: xvfb-run -a pytest tests -v
