@@ -7,9 +7,9 @@
     "phone": "555-123-4567",
     "address": "123 Main St",
     "city": "Your City",
-    "province_state": "Your State/Province",
-    "country": "Your Country",
-    "postal_code": "A1B 2C3",
+    "province_state": "Your State",
+    "country": "Australia",
+    "postal_code": "2000",
     "linkedin_url": "https://www.linkedin.com/in/yourprofile",
     "github_url": "https://github.com/yourusername",
     "portfolio_url": "",
@@ -18,18 +18,22 @@
   "work_authorization": {
     "legally_authorized_to_work": "Yes",
     "require_sponsorship": "No",
-    "work_permit_type": ""
+    "work_permit_type": "",
+    "security_clearance": ""
   },
   "availability": {
     "earliest_start_date": "Immediately",
     "available_for_full_time": "Yes",
-    "available_for_contract": "No"
+    "available_for_contract": "No",
+    "notice_period": "2 weeks",
+    "willing_to_relocate": "No",
+    "drivers_licence": "Yes"
   },
   "compensation": {
-    "salary_expectation": "85000",
-    "salary_currency": "USD",
-    "salary_range_min": "80000",
-    "salary_range_max": "100000",
+    "salary_expectation": "120000",
+    "salary_currency": "AUD",
+    "salary_range_min": "110000",
+    "salary_range_max": "130000",
     "currency_conversion_note": ""
   },
   "experience": {
@@ -40,22 +44,50 @@
     "target_role": "software engineer"
   },
   "skills_boundary": {
-    "languages": ["Python", "SQL", "JavaScript"],
-    "frameworks": ["FastAPI", "Flask", "React"],
-    "devops": ["Docker", "AWS", "CI/CD"],
-    "databases": ["PostgreSQL", "MongoDB"],
-    "tools": ["Git", "Linux"]
+    "languages": [
+      "Python",
+      "SQL",
+      "JavaScript"
+    ],
+    "frameworks": [
+      "FastAPI",
+      "Flask",
+      "React"
+    ],
+    "devops": [
+      "Docker",
+      "AWS",
+      "CI/CD"
+    ],
+    "databases": [
+      "PostgreSQL",
+      "MongoDB"
+    ],
+    "tools": [
+      "Git",
+      "Linux"
+    ]
   },
   "resume_facts": {
-    "preserved_companies": ["Company A", "Company B"],
-    "preserved_projects": ["Project X", "Project Y"],
+    "preserved_companies": [
+      "Company A",
+      "Company B"
+    ],
+    "preserved_projects": [
+      "Project X",
+      "Project Y"
+    ],
     "preserved_school": "Your University",
-    "real_metrics": ["50% improvement", "10x faster"]
+    "real_metrics": [
+      "50% improvement",
+      "10x faster"
+    ]
   },
   "eeo_voluntary": {
-    "gender": "Decline to self-identify",
-    "race_ethnicity": "Decline to self-identify",
-    "veteran_status": "I am not a protected veteran",
-    "disability_status": "I do not wish to answer"
+    "gender": "Prefer not to say",
+    "aboriginal_or_torres_strait_islander": "Prefer not to say",
+    "disability_status": "Prefer not to say",
+    "race_ethnicity": "Prefer not to say",
+    "veteran_status": "Prefer not to say"
   }
 }

@@ -94,13 +94,13 @@ Sections, each a set of fields shown as a form on the Setup page:
 | Section | Used for |
 |---|---|
 | `personal` | Name, email, phone, address, LinkedIn/GitHub/portfolio URLs, job-site password. **Required:** `full_name`, `email`, `phone` |
-| `work_authorization` | Right to work, sponsorship, visa/permit type. Add fields such as `tax_file_number` if forms ask; ID-like values are never sent to Gemini |
-| `availability` | Start date, full-time/contract |
+| `work_authorization` | Right to work, sponsorship, visa/permit type, `security_clearance` (e.g. Baseline, NV1; blank = none). Add fields such as `tax_file_number` if forms ask; ID-like values are never sent to Gemini |
+| `availability` | Start date, notice period, full-time/contract, `willing_to_relocate`, `drivers_licence` |
 | `compensation` | Salary expectation, currency and range |
-| `experience` | Years, education, current title/company, target role |
-| `skills_boundary` | Skills the tailor may mention. It won't add skills you don't list |
+| `experience` | Years, education, current title/company, target role (the prompts write for this role and seniority) |
+| `skills_boundary` | Skills the tailor may mention. Nothing outside this list and your resume is ever added |
 | `resume_facts` | Employers, projects, school and real metrics the tailor must keep exactly |
-| `eeo_voluntary` | Answers to voluntary diversity questions |
+| `eeo_voluntary` | Answers to voluntary diversity questions, including Aboriginal or Torres Strait Islander status (default "Prefer not to say") |
 
 What Gemini sees: everything except the password. Identifiers (name, email, phone, street address, postcode, URLs, ID numbers) are replaced by placeholders and filled in locally. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md#privacy).
 
