@@ -156,6 +156,25 @@ applypilot apply --reset-failed        # reset all failed jobs for retry
 applypilot apply --gen --url URL       # generate prompt file for manual debugging
 ```
 
+#### Free local engine (Gemini + Playwright, you click Submit)
+
+Set `EXECUTION_ENGINE=local_playwright` in `~/.applypilot/.env` to skip Claude Code entirely:
+
+```bash
+EXECUTION_ENGINE=local_playwright   # default: claude_code
+GEMINI_API_KEY=your-free-key
+LLM_MODEL=gemini-2.5-flash          # optional; non-Gemini values fall back to gemini-2.5-flash
+
+pip install playwright && python -m playwright install chromium
+applypilot apply --url URL
+```
+
+A visible Chromium window opens with a persistent profile (`~/.applypilot/local-playwright-profile`, so SEEK/Workday logins stick). The engine reads the form controls from the DOM, asks Gemini how to fill them, then fills text fields, drop-downs, radios/checkboxes and resume/cover-letter uploads. It auto-advances only through "Next"/"Continue" buttons. It has hints for Greenhouse, Lever, Workday and SEEK (including right-to-work questions).
+
+- **Privacy:** your name, email, phone, street address, postcode, URLs, and any tax/ID numbers in `profile.json` are sent to Gemini only as `{{PLACEHOLDER}}` tokens. They're swapped back in locally, and your password is never sent.
+- **Safety gate:** automation never clicks Submit / Apply / Send. Those buttons are outlined in red and the terminal waits for you. Review the form, edit anything, and click Submit yourself. Then press Enter and answer `y` if you submitted (marked applied) or `n` (parked as `manual`; `--reset-failed` brings it back). `r` re-scans and fills the current page (e.g. after you log in), and `x` never offers that job again.
+- Runs one job at a time (`--workers`/`--headless` are ignored) and costs $0 beyond your Gemini quota.
+
 ---
 
 ## CLI Reference

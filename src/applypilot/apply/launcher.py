@@ -296,13 +296,20 @@ def reset_failed() -> int:
 
 def run_job(job: dict, port: int, worker_id: int = 0,
             model: str = "sonnet", dry_run: bool = False) -> tuple[str, int]:
-    """Spawn a Claude Code session for one job application.
+    """Apply to one job using the configured EXECUTION_ENGINE.
+
+    "claude_code" (default) spawns a Claude Code session; "local_playwright"
+    runs the free local Playwright + Gemini engine, which stops before Submit.
 
     Returns:
         Tuple of (status_string, duration_ms). Status is one of:
         'applied', 'expired', 'captcha', 'login_issue',
         'failed:reason', or 'skipped'.
     """
+    if config.get_execution_engine() == config.ENGINE_LOCAL_PLAYWRIGHT:
+        from applypilot.apply import local_engine
+        return local_engine.run_job(job, worker_id=worker_id, dry_run=dry_run)
+
     # Read tailored resume text
     resume_path = job.get("tailored_resume_path")
     txt_path = Path(resume_path).with_suffix(".txt") if resume_path else None
@@ -526,6 +533,7 @@ PERMANENT_FAILURES: set[str] = {
     "not_a_job_application", "unsafe_permissions",
     "unsafe_verification", "sso_required",
     "site_blocked", "cloudflare_blocked", "blocked_by_cloudflare",
+    "user_declined",  # local engine: user chose "never apply to this job"
 }
 
 PERMANENT_PREFIXES: tuple[str, ...] = ("site_blocked", "cloudflare", "blocked_by")
@@ -569,6 +577,8 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
     jobs_done = 0
     empty_polls = 0
     port = BASE_CDP_PORT + worker_id
+    # The local engine launches its own Playwright browser
+    local_engine = config.get_execution_engine() == config.ENGINE_LOCAL_PLAYWRIGHT
 
     while not _stop_event.is_set():
         if not continuous and jobs_done >= limit:
@@ -598,8 +608,9 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
 
         chrome_proc = None
         try:
-            add_event(f"[W{worker_id}] Launching Chrome...")
-            chrome_proc = launch_chrome(worker_id, port=port, headless=headless)
+            if not local_engine:
+                add_event(f"[W{worker_id}] Launching Chrome...")
+                chrome_proc = launch_chrome(worker_id, port=port, headless=headless)
 
             result, duration_ms = run_job(job, port=port, worker_id=worker_id,
                                             model=model, dry_run=dry_run)
@@ -608,6 +619,11 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
                 release_lock(job["url"])
                 add_event(f"[W{worker_id}] Skipped: {job['title'][:30]}")
                 continue
+            elif result == "manual":
+                # Local engine: user reviewed but did not submit — park it
+                # so the queue moves on (--reset-failed brings it back).
+                mark_result(job["url"], "manual", "left for manual submission",
+                            duration_ms=duration_ms)
             elif result == "applied":
                 mark_result(job["url"], "applied", duration_ms=duration_ms)
                 applied += 1
@@ -674,6 +690,14 @@ def main(limit: int = 1, target_url: str | None = None,
     config.ensure_dirs()
     console = Console()
 
+    local_engine = config.get_execution_engine() == config.ENGINE_LOCAL_PLAYWRIGHT
+    if local_engine:
+        # One visible browser at a time: each job blocks on a human approval prompt.
+        if workers > 1 or headless:
+            console.print("[yellow]local_playwright engine: forcing --workers 1 and a visible browser.[/yellow]")
+        workers = 1
+        headless = False
+
     if continuous:
         effective_limit = 0
         mode_label = "continuous"
@@ -713,6 +737,26 @@ def main(limit: int = 1, target_url: str | None = None,
             raise KeyboardInterrupt
 
     signal.signal(signal.SIGINT, _sigint_handler)
+
+    if local_engine:
+        # No Live dashboard: it would redraw over the terminal approval prompt.
+        try:
+            total_applied, total_failed = worker_loop(
+                worker_id=0,
+                limit=effective_limit,
+                target_url=target_url,
+                min_score=min_score,
+                headless=False,
+                model=model,
+                dry_run=dry_run,
+            )
+            console.print(f"\n[bold]Done: {total_applied} applied, {total_failed} failed ($0.000)[/bold]")
+            console.print(f"Logs: {config.LOG_DIR}")
+        except KeyboardInterrupt:
+            pass
+        finally:
+            _stop_event.set()
+        return
 
     try:
         with Live(render_full(), console=console, refresh_per_second=2) as live:
