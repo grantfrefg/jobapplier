@@ -29,7 +29,7 @@ estimates from the code paths, not measurements.
 | A2 | Batch scoring | Small–medium | ~200 → ~20 requests | **Done** (#4) |
 | A3 | Structured (JSON) output | Small | Retries from unreadable replies | Scoring **done** (#4). Writing: with B |
 | B | One writing request per job | Medium | ~3–12 → ~1–2 per job | **Done** (#9) |
-| C | Remember how to read each site | Small | ~2 per title per run → ~0 | Planned |
+| C | Remember how to read each site | Small | ~2 per title per run → ~0 | **Done** (#12) |
 | D | Daily request budget | Medium | Spends requests on the best jobs | Planned |
 | E1 | Standard fields in code + answer bank | Medium | ~1 per page → 0 on known pages | **Done** (#11) |
 | E2 | Site adapters (SEEK, Greenhouse, Lever) | Large | Fewer wrong answers on those sites | Planned |
@@ -108,7 +108,16 @@ choose an extraction strategy (JSON-LD, intercepted API, or CSS selectors)
 for every page on every run. A site's page structure rarely changes between
 runs.
 
-**Plan:**
+**Change (done in #12):**
+- The working plan (strategy plus its JSON paths or CSS selectors) is saved
+  per site in `~/.applypilot/site_plans/<site>.json` and reused for every
+  query on that site, on every later run: no AI requests.
+- If the saved plan finds nothing, the AI re-learns the page; the new plan
+  replaces the old one only if it actually finds jobs. A blocked page
+  (captcha / rate limit) keeps the saved plan and makes no AI request.
+- Delete a site's file to make it re-learn.
+
+**Original plan:**
 - Save the working extraction plan per site (e.g. under
   `~/.applypilot/site_plans/`).
 - Reuse it on later runs.
