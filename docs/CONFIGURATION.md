@@ -9,8 +9,9 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `profile.json` | Your details and the answers used on application forms |
 | `resume.txt` | Your master resume as plain text (what the AI reads) |
 | `resume.pdf` | Optional; the tailored PDFs are generated from the text |
-| `applypilot.db` | The job database (SQLite) |
+| `applypilot.db` | The job database (SQLite), including saved screening answers |
 | `tailored_resumes/`, `cover_letters/` | Generated documents |
+| `site_plans/` | How smart extract reads each site (delete a file to make that site re-learn) |
 | `local-playwright-profile/` | The local engine's browser profile (keeps job-site logins) |
 | `logs/` | Run logs; `desktop.log` for the desktop app |
 
