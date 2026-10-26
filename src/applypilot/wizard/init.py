@@ -197,7 +197,7 @@ COUNTRY_SOURCES = {
 
 
 def build_search_yaml(location: str, roles: list[str], country: str = "australia",
-                      include_remote: bool = False) -> str:
+                      include_remote: bool = False, exclude_titles: list[str] | None = None) -> str:
     """Render searches.yaml content (shared by this wizard and the web UI)."""
     from applypilot.config import location_accept_patterns
 
@@ -240,6 +240,11 @@ def build_search_yaml(location: str, roles: list[str], country: str = "australia
             "# When one role is listed on several sites, keep this site's listing (first wins)",
             "site_priority: [" + ", ".join(sources["site_priority"]) + "]",
         ]
+
+    excludes = [t.strip() for t in exclude_titles or [] if t.strip()]
+    lines += ["", "# Jobs whose title contains any of these are skipped before scoring (no AI requests),",
+              "# e.g. intern, graduate, senior director",
+              "exclude_titles: [" + ", ".join(q(t) for t in excludes) + "]"]
 
     lines += ["", "queries:"]
     for i, role in enumerate(roles):

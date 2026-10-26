@@ -79,7 +79,10 @@ def test_profile_resume_searches(client):
     s = client.post("/api/searches", json={"location": "Sydney, NSW", "country": "australia",
                                            "include_remote": True, "roles": ["Data Analyst", " "]}).json()
     assert s["simple"] == {"location": "Sydney, NSW", "country": "australia", "include_remote": True,
-                           "roles": ["Data Analyst"]}
+                           "exclude_titles": [], "roles": ["Data Analyst"]}
+    s = client.post("/api/searches", json={"location": "Sydney, NSW", "roles": ["Data Analyst"],
+                                           "exclude_titles": "intern, Senior Director,"}).json()
+    assert s["simple"]["exclude_titles"] == ["intern", "Senior Director"]
     assert client.post("/api/searches", json={"location": "", "roles": ["x"]}).status_code == 400
     assert client.post("/api/searches", json={"yaml": "queries: [oops"}).status_code == 400
 
