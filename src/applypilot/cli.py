@@ -414,7 +414,8 @@ def doctor() -> None:
     has_openai = bool(os.environ.get("OPENAI_API_KEY"))
     has_local = bool(os.environ.get("LLM_URL"))
     if has_gemini:
-        model = os.environ.get("LLM_MODEL", "gemini-2.0-flash")
+        from applypilot.config import DEFAULT_GEMINI_MODEL
+        model = os.environ.get("LLM_MODEL") or DEFAULT_GEMINI_MODEL
         results.append(("LLM API key", ok_mark, f"Gemini ({model})"))
     elif has_openai:
         model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
