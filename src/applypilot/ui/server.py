@@ -362,6 +362,28 @@ def create_app() -> FastAPI:
         _write_env(updates)
         return get_settings()
 
+    @app.post("/api/settings/test-gemini")
+    def test_gemini() -> dict:
+        """One tiny request with the saved key and the model the pipeline uses."""
+        import httpx
+        from applypilot.llm import error_detail
+        key = os.environ.get("GEMINI_API_KEY", "")
+        if not key:
+            raise HTTPException(400, "No Gemini API key saved yet")
+        model = os.environ.get("LLM_MODEL") or config.DEFAULT_GEMINI_MODEL
+        try:
+            resp = httpx.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                headers={"x-goog-api-key": key},
+                json={"contents": [{"parts": [{"text": "Reply with OK"}]}]},
+                timeout=30,
+            )
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Couldn't reach Google: {e}") from e
+        if not resp.is_success:
+            raise HTTPException(400, f"Gemini said: {error_detail(resp) or resp.status_code} (model: {model})")
+        return {"ok": True, "model": model}
+
     # -- resume ------------------------------------------------------------
 
     @app.get("/api/resume")

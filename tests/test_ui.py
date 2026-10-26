@@ -208,3 +208,25 @@ def test_duplicate_listing_hidden_and_refused(client, tmp_path):
             break
         time.sleep(0.1)
     assert "same role as a listing on linkedin" in s["message"]
+
+
+def test_gemini_key_check(client, monkeypatch):
+    import httpx
+    assert client.post("/api/settings/test-gemini").status_code == 400  # no key yet
+    client.post("/api/settings", json={"GEMINI_API_KEY": "AIza-bad-key-0000"})
+    calls = []
+
+    def fake_post(url, headers, json, timeout):
+        calls.append((url, headers))
+        req = httpx.Request("POST", url)
+        if headers["x-goog-api-key"] == "AIza-good-key-111":
+            return httpx.Response(200, json={"candidates": []}, request=req)
+        return httpx.Response(400, json=[{"error": {"message": "Please pass a valid API key"}}], request=req)
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    r = client.post("/api/settings/test-gemini")
+    assert r.status_code == 400 and "Please pass a valid API key" in r.json()["detail"]
+    assert calls[0][0].endswith("/models/gemini-2.5-flash:generateContent")  # same default as the pipeline
+
+    client.post("/api/settings", json={"GEMINI_API_KEY": "AIza-good-key-111", "LLM_MODEL": "gemini-3.5-flash-lite"})
+    assert client.post("/api/settings/test-gemini").json() == {"ok": True, "model": "gemini-3.5-flash-lite"}

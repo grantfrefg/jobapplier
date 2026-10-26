@@ -296,7 +296,8 @@ def _setup_ai_features() -> None:
 
     if provider == "gemini":
         api_key = Prompt.ask("Gemini API key (from aistudio.google.com)")
-        model = Prompt.ask("Model", default="gemini-2.0-flash")
+        from applypilot.config import DEFAULT_GEMINI_MODEL
+        model = Prompt.ask("Model", default=DEFAULT_GEMINI_MODEL)
         env_lines.append(f"GEMINI_API_KEY={api_key}")
         env_lines.append(f"LLM_MODEL={model}")
     elif provider == "openai":

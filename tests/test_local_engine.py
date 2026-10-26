@@ -304,3 +304,16 @@ def test_gemini_error_message_is_readable(monkeypatch):
     monkeypatch.setattr(le.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
     with pytest.raises(RuntimeError, match="API key not valid"):
         le._call_gemini("hi", "bad", "gemini-2.5-flash")
+
+
+def test_pipeline_llm_error_includes_google_message():
+    """The pipeline's LLM client must say *why* Gemini refused, not just '400'."""
+    import httpx
+    from applypilot import llm
+
+    client = llm.LLMClient(llm._GEMINI_COMPAT_BASE, llm.DEFAULT_GEMINI_MODEL, "bad")
+    client._client = httpx.Client(transport=httpx.MockTransport(
+        lambda req: httpx.Response(400, json=[{"error": {"message": "Please pass a valid API key"}}])))
+    with pytest.raises(httpx.HTTPStatusError, match="Please pass a valid API key"):
+        client.ask("hi")
+    assert llm.DEFAULT_GEMINI_MODEL == config.DEFAULT_GEMINI_MODEL == "gemini-2.5-flash"
