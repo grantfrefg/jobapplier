@@ -22,6 +22,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **Batch scoring and title filter** (`exclude_titles`, `score_batch_size`); JSON output mode in the LLM client.
 - **Answer bank and standard fields:** the local engine fills name, contact, address and uploads in code and
   reuses screening answers (yours win over the AI's), so known pages cost no Gemini request. Setup → Saved answers.
+- **Saved site plans:** smart extract (Jora) remembers how to read each site in `~/.applypilot/site_plans/`
+  and only asks the AI again when that stops working.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed

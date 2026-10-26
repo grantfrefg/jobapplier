@@ -8,6 +8,11 @@ Two-phase approach:
 
 JSON-LD and API strategies execute directly from stored data -- no LLM needed.
 
+The working plan for each site is saved under ~/.applypilot/site_plans/ and
+reused on later runs (and for every other query on the same site), so a
+learned site costs no LLM requests. The AI is asked again only when the
+saved plan stops finding jobs.
+
 Sites are loaded from config/sites.yaml, with {query_encoded} and {location_encoded}
 placeholders replaced from the user's search configuration.
 """
@@ -801,15 +806,18 @@ def execute_css_selectors(intel: dict) -> tuple[dict, list[dict]]:
         return selectors, []
 
     log.info("Selectors: %s", selectors)
+    return selectors, apply_css_selectors(full_html, selectors)
 
-    # Apply selectors to the ORIGINAL full_html
-    soup = BeautifulSoup(full_html, "html.parser")
+
+def apply_css_selectors(full_html: str, selectors: dict) -> list[dict]:
+    """Extract jobs from page HTML with card/field CSS selectors (no LLM)."""
+    soup = BeautifulSoup(full_html or "", "html.parser")
     card_sel = selectors.get("job_card", "NONE")
     try:
         cards = soup.select(card_sel)
     except Exception as e:
         log.error("Invalid card selector '%s': %s", card_sel, e)
-        return selectors, []
+        return []
 
     log.info("Matched %d cards", len(cards))
 
@@ -831,7 +839,51 @@ def execute_css_selectors(intel: dict) -> tuple[dict, list[dict]]:
             else:
                 job[field] = None
         jobs.append(job)
-    return selectors, jobs
+    return jobs
+
+
+# -- Saved site plans ---------------------------------------------------------
+
+def _plan_path(name: str) -> Path:
+    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "site"
+    return config.APP_DIR / "site_plans" / f"{slug}.json"
+
+
+def load_site_plan(name: str) -> dict | None:
+    """The saved extraction plan for a site, or None."""
+    try:
+        plan = json.loads(_plan_path(name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return plan if isinstance(plan, dict) and plan.get("strategy") else None
+
+
+def save_site_plan(name: str, plan: dict) -> None:
+    path = _plan_path(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    saved = {"strategy": plan.get("strategy"), "extraction": plan.get("extraction") or {},
+             "saved_at": datetime.now(timezone.utc).isoformat()}
+    path.write_text(json.dumps(saved, indent=2), encoding="utf-8")
+
+
+def execute_plan(intel: dict, plan: dict) -> list[dict]:
+    """Run a saved plan against freshly collected page data (no LLM)."""
+    strategy = plan.get("strategy")
+    if strategy == "json_ld":
+        return execute_json_ld(intel, plan)
+    if strategy == "api_response":
+        return execute_api_response(intel, plan)
+    if strategy == "css_selectors":
+        return apply_css_selectors(intel.get("full_html", ""), plan.get("extraction") or {})
+    return []
+
+
+def _grade(jobs: list[dict]) -> tuple[str, int, int]:
+    """(status, total, titles) for an extraction result."""
+    titles = sum(1 for j in jobs if j.get("title"))
+    total = len(jobs)
+    status = "PASS" if total > 0 and titles / max(total, 1) >= 0.8 else "FAIL" if total == 0 else "PARTIAL"
+    return status, total, titles
 
 
 # -- Main per-site extraction ------------------------------------------------
@@ -864,6 +916,27 @@ def _run_one_site(name: str, url: str) -> dict:
                  collect_time, len(intel["json_ld"]), len(intel["api_responses"]))
     elif _is_captcha:
         log.warning("CAPTCHA/rate-limit detected -- skipping headful retry")
+
+    # Step 1.2: a plan learned on an earlier run (or another query) costs nothing
+    saved = load_site_plan(name)
+    if saved:
+        try:
+            jobs = execute_plan(intel, saved)
+        except Exception as e:
+            log.warning("Saved plan for %s failed: %s", name, e)
+            jobs = []
+        status, total, titles = _grade(jobs)
+        if titles:
+            log.info("RESULT: %s -- %d jobs via saved %s plan (no AI requests)", status, total, saved["strategy"])
+            return {"name": name, "status": status, "strategy": saved["strategy"], "total": total,
+                    "titles": titles, "plan": saved, "plan_source": "saved", "jobs": jobs,
+                    "sample": jobs[:5]}
+        if _is_captcha:
+            # A blocked page isn't a sign the site changed; keep the plan
+            log.warning("Page blocked; keeping the saved plan for %s", name)
+            return {"name": name, "status": "FAIL", "strategy": saved["strategy"], "total": 0,
+                    "titles": 0, "plan": saved, "plan_source": "saved", "jobs": [], "sample": []}
+        log.info("Saved plan for %s found no jobs -- asking the AI to re-learn the page", name)
 
     # Step 1.5: Judge filters API responses
     if intel["api_responses"]:
@@ -915,9 +988,10 @@ def _run_one_site(name: str, url: str) -> dict:
         return {"name": name, "status": "EXEC_ERROR", "error": str(e), "plan": plan}
 
     # Step 4: Report
-    titles = sum(1 for j in jobs if j.get("title"))
-    total = len(jobs)
-    status = "PASS" if total > 0 and titles / max(total, 1) >= 0.8 else "FAIL" if total == 0 else "PARTIAL"
+    status, total, titles = _grade(jobs)
+    if titles:
+        save_site_plan(name, plan)
+        log.info("Saved the %s plan for %s; later runs reuse it", strategy, name)
 
     urls = sum(1 for j in jobs if j.get("url"))
     salaries = sum(1 for j in jobs if j.get("salary"))
@@ -938,6 +1012,7 @@ def _run_one_site(name: str, url: str) -> dict:
         "total": total,
         "titles": titles,
         "plan": plan,
+        "plan_source": "ai",
         "jobs": jobs,
         "sample": jobs[:5],
     }
@@ -1066,7 +1141,8 @@ def _run_all(
         log.info("%-10s | %-25s | %s", r["status"], r["name"], detail)
 
     passed = sum(1 for r in results if r["status"] == "PASS")
-    log.info("%d/%d PASS", passed, len(results))
+    reused = sum(1 for r in results if r.get("plan_source") == "saved")
+    log.info("%d/%d PASS (%d used a saved plan, no AI requests)", passed, len(results), reused)
 
     return {"total_new": total_new, "total_existing": total_existing,
             "passed": passed, "total": len(results)}

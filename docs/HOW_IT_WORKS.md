@@ -12,7 +12,7 @@ Where jobs come from depends on the `country` in `searches.yaml`.
 |---|---|---|
 | Indeed Australia (au.indeed.com) | JobSpy | None |
 | LinkedIn | JobSpy | None |
-| Jora (au.jora.com) | Smart extract: a browser loads the search page and the AI works out how to read the listings | ~2 per job title searched |
+| Jora (au.jora.com) | Smart extract: a browser loads the search page and the AI works out how to read the listings, once; the plan is saved and reused | ~2 the first time, then 0 |
 
 For other countries, every bundled source is used: ZipRecruiter, Canadian/US job boards and Workday employers, as in the original ApplyPilot. You can choose sources yourself with `sites`, `smart_extract_sites` and `workday_employers` (see [CONFIGURATION.md](CONFIGURATION.md)).
 
@@ -122,7 +122,7 @@ Google's free tier limits **requests per day** per model. Everything uses `gemin
 |---|---|
 | Score | ~1 per 10 jobs (skipped titles are free) |
 | Tailor + cover letter | usually 1 per good match; 2 when the fact-check runs or the letter is retried |
-| Jora | ~2 per job title per run |
+| Jora | ~2 once, to learn the page; then 0 (re-learns only if the saved plan stops finding jobs) |
 | Apply | ~1 per form page; 0 for pages where every field is a standard field or a saved answer |
 
 [IMPROVEMENTS.md](IMPROVEMENTS.md) is the plan to reduce this further.
