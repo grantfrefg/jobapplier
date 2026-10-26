@@ -363,3 +363,81 @@ def test_unreachable_job_page_is_reported_not_blank(tmp_path, monkeypatch):
     status, _ = le.run_job(job, gate=gate)
     assert status == "manual"
     assert "Couldn't open the job page (http://127.0.0.1:9/job)" in seen["needs"][0]
+
+
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
+def test_job_ad_page_follows_apply_link_without_filling_search(tmp_path, monkeypatch):
+    """Jora/SEEK/Indeed ads: open the employer's form; never type into the board's search box."""
+    pytest.importorskip("playwright")
+    import functools
+    import http.server
+    import threading
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "form.html").write_text(FORM_HTML)
+    (site / "ad.html").write_text("""<!doctype html><html><body>
+      <form role="search"><label for="where">Where</label><input id="where" placeholder="Enter suburb, city">
+      <label for="what">What</label><input id="what"></form>
+      <h1>Data Scientist</h1><a id="apply" href="/form.html">Apply on company site</a></body></html>""")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(site))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    ad_url = f"http://127.0.0.1:{server.server_port}/ad.html"
+    (tmp_path / "tailored").mkdir()
+    resume_txt = tmp_path / "tailored" / "a.txt"
+    resume_txt.write_text(RESUME)
+    resume_txt.with_suffix(".pdf").write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(json.dumps(PROFILE))
+    for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
+                        "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
+        monkeypatch.setattr(config, name, value)
+    monkeypatch.setattr(le, "_call_gemini", _fake_gemini([]))
+    monkeypatch.setattr(le, "_is_job_listing", lambda url: url.endswith("ad.html"))
+    seen = {}
+
+    def gate(page, needs, dry_run):
+        seen["url"] = page.url
+        seen["first"] = page.evaluate("() => fn.value")
+        return "manual"
+
+    job = {"title": "Data Scientist", "site": "Jora", "url": ad_url, "application_url": None,
+           "tailored_resume_path": str(resume_txt), "cover_letter_path": None, "fit_score": 9}
+    try:
+        assert le.run_job(job, gate=gate)[0] == "manual"
+    finally:
+        server.shutdown()
+    assert seen["url"].endswith("form.html") and seen["first"] == "Jane"
+    log = (tmp_path / "local-worker-0.log").read_text()
+    assert "following its apply link" in log and "@ " + ad_url not in log  # the ad was never filled
+
+
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
+def test_job_ad_without_apply_link_asks_the_user(tmp_path, monkeypatch):
+    pytest.importorskip("playwright")
+    ad = tmp_path / "ad.html"
+    ad.write_text("""<!doctype html><html><body><label for="where">Where</label><input id="where">
+      <button>Easy Apply</button></body></html>""")
+    (tmp_path / "tailored").mkdir()
+    resume_txt = tmp_path / "tailored" / "a.txt"
+    resume_txt.write_text(RESUME)
+    resume_txt.with_suffix(".pdf").write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(json.dumps(PROFILE))
+    for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
+                        "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
+        monkeypatch.setattr(config, name, value)
+    monkeypatch.setattr(le, "_call_gemini", lambda *a: pytest.fail("the ad page was sent to the AI"))
+    monkeypatch.setattr(le, "_is_job_listing", lambda url: url.endswith("ad.html"))
+    seen = {}
+
+    def gate(page, needs, dry_run):
+        seen["needs"], seen["where"] = needs, page.evaluate("() => where.value")
+        return "manual"
+
+    job = {"title": "Data Scientist", "site": "LinkedIn", "url": ad.as_uri(), "application_url": None,
+           "tailored_resume_path": str(resume_txt), "cover_letter_path": None, "fit_score": 9}
+    assert le.run_job(job, gate=gate)[0] == "manual"
+    assert seen["where"] == "" and "Click Apply in the browser" in seen["needs"][0]
