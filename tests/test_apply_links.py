@@ -105,3 +105,10 @@ def test_init_db_keeps_relative_links_as_absolute(tmp_path):
 def test_is_job_listing(url, listing):
     from applypilot.apply.local_engine import _is_job_listing
     assert _is_job_listing(url) is listing
+
+
+def test_linkedin_signup_wall_is_not_an_application_link():
+    from applypilot.database import apply_link
+    job = {"url": "https://www.linkedin.com/jobs/view/4483253610",
+           "application_url": "https://www.linkedin.com/signup/cold-join?source=jobs_registration&session_redirect=x"}
+    assert apply_link(job) == "https://www.linkedin.com/jobs/view/4483253610"

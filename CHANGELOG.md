@@ -41,6 +41,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- LinkedIn: the Easy Apply dialog is filled after you open it (only the dialog, never the page's search
+  boxes), an Apply button that opens the employer's form in a new tab is followed, and LinkedIn's sign-up wall
+  is no longer used as the apply link.
 - Jora (and SEEK/Indeed/LinkedIn) job ads: the local engine opens the ad's Apply link to the employer's form instead
   of filling the job board's search box; relative apply links (Jora's `/job/rd/...`) are kept and made absolute
   instead of discarded.
