@@ -80,6 +80,7 @@
   .gate .row button { flex: 1 1 180px; }
   iframe.vnc { width: 100%; aspect-ratio: 1440 / 1000; border: 1px solid var(--border); border-radius: 8px;
                background: #000; margin-top: 12px; }
+  body.desktop .dev-only { display: none; }
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 16px;
            border-radius: 8px; background: var(--text); color: var(--panel); display: none; max-width: 90vw;
            z-index: 10; }
@@ -99,7 +100,8 @@
     <button data-tab="find">2. Find jobs</button>
     <button data-tab="apply">3. Apply</button>
   </nav>
-  <div class="badges"><span class="badge" id="engine-badge">…</span><span class="badge" id="tier-badge">…</span></div>
+  <div class="badges"><span class="badge" id="engine-badge">…</span><span class="badge" id="tier-badge">…</span>
+    <button class="btn secondary" id="quit" style="display:none;padding:2px 12px">Quit</button></div>
 </header>
 
 <main>
@@ -113,26 +115,39 @@
 
   <div class="grid">
     <div class="card">
-      <h2>How to apply</h2>
-      <p class="sub">Choose how applications get filled in.</p>
+      <h2 id="engine-title">How to apply</h2>
+      <p class="sub" id="engine-sub">Choose how applications get filled in.</p>
+      <div class="dev-only">
       <label class="choice"><input type="radio" name="engine" value="local_playwright">
         <span><b>Free: Gemini + local browser</b>
         <small>Fills the form in a visible browser, then waits for you to click Submit. Personal details stay on this computer.</small></span></label>
       <label class="choice"><input type="radio" name="engine" value="claude_code">
         <span><b>Paid: Claude Code</b>
         <small>Fully automatic and submits for you. Needs the Claude Code CLI, Chrome and Node.js.</small></span></label>
+      </div>
 
       <label for="gemini">Gemini API key <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">(get one free)</a></label>
       <input type="password" id="gemini" placeholder="Paste your key" autocomplete="off">
       <label for="model">Gemini model</label>
       <input type="text" id="model" placeholder="gemini-2.5-flash">
-      <details><summary>Optional keys</summary>
+      <details class="dev-only"><summary>Optional keys</summary>
         <label for="openai">OpenAI API key (instead of Gemini, for scoring and tailoring only)</label>
         <input type="password" id="openai" autocomplete="off">
         <label for="capsolver">CapSolver API key (CAPTCHAs, Claude Code engine only)</label>
         <input type="password" id="capsolver" autocomplete="off">
       </details>
       <div class="row"><button class="btn" id="save-settings">Save</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Browser</h2>
+      <p class="sub">ApplyPilot fills in forms in a browser window you can watch.</p>
+      <p id="browser-state">Checking…</p>
+      <div class="row">
+        <button class="btn secondary" id="test-browser">Test browser</button>
+        <button class="btn secondary" id="install-browser">Install browser (about 150 MB)</button>
+      </div>
+      <pre class="log" id="install-log" style="display:none;height:160px"></pre>
     </div>
 
     <div class="card">
@@ -279,6 +294,13 @@ async function refreshStatus() {
   tb.textContent = "Tier " + status.tier + ": " + status.tier_label;
   tb.className = "badge " + (status.tier === 3 ? "ok" : "warn");
   $("#data-dir").textContent = status.data_dir;
+  document.body.classList.toggle("desktop", status.desktop);
+  $("#quit").style.display = status.desktop ? "" : "none";
+  tb.style.display = status.desktop ? "none" : "";
+  if (status.desktop) {
+    $("#engine-title").textContent = "Gemini API key";
+    $("#engine-sub").textContent = "Free. ApplyPilot uses it to read job forms and your resume.";
+  }
 
   const c = status.checks;
   const items = [
@@ -287,7 +309,7 @@ async function refreshStatus() {
     ["Resume PDF", c.resume_pdf],
     ["Profile", c.profile],
     ["Job search", c.searches],
-    local ? ["Browser automation installed", c.playwright] : ["Claude Code CLI found", c.claude_cli],
+    local ? ["Browser ready", c.playwright && c.browser] : ["Claude Code CLI found", c.claude_cli],
   ];
   $("#checklist").replaceChildren(...items.map(([t, ok]) => el("li", { class: ok ? "done" : "" }, t)));
 
@@ -507,9 +529,41 @@ async function pollApply() {
   if (wasBusy !== s.busy) { wasBusy = s.busy; loadJobs(); }
 }
 
+// ---------- browser ----------
+async function refreshBrowser() {
+  let b; try { b = await api("/api/browser"); } catch { return; }
+  const names = b.system.map((p) => p.split(/[\\/]/).pop().replace(/\.exe$/i, ""));
+  $("#browser-state").textContent = b.system.length
+    ? "Found: " + names.join(", ") + ". You're all set."
+    : b.playwright_chromium ? "ApplyPilot's own browser is installed. You're all set."
+    : "No Chrome or Edge found. Install Google Chrome, or press Install browser.";
+  $("#install-browser").style.display = (b.system.length || b.playwright_chromium) && !b.install ? "none" : "";
+  const inst = b.install, log = $("#install-log");
+  log.style.display = inst ? "block" : "none";
+  $("#install-browser").disabled = !!(inst && inst.running);
+  if (inst) { log.textContent = inst.log.join("\n"); log.scrollTop = log.scrollHeight; }
+  return inst && inst.running;
+}
+$("#install-browser").addEventListener("click", () => guarded(async () => {
+  await post("/api/browser/install");
+  const t = setInterval(async () => { if (!(await refreshBrowser())) { clearInterval(t); refreshStatus(); } }, 1500);
+}, "Downloading the browser…"));
+$("#test-browser").addEventListener("click", async (e) => {
+  e.target.disabled = true; toast("Opening a test window…");
+  await guarded(() => post("/api/browser/test"), "The browser works.");
+  e.target.disabled = false;
+});
+$("#quit").addEventListener("click", () => guarded(async () => {
+  if (!confirm("Quit ApplyPilot?")) return;
+  await post("/api/shutdown");
+  document.body.replaceChildren(el("main", {}, el("div", { class: "card" },
+    el("h2", {}, "ApplyPilot has quit"), el("p", { class: "sub" }, "You can close this tab. Open the app again any time."))));
+}));
+
 // ---------- boot ----------
 (async () => {
   await refreshStatus();
+  refreshBrowser();
   await Promise.all([loadSettings(), loadResume(), loadSearches(), loadProfile()]).catch((e) => toast(e.message, true));
   let tab = "setup"; try { tab = localStorage.getItem("ap-tab") || tab; } catch {}
   showTab(tab);

@@ -291,3 +291,16 @@ def test_approval_gate_blocks_on_terminal(tmp_path, monkeypatch):
         assert page.evaluate("getComputedStyle(s).outlineStyle") == "solid"
         assert le._approval_gate(page, [], False) == "applied"
         browser.close()
+
+
+def test_gemini_error_message_is_readable(monkeypatch):
+    import httpx
+
+    def handler(request):
+        assert request.headers["x-goog-api-key"] == "bad"
+        return httpx.Response(400, json={"error": {"message": "API key not valid. Please pass a valid API key."}})
+
+    real_client = httpx.Client
+    monkeypatch.setattr(le.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    with pytest.raises(RuntimeError, match="API key not valid"):
+        le._call_gemini("hi", "bad", "gemini-2.5-flash")

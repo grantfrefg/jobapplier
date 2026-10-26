@@ -227,6 +227,67 @@ def has_playwright() -> bool:
     return importlib.util.find_spec("playwright") is not None
 
 
+# Where the desktop app keeps Playwright's Chromium (outside the app bundle,
+# so installing it never touches a signed .app / Program Files).
+BROWSERS_DIR = APP_DIR / "browsers"
+
+
+def playwright_browsers_dir() -> Path:
+    """Directory Playwright installs browsers into (honours PLAYWRIGHT_BROWSERS_PATH)."""
+    env = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if env and env != "0":
+        return Path(env)
+    system = platform.system()
+    if system == "Windows":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ms-playwright"
+    if system == "Darwin":
+        return Path.home() / "Library" / "Caches" / "ms-playwright"
+    return Path.home() / ".cache" / "ms-playwright"
+
+
+def has_playwright_chromium() -> bool:
+    """True if a Playwright-managed Chromium has been downloaded."""
+    root = playwright_browsers_dir()
+    return root.is_dir() and any(root.glob("chromium-*"))
+
+
+def find_system_browsers() -> list[str]:
+    """Installed Chrome / Edge / Chromium executables the local engine can drive.
+
+    Edge ships with every Windows PC, so Windows users normally need no download.
+    """
+    found: list[str] = []
+    try:
+        found.append(get_chrome_path())
+    except FileNotFoundError:
+        pass
+
+    system = platform.system()
+    if system == "Windows":
+        candidates = [
+            Path(os.environ.get(var, default)) / "Microsoft/Edge/Application/msedge.exe"
+            for var, default in (("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
+                                 ("PROGRAMFILES", r"C:\Program Files"))
+        ]
+    elif system == "Darwin":
+        candidates = [
+            Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+            Path.home() / "Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        ]
+    else:
+        candidates = [Path(p) for p in map(shutil.which, ("microsoft-edge", "microsoft-edge-stable")) if p]
+
+    for c in candidates:
+        if c.exists() and str(c) not in found:
+            found.append(str(c))
+    return found
+
+
+def is_desktop_app() -> bool:
+    """True when running as the double-click desktop app (friend mode)."""
+    return os.environ.get("APPLYPILOT_DESKTOP") == "1"
+
+
 # ---------------------------------------------------------------------------
 # Tier system — feature gating by installed dependencies
 # ---------------------------------------------------------------------------

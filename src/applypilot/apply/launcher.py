@@ -55,7 +55,9 @@ _claude_lock = threading.Lock()
 
 # Register cleanup on exit
 atexit.register(cleanup_on_exit)
-if platform.system() != "Windows":
+# Signal handlers can only be installed from the main thread (the web UI may
+# first import this module from a worker thread).
+if platform.system() != "Windows" and threading.current_thread() is threading.main_thread():
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
 

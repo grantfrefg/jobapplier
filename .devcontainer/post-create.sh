@@ -8,9 +8,8 @@ sudo chown -R "$(id -u):$(id -g)" "$HOME/.applypilot"
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev,ui]"
 
-# python-jobspy pins an old numpy; install it without deps (see README)
-python -m pip install --no-deps python-jobspy
-python -m pip install pydantic tls-client requests markdownify regex
+# Job-board scraper (same pinned version the desktop app ships)
+python -m pip install -r packaging/requirements-desktop.txt
 
 # Chromium for the free local engine, plus the system libraries it needs
 python -m playwright install --with-deps chromium

@@ -81,6 +81,28 @@ On a normal desktop, the browser window opens on your screen instead of inside t
 
 ---
 
+## Sharing with friends: the desktop app
+
+The **Desktop app** GitHub Actions workflow builds a double-click app for Windows and Mac (Apple Silicon and Intel). Each build runs the tests and smoke-tests the packaged app before uploading it. The desktop app is the same web UI in **friend mode**:
+
+- **Free engine only:** forms are filled in, and your friend clicks Submit.
+- **Simpler Setup page:** just a Gemini key, the browser, resume, job search and profile.
+- **No terminal:** double-click opens the page, and **Quit** in the page closes the app. It also exits by itself after 30 idle minutes.
+- **No extra browser download on most machines:** it uses Chrome or Edge if installed (every Windows PC has Edge). Otherwise **Install browser** on the Setup page downloads one into `~/.applypilot/browsers`.
+- **Each friend's data stays on their own computer**, in `~/.applypilot`.
+
+**To build it:** go to **Actions → Desktop app → Run workflow**. After about 15 minutes, download the zips from the run's **Artifacts** section. Pushing a tag such as `v0.4.0` also attaches them to a GitHub Release.
+
+**To share it while the repo is private:** your friends can't open private Releases or Artifacts. Download the zips yourself and share them by Google Drive, Dropbox or similar. Each zip has a `READ_ME_FIRST` file covering the one-time "unverified app" warning on Windows and Mac.
+
+**Notes**
+- The app isn't code-signed. Windows shows "Windows protected your PC" (fix: *More info → Run anyway*). On Mac, use *System Settings → Privacy & Security → Open Anyway*. Removing these warnings needs a paid Windows code-signing certificate and an Apple Developer account ($99/yr).
+- Private repos use GitHub Actions minutes, and macOS minutes count 10×. One full build costs roughly 300–400 of the 2,000 free monthly minutes.
+- ApplyPilot is AGPL-3.0. If you give someone the app, you must also offer them the source code: a link to this repo (once public) or a zip of it.
+- To build locally: `pip install ".[ui]" -r packaging/requirements-desktop.txt`, then `cd packaging && pyinstaller ApplyPilot.spec`. Check the result with `python packaging/smoke_test.py <path to the built executable>`.
+
+---
+
 ## Two Paths
 
 ### Full Pipeline (recommended)

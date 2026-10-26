@@ -22,10 +22,11 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from collections import deque
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 
 from applypilot import config
@@ -43,8 +44,31 @@ GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
 # Background work: subprocess tasks and the local apply session
 # ---------------------------------------------------------------------------
 
+def applypilot_command(*args: str) -> list[str]:
+    """Command line that runs the ApplyPilot CLI in a child process.
+
+    A packaged desktop app has no `python -m`; its executable dispatches
+    CLI arguments itself (see packaging/desktop_entry.py).
+    """
+    if getattr(sys, "frozen", False):
+        return [sys.executable, *args]
+    return [sys.executable, "-m", "applypilot", *args]
+
+
+def browser_install_command() -> tuple[list[str], dict]:
+    """Playwright's own installer for Chromium (works inside a packaged app too)."""
+    from playwright._impl._driver import compute_driver_executable, get_driver_env
+    node, cli = compute_driver_executable()
+    return [node, cli, "install", "--no-shell", "chromium"], get_driver_env()
+
+
 class SubprocessTask:
-    """One `python -m applypilot ...` child process with a rolling log."""
+    """One child process (CLI run or browser install) with a rolling log.
+
+    Output goes through a log file rather than a pipe: a windowed desktop
+    app has no console, and the child re-opens the file itself via
+    APPLYPILOT_CHILD_LOG (see applypilot/__main__.py).
+    """
 
     def __init__(self) -> None:
         self.lines: deque[str] = deque(maxlen=3000)
@@ -57,26 +81,45 @@ class SubprocessTask:
     def running(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
 
-    def start(self, label: str, args: list[str]) -> None:
+    def start(self, label: str, args: list[str], cmd: list[str] | None = None,
+              env: dict | None = None) -> None:
         with self._lock:
             if self.running:
                 raise HTTPException(409, f"'{self.label}' is still running")
-            env = os.environ.copy()
-            env.update(NO_COLOR="1", TERM="dumb", COLUMNS="120", PYTHONUNBUFFERED="1")
+            env = dict(env or os.environ)
+            log_path = config.LOG_DIR / "ui-task.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("", encoding="utf-8")
+            env.update(NO_COLOR="1", TERM="dumb", COLUMNS="120", PYTHONUNBUFFERED="1",
+                       PYTHONIOENCODING="utf-8", APPLYPILOT_CHILD_LOG=str(log_path))
             self.lines.clear()
-            self.lines.append(f"$ applypilot {' '.join(args)}")
+            self.lines.append(f"$ applypilot {' '.join(args)}" if cmd is None else f"$ {label}")
             self.label, self.returncode = label, None
-            self.proc = subprocess.Popen(
-                [sys.executable, "-m", "applypilot", *args],
-                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, encoding="utf-8", errors="replace", env=env,
-            )
-            threading.Thread(target=self._pump, args=(self.proc,), daemon=True).start()
+            flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+            with open(log_path, "a", encoding="utf-8") as out:
+                self.proc = subprocess.Popen(
+                    cmd or applypilot_command(*args),
+                    stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+                    env=env, creationflags=flags,
+                )
+            threading.Thread(target=self._pump, args=(self.proc, log_path), daemon=True).start()
 
-    def _pump(self, proc: subprocess.Popen) -> None:
-        for line in proc.stdout:
-            self.lines.append(line.rstrip("\n"))
-        self.returncode = proc.wait()
+    def _pump(self, proc: subprocess.Popen, log_path: Path) -> None:
+        pending = ""
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            while True:
+                chunk = f.read()
+                if chunk:
+                    pending += chunk.replace("\r\n", "\n").replace("\r", "\n")
+                    *done, pending = pending.split("\n")
+                    self.lines.extend(done)
+                elif proc.poll() is not None:
+                    break
+                else:
+                    time.sleep(0.2)
+        if pending:
+            self.lines.append(pending)
+        self.returncode = proc.returncode
         self.lines.append(f"[finished with exit code {self.returncode}]")
 
     def stop(self) -> None:
@@ -113,6 +156,12 @@ class ApplySession:
         self._thread.start()
 
     def _run(self, url: str, min_score: int) -> None:
+        try:
+            self._apply(url, min_score)
+        except Exception as e:  # never leave the page spinning on "filling"
+            self.state, self.message = "error", str(e)[:300]
+
+    def _apply(self, url: str, min_score: int) -> None:
         from applypilot.apply import launcher, local_engine
 
         job = launcher.acquire_job(target_url=url, min_score=min_score, worker_id=0)
@@ -210,11 +259,27 @@ def create_app() -> FastAPI:
     config.load_env()
     config.ensure_dirs()
     init_db()
+    desktop = config.is_desktop_app()
+    if desktop:
+        # Friend mode: always the free, human-approved engine
+        os.environ["EXECUTION_ENGINE"] = config.ENGINE_LOCAL_PLAYWRIGHT
 
     app = FastAPI(title="ApplyPilot", docs_url=None, redoc_url=None)
     task = SubprocessTask()
     session = ApplySession()
     app.state.task, app.state.session = task, session
+    app.state.last_request = time.time()
+    app.state.shutdown = None  # set by applypilot.desktop
+
+    @app.middleware("http")
+    async def _touch(request: Request, call_next):
+        app.state.last_request = time.time()
+        return await call_next(request)
+
+    def busy() -> bool:
+        return task.running or session.busy
+
+    app.state.busy = busy
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -227,6 +292,8 @@ def create_app() -> FastAPI:
         tier = config.get_tier()
         stats = get_stats()
         return {
+            "app": "applypilot",
+            "desktop": desktop,
             "engine": config.get_execution_engine(),
             "local_model": config.get_local_engine_model(),
             "tier": tier,
@@ -240,6 +307,7 @@ def create_app() -> FastAPI:
                 "llm_key": any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL")),
                 "playwright": config.has_playwright(),
                 "claude_cli": shutil.which("claude") is not None,
+                "browser": bool(config.find_system_browsers()) or config.has_playwright_chromium(),
             },
             "stats": {k: stats.get(k, 0) for k in
                       ("total", "scored", "tailored", "with_cover_letter", "applied", "ready_to_apply")},
@@ -266,7 +334,7 @@ def create_app() -> FastAPI:
     def save_settings(body: dict) -> dict:
         updates: dict[str, str] = {}
         for key in ENV_KEYS:
-            if key not in body:
+            if key not in body or (desktop and key == "EXECUTION_ENGINE"):
                 continue
             value = str(body[key] or "").strip()
             if key in SECRET_KEYS and not value:
@@ -411,6 +479,51 @@ def create_app() -> FastAPI:
     @app.get("/api/jobs/file")
     def job_file(url: str, kind: str = "resume") -> FileResponse:
         return FileResponse(_job_file(url, kind), media_type="application/pdf")
+
+    # -- browser -----------------------------------------------------------
+
+    @app.get("/api/browser")
+    def browser_state() -> dict:
+        return {"system": config.find_system_browsers(),
+                "playwright_chromium": config.has_playwright_chromium(),
+                "install": task.snapshot() if task.label == "Install browser" else None}
+
+    @app.post("/api/browser/install")
+    def install_browser() -> dict:
+        cmd, env = browser_install_command()
+        task.start("Install browser", [], cmd=cmd, env=env)
+        return browser_state()
+
+    @app.post("/api/browser/test")
+    def test_browser() -> dict:
+        """Open the browser for a few seconds to prove automation works."""
+        if session.busy:
+            raise HTTPException(409, "Finish the current application first")
+        from playwright.sync_api import sync_playwright
+        from applypilot.apply.local_engine import launch_browser
+        try:
+            with sync_playwright() as p:
+                context = launch_browser(p)
+                page = context.pages[0] if context.pages else context.new_page()
+                page.set_content(
+                    "<body style='font:24px system-ui;display:grid;place-items:center;height:90vh'>"
+                    "<div>&#10003; ApplyPilot can control this browser.<br>"
+                    "<small>This window closes by itself.</small></div></body>")
+                page.wait_for_timeout(3000)
+                context.close()
+        except Exception as e:
+            raise HTTPException(500, str(e)[:600]) from e
+        return {"ok": True}
+
+    # -- app lifecycle -----------------------------------------------------
+
+    @app.post("/api/shutdown")
+    def shutdown() -> dict:
+        if app.state.shutdown is None:
+            raise HTTPException(404, "Quit is only available in the desktop app")
+        task.stop()
+        app.state.shutdown()
+        return {"ok": True}
 
     # -- apply -------------------------------------------------------------
 
