@@ -12,6 +12,9 @@ import time
 import urllib.request
 from pathlib import Path
 
+# The app's output contains non-ASCII (→, ✓); Windows CI consoles default to cp1252
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 exe = Path(sys.argv[1]).resolve()
 data = Path(tempfile.mkdtemp(prefix="applypilot-smoke-"))
 env = dict(os.environ, APPLYPILOT_DIR=str(data), APPLYPILOT_NO_BROWSER="1")
