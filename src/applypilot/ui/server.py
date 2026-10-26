@@ -166,6 +166,18 @@ class ApplySession:
     def _apply(self, url: str, min_score: int) -> None:
         from applypilot.apply import launcher, local_engine
 
+        from applypilot.database import get_connection, mark_duplicates
+        conn = get_connection()
+        mark_duplicates(conn)
+        dup = conn.execute(
+            "SELECT c.site, c.applied_at FROM jobs j JOIN jobs c ON c.url = j.duplicate_of WHERE j.url = ?",
+            (url,)).fetchone()
+        if dup:
+            self.state = "error"
+            self.message = (f"This is the same role as a listing on {dup['site']}"
+                            + (", which you've already applied to." if dup["applied_at"]
+                               else ". Apply to that one instead."))
+            return
         job = launcher.acquire_job(target_url=url, min_score=min_score, worker_id=0)
         if not job:
             self.state = "error"
@@ -457,8 +469,10 @@ def create_app() -> FastAPI:
 
     @app.get("/api/jobs")
     def list_jobs(view: str = "ready") -> list[dict]:
+        from applypilot.database import mark_duplicates
+        mark_duplicates(get_connection())
         where = {
-            "ready": "tailored_resume_path IS NOT NULL AND applied_at IS NULL "
+            "ready": "tailored_resume_path IS NOT NULL AND applied_at IS NULL AND duplicate_of IS NULL "
                      "AND COALESCE(apply_status, '') NOT IN ('applied', 'in_progress')",
             "applied": "applied_at IS NOT NULL",
             "all": "1 = 1",
@@ -466,10 +480,12 @@ def create_app() -> FastAPI:
         if where is None:
             raise HTTPException(400, "view must be ready, applied or all")
         rows = get_connection().execute(f"""
-            SELECT url, title, site, location, fit_score, application_url, apply_status,
-                   apply_error, applied_at,
+            SELECT url, title, company, site, location, fit_score, application_url, apply_status,
+                   apply_error, applied_at, duplicate_of,
                    tailored_resume_path IS NOT NULL AS tailored,
-                   cover_letter_path IS NOT NULL AS has_cover
+                   cover_letter_path IS NOT NULL AS has_cover,
+                   (SELECT site FROM jobs c WHERE c.url = jobs.duplicate_of) AS duplicate_site,
+                   (SELECT group_concat(DISTINCT d.site) FROM jobs d WHERE d.duplicate_of = jobs.url) AS also_on
             FROM jobs WHERE {where}
             ORDER BY fit_score IS NULL, fit_score DESC, discovered_at DESC
             LIMIT 500

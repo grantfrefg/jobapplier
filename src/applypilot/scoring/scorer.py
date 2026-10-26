@@ -12,7 +12,7 @@ import time
 from datetime import datetime, timezone
 
 from applypilot.config import RESUME_PATH, load_profile
-from applypilot.database import get_connection, get_jobs_by_stage
+from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
 
 log = logging.getLogger(__name__)
@@ -113,6 +113,7 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
     """
     resume_text = RESUME_PATH.read_text(encoding="utf-8")
     conn = get_connection()
+    mark_duplicates(conn)  # skip roles already found on another site
 
     if rescore:
         query = "SELECT * FROM jobs WHERE full_description IS NOT NULL"

@@ -183,3 +183,28 @@ def test_launcher_importable_from_worker_thread():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
     assert out.stdout.strip().endswith("OK"), out.stdout + out.stderr
+
+
+def test_duplicate_listing_hidden_and_refused(client, tmp_path):
+    _seed_job(tmp_path, "https://linkedin.com/jobs/view/1")
+    _seed_job(tmp_path, "https://au.jora.com/job/1")
+    conn = database.get_connection()
+    conn.execute("UPDATE jobs SET company = 'Acme', site = 'linkedin' WHERE url LIKE '%linkedin%'")
+    conn.execute("UPDATE jobs SET company = 'Acme Pty Ltd', site = 'Jora' WHERE url LIKE '%jora%'")
+    conn.commit()
+
+    ready = client.get("/api/jobs?view=ready").json()
+    assert [j["url"] for j in ready] == ["https://linkedin.com/jobs/view/1"]
+    assert ready[0]["also_on"] == "Jora"
+    everything = {j["url"]: j for j in client.get("/api/jobs?view=all").json()}
+    assert everything["https://au.jora.com/job/1"]["duplicate_site"] == "linkedin"
+
+    client.post("/api/profile", json=PROFILE)
+    client.post("/api/settings", json={"EXECUTION_ENGINE": "local_playwright", "GEMINI_API_KEY": "k-12345678"})
+    client.post("/api/apply", json={"url": "https://au.jora.com/job/1"})
+    for _ in range(50):
+        s = client.get("/api/apply").json()
+        if s["state"] == "error":
+            break
+        time.sleep(0.1)
+    assert "same role as a listing on linkedin" in s["message"]

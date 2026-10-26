@@ -12,7 +12,7 @@ import time
 from datetime import datetime, timezone
 
 from applypilot.config import COVER_LETTER_DIR, RESUME_PATH, load_profile
-from applypilot.database import get_connection, get_jobs_by_stage
+from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
 from applypilot.scoring.validator import (
     BANNED_WORDS,
@@ -200,12 +200,13 @@ def run_cover_letters(min_score: int = 7, limit: int = 20,
     profile = load_profile()
     resume_text = RESUME_PATH.read_text(encoding="utf-8")
     conn = get_connection()
+    mark_duplicates(conn)  # skip roles already found on another site
 
     # Fetch jobs that have tailored resumes but no cover letter yet
     jobs = conn.execute(
         "SELECT * FROM jobs "
         "WHERE fit_score >= ? AND tailored_resume_path IS NOT NULL "
-        "AND full_description IS NOT NULL "
+        "AND full_description IS NOT NULL AND duplicate_of IS NULL "
         "AND (cover_letter_path IS NULL OR cover_letter_path = '') "
         "AND COALESCE(cover_attempts, 0) < ? "
         "ORDER BY fit_score DESC LIMIT ?",

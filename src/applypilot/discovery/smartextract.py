@@ -96,9 +96,9 @@ def _store_jobs_filtered(
             continue
         try:
             conn.execute(
-                "INSERT INTO jobs (url, title, salary, description, location, site, strategy, discovered_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (url, job.get("title"), job.get("salary"), job.get("description"),
+                "INSERT INTO jobs (url, title, company, salary, description, location, site, strategy, "
+                "discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (url, job.get("title"), job.get("company"), job.get("salary"), job.get("description"),
                  job.get("location"), site, strategy, now),
             )
             new += 1
@@ -497,10 +497,10 @@ HOW TO THINK:
 Return ONLY valid JSON:
 
 For json_ld:
-{{"strategy":"json_ld","reasoning":"...","extraction":{{"title":"title","salary":"baseSalary_path_or_null","description":"description","location":"jobLocation[0].address.addressCountry","url":"url_field"}}}}
+{{"strategy":"json_ld","reasoning":"...","extraction":{{"title":"title","company":"hiringOrganization.name_or_null","salary":"baseSalary_path_or_null","description":"description","location":"jobLocation[0].address.addressCountry","url":"url_field"}}}}
 
 For api_response:
-{{"strategy":"api_response","reasoning":"...","extraction":{{"url_pattern":"actual.url.substring","items_path":"path.to.the.array","title":"field_in_each_item","salary":"salary_field_or_null","description":"description_field_or_null","location":"location_path","url":"url_field"}}}}
+{{"strategy":"api_response","reasoning":"...","extraction":{{"url_pattern":"actual.url.substring","items_path":"path.to.the.array","title":"field_in_each_item","company":"company_field_or_null","salary":"salary_field_or_null","description":"description_field_or_null","location":"location_path","url":"url_field"}}}}
 
 For css_selectors:
 {{"strategy":"css_selectors","reasoning":"...","extraction":{{}}}}
@@ -603,6 +603,7 @@ Your task:
 Return a JSON object:
 - "job_card": CSS selector matching each job card (MUST match ALL cards on the page)
 - "title": selector RELATIVE to the card for the job title
+- "company": selector relative to card for the hiring company / advertiser name, or null
 - "salary": selector relative to card for salary, or null
 - "description": selector relative to card for description snippet, or null
 - "location": selector relative to card for location, or null
@@ -722,7 +723,7 @@ def execute_json_ld(intel: dict, plan: dict) -> list[dict]:
         if not isinstance(entry, dict) or entry.get("@type") != "JobPosting":
             continue
         job: dict = {}
-        for field in ["title", "salary", "description", "location", "url"]:
+        for field in ["title", "company", "salary", "description", "location", "url"]:
             path = ext.get(field)
             if not path or path == "null":
                 job[field] = None
@@ -758,7 +759,7 @@ def execute_api_response(intel: dict, plan: dict) -> list[dict]:
         if not isinstance(item, dict):
             continue
         job: dict = {}
-        for field in ["title", "salary", "description", "location", "url"]:
+        for field in ["title", "company", "salary", "description", "location", "url"]:
             path = ext.get(field)
             if not path or path == "null":
                 job[field] = None
@@ -815,7 +816,7 @@ def execute_css_selectors(intel: dict) -> tuple[dict, list[dict]]:
     jobs: list[dict] = []
     for card in cards:
         job: dict = {}
-        for field in ["title", "salary", "description", "location", "url"]:
+        for field in ["title", "company", "salary", "description", "location", "url"]:
             sel = selectors.get(field)
             if not sel or sel == "null":
                 job[field] = None

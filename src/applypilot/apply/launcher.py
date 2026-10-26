@@ -102,6 +102,9 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
         Job dict or None if the queue is empty.
     """
     conn = get_connection()
+    # Never apply twice to one role listed on several sites
+    from applypilot.database import mark_duplicates
+    mark_duplicates(conn)
     try:
         conn.execute("BEGIN IMMEDIATE")
 
@@ -113,6 +116,7 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
                 FROM jobs
                 WHERE (url = ? OR application_url = ? OR application_url LIKE ? OR url LIKE ?)
                   AND tailored_resume_path IS NOT NULL
+                  AND duplicate_of IS NULL
                   AND COALESCE(apply_status, '') != 'in_progress'
                 LIMIT 1
             """, (target_url, target_url, like, like)).fetchone()
@@ -134,6 +138,7 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
                        fit_score, location, full_description, cover_letter_path
                 FROM jobs
                 WHERE tailored_resume_path IS NOT NULL
+                  AND duplicate_of IS NULL
                   AND (apply_status IS NULL OR apply_status = 'failed')
                   AND (apply_attempts IS NULL OR apply_attempts < ?)
                   AND fit_score >= ?

@@ -191,6 +191,7 @@ COUNTRY_SOURCES = {
         "boards": ["indeed", "linkedin"],
         "smart_extract_sites": ["Jora"],
         "workday_employers": [],  # the bundled registry is Canadian/US employers
+        "site_priority": ["linkedin", "indeed", "jora"],
     },
 }
 
@@ -235,6 +236,9 @@ def build_search_yaml(location: str, roles: list[str], country: str = "australia
             "sites: [" + ", ".join(sources["boards"]) + "]",
             "smart_extract_sites: [" + ", ".join(q(n) for n in sources["smart_extract_sites"]) + "]",
             "workday_employers: [" + ", ".join(q(n) for n in sources["workday_employers"]) + "]",
+            "",
+            "# When one role is listed on several sites, keep this site's listing (first wins)",
+            "site_priority: [" + ", ".join(sources["site_priority"]) + "]",
         ]
 
     lines += ["", "queries:"]
