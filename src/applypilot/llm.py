@@ -7,6 +7,11 @@ Auto-detects provider from environment:
   LLM_URL         -> Local llama.cpp / Ollama compatible endpoint
 
 LLM_MODEL env var overrides the model name for any provider.
+
+get_client("writing") is used for tailored resumes and cover letters. It
+uses LLM_WRITING_MODEL (default: gemini-3.8-flash on Gemini, otherwise the
+main model) and falls back to the main model when the writing model's
+quota is used up or it isn't available.
 """
 
 import logging
@@ -15,7 +20,7 @@ import time
 
 import httpx
 
-from applypilot.config import DEFAULT_GEMINI_MODEL
+from applypilot.config import DEFAULT_GEMINI_MODEL, DEFAULT_GEMINI_WRITING_MODEL
 
 log = logging.getLogger(__name__)
 
@@ -86,10 +91,12 @@ class LLMClient:
     for the lifetime of the process.
     """
 
-    def __init__(self, base_url: str, model: str, api_key: str) -> None:
+    def __init__(self, base_url: str, model: str, api_key: str,
+                 max_retries: int = _MAX_RETRIES) -> None:
         self.base_url = base_url
         self.model = model
         self.api_key = api_key
+        self.max_retries = max_retries
         self._client = httpx.Client(timeout=_TIMEOUT)
         # True once we've confirmed the native Gemini API works for this model
         self._use_native_gemini: bool = False
@@ -201,7 +208,7 @@ class LLMClient:
             if first.get("role") == "user" and not first["content"].startswith("/no_think"):
                 messages = [{"role": first["role"], "content": f"/no_think\n{first['content']}"}] + messages[1:]
 
-        for attempt in range(_MAX_RETRIES):
+        for attempt in range(self.max_retries):
             try:
                 # Route to native Gemini if we've already confirmed it's needed
                 if self._use_native_gemini:
@@ -230,7 +237,7 @@ class LLMClient:
 
             except httpx.HTTPStatusError as exc:
                 resp = exc.response
-                if resp.status_code in (429, 503) and attempt < _MAX_RETRIES - 1:
+                if resp.status_code in (429, 503) and attempt < self.max_retries - 1:
                     # Respect Retry-After header if provided (Gemini sends this).
                     retry_after = (
                         resp.headers.get("Retry-After")
@@ -248,18 +255,18 @@ class LLMClient:
                         "LLM rate limited (HTTP %s). Waiting %ds before retry %d/%d. "
                         "Tip: Gemini free tier = 15 RPM. Consider a paid account "
                         "or switching to a local model.",
-                        resp.status_code, wait, attempt + 1, _MAX_RETRIES,
+                        resp.status_code, wait, attempt + 1, self.max_retries,
                     )
                     time.sleep(wait)
                     continue
                 raise
 
             except httpx.TimeoutException:
-                if attempt < _MAX_RETRIES - 1:
+                if attempt < self.max_retries - 1:
                     wait = min(_RATE_LIMIT_BASE_WAIT * (2 ** attempt), 60)
                     log.warning(
                         "LLM request timed out, retrying in %ds (attempt %d/%d)",
-                        wait, attempt + 1, _MAX_RETRIES,
+                        wait, attempt + 1, self.max_retries,
                     )
                     time.sleep(wait)
                     continue
@@ -311,14 +318,88 @@ class _GeminiCompatForbidden(Exception):
 # Singleton
 # ---------------------------------------------------------------------------
 
+class FallbackClient:
+    """Try a preferred model; on quota or availability errors use another.
+
+    The preferred client should not retry rate limits itself (max_retries=1)
+    so an exhausted quota costs one quick request, not minutes of backoff.
+    A daily quota or an unknown model switches to the fallback for the rest
+    of the process; a per-minute limit, overload or timeout only for that call.
+    """
+
+    def __init__(self, preferred: LLMClient, fallback: LLMClient) -> None:
+        self.preferred = preferred
+        self.fallback = fallback
+        self._preferred_off = False
+
+    @property
+    def model(self) -> str:
+        return self.fallback.model if self._preferred_off else self.preferred.model
+
+    def chat(self, messages: list[dict], temperature: float = 0.0, max_tokens: int = 4096) -> str:
+        if not self._preferred_off:
+            try:
+                return self.preferred.chat(messages, temperature=temperature, max_tokens=max_tokens)
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                if status not in (404, 429, 503):
+                    raise
+                for_good = status == 404 or (status == 429 and _is_daily_quota(exc.response))
+                log.warning(
+                    "Writing model %s unavailable (%s); using %s %s.",
+                    self.preferred.model, "daily quota used up" if status == 429 and for_good
+                    else f"HTTP {status}", self.fallback.model,
+                    "for the rest of this run" if for_good else "for this request",
+                )
+                self._preferred_off = self._preferred_off or for_good
+            except httpx.TimeoutException:
+                log.warning("Writing model %s timed out; using %s for this request.",
+                            self.preferred.model, self.fallback.model)
+        return self.fallback.chat(messages, temperature=temperature, max_tokens=max_tokens)
+
+    def ask(self, prompt: str, **kwargs) -> str:
+        return self.chat([{"role": "user", "content": prompt}], **kwargs)
+
+
+def _is_daily_quota(resp: httpx.Response) -> bool:
+    """Gemini's 429 body names the exhausted quota, e.g. ...PerDayPerProjectPerModel..."""
+    text = resp.text.lower()
+    return "perday" in text or "per day" in text or "requests_per_day" in text
+
+
+def writing_model_name(base_url: str, model: str) -> str:
+    """LLM_WRITING_MODEL, else the Gemini default writing model, else the main model."""
+    override = os.environ.get("LLM_WRITING_MODEL", "").strip()
+    if override:
+        return override
+    if base_url.startswith(_GEMINI_COMPAT_BASE):
+        return DEFAULT_GEMINI_WRITING_MODEL
+    return model
+
+
 _instance: LLMClient | None = None
+_writing_instance: LLMClient | FallbackClient | None = None
 
 
-def get_client() -> LLMClient:
-    """Return (or create) the module-level LLMClient singleton."""
-    global _instance
+def get_client(purpose: str = "default") -> LLMClient | FallbackClient:
+    """Return the shared LLM client.
+
+    purpose="writing" is for text a recruiter reads (tailored resumes, cover
+    letters): it prefers the writing model and falls back to the main one.
+    """
+    global _instance, _writing_instance
     if _instance is None:
         base_url, model, api_key = _detect_provider()
         log.info("LLM provider: %s  model: %s", base_url, model)
         _instance = LLMClient(base_url, model, api_key)
-    return _instance
+    if purpose != "writing":
+        return _instance
+    if _writing_instance is None:
+        writing = writing_model_name(_instance.base_url, _instance.model)
+        if writing == _instance.model:
+            _writing_instance = _instance
+        else:
+            log.info("Writing model: %s (falls back to %s)", writing, _instance.model)
+            _writing_instance = FallbackClient(
+                LLMClient(_instance.base_url, writing, _instance.api_key, max_retries=1), _instance)
+    return _writing_instance

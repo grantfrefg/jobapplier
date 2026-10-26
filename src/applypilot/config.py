@@ -258,6 +258,10 @@ EXECUTION_ENGINES = (ENGINE_CLAUDE_CODE, ENGINE_LOCAL_PLAYWRIGHT)
 
 # Default Gemini model, for every stage, when LLM_MODEL isn't set
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
+# Stronger model for the text recruiters read (tailored resumes, cover
+# letters) when LLM_WRITING_MODEL isn't set. Its free quota is small, so
+# llm.get_client("writing") falls back to the default model when it's used up.
+DEFAULT_GEMINI_WRITING_MODEL = "gemini-3.8-flash"
 LOCAL_ENGINE_DEFAULT_MODEL = DEFAULT_GEMINI_MODEL
 
 # Persistent browser profile for the local engine (keeps SEEK/Workday logins)

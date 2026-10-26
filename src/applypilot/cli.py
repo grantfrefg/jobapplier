@@ -417,6 +417,9 @@ def doctor() -> None:
         from applypilot.config import DEFAULT_GEMINI_MODEL
         model = os.environ.get("LLM_MODEL") or DEFAULT_GEMINI_MODEL
         results.append(("LLM API key", ok_mark, f"Gemini ({model})"))
+        from applypilot.config import DEFAULT_GEMINI_WRITING_MODEL
+        writing = os.environ.get("LLM_WRITING_MODEL") or DEFAULT_GEMINI_WRITING_MODEL
+        results.append(("Writing model", ok_mark, f"{writing} for resumes/cover letters, falls back to {model}"))
     elif has_openai:
         model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
         results.append(("LLM API key", ok_mark, f"OpenAI ({model})"))

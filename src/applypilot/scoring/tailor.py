@@ -382,7 +382,7 @@ def tailor_resume(
     }
     avoid_notes: list[str] = []
     tailored = ""
-    client = get_client()
+    client = get_client("writing")  # the fact-check judge stays on the main model
     tailor_prompt_base = _build_tailor_prompt(profile)
 
     for attempt in range(max_retries + 1):
