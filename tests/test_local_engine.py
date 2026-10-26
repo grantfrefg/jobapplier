@@ -61,9 +61,9 @@ def test_execution_engine(monkeypatch, raw, expected):
 
 
 @pytest.mark.parametrize("raw, expected", [
-    (None, "gemini-2.5-flash"),
+    (None, "gemini-3.5-flash-lite"),
     ("gemini-1.5-flash", "gemini-1.5-flash"),
-    ("gpt-4o-mini", "gemini-2.5-flash"),  # non-Gemini model for other stages is ignored
+    ("gpt-4o-mini", "gemini-3.5-flash-lite"),  # non-Gemini model for other stages is ignored
 ])
 def test_local_engine_model(monkeypatch, raw, expected):
     if raw is None:
@@ -303,7 +303,7 @@ def test_gemini_error_message_is_readable(monkeypatch):
     real_client = httpx.Client
     monkeypatch.setattr(le.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
     with pytest.raises(RuntimeError, match="API key not valid"):
-        le._call_gemini("hi", "bad", "gemini-2.5-flash")
+        le._call_gemini("hi", "bad", "gemini-3.5-flash-lite")
 
 
 def test_pipeline_llm_error_includes_google_message():
@@ -316,4 +316,4 @@ def test_pipeline_llm_error_includes_google_message():
         lambda req: httpx.Response(400, json=[{"error": {"message": "Please pass a valid API key"}}])))
     with pytest.raises(httpx.HTTPStatusError, match="Please pass a valid API key"):
         client.ask("hi")
-    assert llm.DEFAULT_GEMINI_MODEL == config.DEFAULT_GEMINI_MODEL == "gemini-2.5-flash"
+    assert llm.DEFAULT_GEMINI_MODEL == config.DEFAULT_GEMINI_MODEL == "gemini-3.5-flash-lite"

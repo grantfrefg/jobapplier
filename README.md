@@ -246,7 +246,7 @@ Set `EXECUTION_ENGINE=local_playwright` in `~/.applypilot/.env` to skip Claude C
 ```bash
 EXECUTION_ENGINE=local_playwright   # default: claude_code
 GEMINI_API_KEY=your-free-key
-LLM_MODEL=gemini-2.5-flash          # optional; non-Gemini values fall back to gemini-2.5-flash
+LLM_MODEL=gemini-3.5-flash-lite          # optional; non-Gemini values fall back to gemini-3.5-flash-lite
 
 pip install playwright && python -m playwright install chromium
 applypilot apply --url URL
