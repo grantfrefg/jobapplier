@@ -772,12 +772,17 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
         lf.write(f"\n{'=' * 60}\n[{datetime.now():%Y-%m-%d %H:%M:%S}] {job['title']}\n"
                  f"URL: {target}\nModel: {ctx['model']}\n{'=' * 60}\n")
         context = launch_browser(p)
+        page = context.pages[0] if context.pages else context.new_page()
+        nav_error = None
         try:
-            page = context.pages[0] if context.pages else context.new_page()
             page.goto(target, wait_until="domcontentloaded", timeout=60000)
-            page.wait_for_load_state("networkidle", timeout=15000)
         except Exception as e:
+            nav_error = str(e).strip().splitlines()[0][:200]
             lf.write(f"  navigation: {e}\n")
+        try:
+            page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass  # busy pages never go network-idle; the DOM is already loaded
 
         try:
             needs: list[str] = []
@@ -785,6 +790,11 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
             step = 0
             while True:
                 controls, frame_by_id, needs = _fill_page(page, job, ctx, lf)
+                if nav_error:
+                    # Don't leave the user looking at a blank page without a reason
+                    needs = [f"Couldn't open the job page ({target}): {nav_error}. Open it yourself in "
+                             "this browser, then choose 'Fill this page again'."] + needs
+                    nav_error = None
                 update_state(worker_id, actions=step + 1, last_action=f"local: filled step {step + 1}")
 
                 # Re-scan after filling: conditional fields may have appeared,
