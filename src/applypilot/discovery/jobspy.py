@@ -77,42 +77,13 @@ def _scrape_with_retry(kwargs: dict, max_retries: int = 2, backoff: float = 5.0)
 # -- Location filtering ------------------------------------------------------
 
 def _load_location_config(search_cfg: dict) -> tuple[list[str], list[str]]:
-    """Extract accept/reject location lists from search config.
-
-    Falls back to sensible defaults if not defined in the YAML.
-    """
-    accept = search_cfg.get("location_accept", [])
-    reject = search_cfg.get("location_reject_non_remote", [])
-    return accept, reject
+    """Extract accept/reject location lists from search config."""
+    return config.load_location_filter(search_cfg)
 
 
 def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> bool:
-    """Check if a job location passes the user's location filter.
-
-    Remote jobs are always accepted. Non-remote jobs must match an accept
-    pattern and not match a reject pattern.
-    """
-    if not location:
-        return True  # unknown location -- keep it, let scorer decide
-
-    loc = location.lower()
-
-    # Remote jobs always OK
-    if any(r in loc for r in ("remote", "anywhere", "work from home", "wfh", "distributed")):
-        return True
-
-    # Reject non-remote matches
-    for r in reject:
-        if r.lower() in loc:
-            return False
-
-    # Accept matches
-    for a in accept:
-        if a.lower() in loc:
-            return True
-
-    # No match -- reject unknown
-    return False
+    """Check if a job location passes the user's location filter (see config.location_ok)."""
+    return config.location_ok(location, accept, reject)
 
 
 # -- DB storage (JobSpy DataFrame -> SQLite) ---------------------------------
@@ -270,7 +241,7 @@ def _run_one_search(
 
     # Filter by location before storing
     before = len(df)
-    df = df[df.apply(lambda row: _location_ok(
+    df = df[df.apply(lambda row: str(row.get("is_remote")).lower() == "true" or _location_ok(
         str(row.get("location", "")) if str(row.get("location", "")) != "nan" else None,
         accept_locs, reject_locs,
     ), axis=1)]
@@ -440,6 +411,15 @@ def _full_crawl(
 
 # -- Public entry point ------------------------------------------------------
 
+def country_indeed(cfg: dict) -> str:
+    """Indeed country site to search: defaults.country_indeed, else `country`, else USA.
+
+    Without this, a search for "Sydney" hits indeed.com (US) and finds nothing.
+    """
+    value = (cfg.get("defaults") or {}).get("country_indeed") or cfg.get("country") or "usa"
+    return str(value).strip().lower()
+
+
 def run_discovery(cfg: dict | None = None) -> dict:
     """Main entry point for JobSpy-based job discovery.
 
@@ -461,7 +441,9 @@ def run_discovery(cfg: dict | None = None) -> dict:
         return {"new": 0, "existing": 0, "errors": 0, "db_total": 0, "queries": 0}
 
     proxy = cfg.get("proxy")
-    sites = cfg.get("sites")
+    # "boards" is the key the example config documents; "sites" is the original one
+    sites = cfg.get("sites") or cfg.get("boards")
+    cfg = {**cfg, "defaults": {**(cfg.get("defaults") or {}), "country_indeed": country_indeed(cfg)}}
     results_per_site = cfg.get("defaults", {}).get("results_per_site", 100)
     hours_old = cfg.get("defaults", {}).get("hours_old", 72)
     tiers = cfg.get("tiers")

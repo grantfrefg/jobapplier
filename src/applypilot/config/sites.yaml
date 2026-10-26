@@ -52,9 +52,18 @@ base_urls:
   "Himalayas": "https://himalayas.app"
   "Techstars Jobs": "https://www.techstars.com"
   "Randstad Canada": "https://www.randstad.ca/jobs/search/"
+  "Jora": "https://au.jora.com"
 
 sites:
   # ── Searchable sites (URL includes query + location params) ──────────
+  # Australia
+  # Not included: SEEK (terms prohibit scraping; strong bot protection) and
+  # APS Jobs (listings don't render for automated browsers). Indeed Australia
+  # and LinkedIn come from JobSpy (see `country` / `sites` in searches.yaml).
+  - name: "Jora"
+    url: "https://au.jora.com/j?sp=search&q={query_encoded}&l={location_encoded}"
+    type: search
+
   # Canada-specific
   - name: "Eluta"
     url: "https://www.eluta.ca/search?q={query_encoded}&l={location_encoded}"

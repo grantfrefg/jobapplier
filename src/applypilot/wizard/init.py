@@ -184,27 +184,62 @@ def _setup_profile() -> dict:
 # Search config
 # ---------------------------------------------------------------------------
 
-def build_search_yaml(location: str, distance: int, roles: list[str]) -> str:
+# Discovery sources that are relevant per country. Countries not listed keep
+# every source in config/sites.yaml and config/employers.yaml.
+COUNTRY_SOURCES = {
+    "australia": {
+        "boards": ["indeed", "linkedin"],
+        "smart_extract_sites": ["Jora"],
+        "workday_employers": [],  # the bundled registry is Canadian/US employers
+    },
+}
+
+
+def build_search_yaml(location: str, roles: list[str], country: str = "australia",
+                      include_remote: bool = False) -> str:
     """Render searches.yaml content (shared by this wizard and the web UI)."""
-    # json.dumps gives a valid double-quoted YAML scalar, escaping any quotes
+    from applypilot.config import location_accept_patterns
+
+    country = country.strip().lower() or "usa"
+    sources = COUNTRY_SOURCES.get(country, {})
+    q = json.dumps  # a valid double-quoted YAML scalar, escaping any quotes
     lines = [
         "# ApplyPilot search configuration",
         "# Edit this file to refine your job search queries.",
         "",
+        "# Country for Indeed (e.g. australia, usa, canada, uk)",
+        f"country: {q(country)}",
+        "",
         "defaults:",
-        f"  location: {json.dumps(location)}",
-        f"  distance: {distance}",
+        f"  location: {q(location)}",
         "  hours_old: 72",
         "  results_per_site: 50",
         "",
         "locations:",
-        f"  - location: {json.dumps(location)}",
-        f"    remote: {str(distance == 0).lower()}",
-        "",
-        "queries:",
+        f"  - location: {q(location)}",
+        "    remote: false",
     ]
+    if include_remote:
+        lines += [f"  - location: {q(country.title())}", "    remote: true"]
+
+    accept = location_accept_patterns(location)
+    lines += ["", "# Keep only jobs whose location matches one of these (remote jobs are always kept)",
+              "location_accept:"] + [f"  - {q(a)}" for a in accept]
+    if not accept:
+        lines[-1] = "location_accept: []"
+
+    if sources:
+        lines += [
+            "",
+            f"# Sources chosen for {country.title()}. Remove a key to use every bundled source.",
+            "sites: [" + ", ".join(sources["boards"]) + "]",
+            "smart_extract_sites: [" + ", ".join(q(n) for n in sources["smart_extract_sites"]) + "]",
+            "workday_employers: [" + ", ".join(q(n) for n in sources["workday_employers"]) + "]",
+        ]
+
+    lines += ["", "queries:"]
     for i, role in enumerate(roles):
-        lines.append(f"  - query: {json.dumps(role)}")
+        lines.append(f"  - query: {q(role)}")
         lines.append(f"    tier: {min(i + 1, 3)}")
     return "\n".join(lines) + "\n"
 
@@ -213,12 +248,9 @@ def _setup_searches() -> None:
     """Generate a searches.yaml from user input."""
     console.print(Panel("[bold]Step 3: Job Search Config[/bold]\nDefine what you're looking for."))
 
-    location = Prompt.ask("Target location (e.g. 'Remote', 'Canada', 'New York, NY')", default="Remote")
-    distance_str = Prompt.ask("Search radius in miles (0 for remote-only)", default="0")
-    try:
-        distance = int(distance_str)
-    except ValueError:
-        distance = 0
+    country = Prompt.ask("Country (e.g. 'australia', 'usa', 'canada', 'uk')", default="australia")
+    location = Prompt.ask("Target city / region (e.g. 'Sydney, NSW', 'Melbourne, VIC')", default="Sydney, NSW")
+    include_remote = Confirm.ask("Also include remote jobs?", default=True)
 
     roles_raw = Prompt.ask(
         "Target job titles (comma-separated, e.g. 'Backend Engineer, Full Stack Developer')"
@@ -229,7 +261,7 @@ def _setup_searches() -> None:
         console.print("[yellow]No roles provided. Using a default set.[/yellow]")
         roles = ["Software Engineer"]
 
-    SEARCH_CONFIG_PATH.write_text(build_search_yaml(location, distance, roles), encoding="utf-8")
+    SEARCH_CONFIG_PATH.write_text(build_search_yaml(location, roles, country, include_remote), encoding="utf-8")
     console.print(f"[green]Search config saved to {SEARCH_CONFIG_PATH}[/green]")
 
 
