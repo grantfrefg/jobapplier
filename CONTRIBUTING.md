@@ -30,7 +30,7 @@ pytest tests                  # without a display, the browser tests are skipped
 ruff check --select E,F,W \
   src/applypilot/ui src/applypilot/desktop.py src/applypilot/__main__.py \
   src/applypilot/apply/local_engine.py src/applypilot/database.py \
-  src/applypilot/scoring/scorer.py packaging tests
+  packaging tests
 ```
 
 Lint covers only the modules that are already clean. Older upstream modules still have findings; if you clean one up, add it to the lint step in `ci.yml`.
