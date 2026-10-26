@@ -266,7 +266,7 @@ def test_local_engine_end_to_end(tmp_path, monkeypatch):
     assert "Jane Quinn Doe" in seen["cl"]  # real text swapped in locally
     assert seen["submitted"] is False      # automation never clicked Submit
     assert seen["outlined"] == "solid"     # Submit highlighted for the human
-    assert len(prompts) == 2               # step 1 + step 2 (Continue was clicked)
+    assert len(prompts) == 1               # step 1 is all standard fields: no AI request
     for p in prompts:
         for secret in SECRETS:
             assert not _leaks(secret, p), secret
