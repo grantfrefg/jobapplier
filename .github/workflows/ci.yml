@@ -35,11 +35,21 @@ jobs:
         # requirements-desktop.txt pins the job-board scraper the app ships with
         run: pip install -e ".[dev,ui]" -r packaging/requirements-desktop.txt
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'packaging/requirements-desktop.txt') }}
+
       - name: Install Chromium (browser tests)
-        # Normally ~1 min; a stalled Ubuntu package mirror once hung this for
-        # the whole job, so fail fast instead
+        # Browser download only. No --with-deps: GitHub's Ubuntu images already
+        # ship Chrome's system libraries, and the apt step it adds stalled on
+        # Ubuntu's mirror more than once.
         timeout-minutes: 10
-        run: python -m playwright install --with-deps --no-shell chromium
+        run: |
+          python -m playwright install --no-shell chromium
+          # Virtual display for the visible-browser tests (preinstalled on GitHub's images)
+          command -v xvfb-run || { sudo apt-get update && sudo apt-get install -y xvfb; }
 
       - name: Lint
         # pyflakes + pycodestyle on code that is already clean. Older upstream
