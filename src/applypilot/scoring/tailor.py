@@ -19,10 +19,19 @@ from pathlib import Path
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
+from applypilot.scoring.cover_letter import (
+    COVER_LETTER_DIR,
+    clean_letter,
+    cover_letter_rules,
+    generate_cover_letter,
+    job_text,
+)
 from applypilot.scoring.validator import (
     BANNED_WORDS,
     FABRICATION_WATCHLIST,
+    new_numbers,
     sanitize_text,
+    validate_cover_letter,
     validate_json_fields,
     validate_tailored_resume,
 )
@@ -34,8 +43,8 @@ MAX_ATTEMPTS = 5  # max cross-run retries before giving up
 
 # ── Prompt Builders (profile-driven) ──────────────────────────────────────
 
-def _build_tailor_prompt(profile: dict) -> str:
-    """Build the resume tailoring system prompt from the user's profile.
+def _tailor_rules(profile: dict) -> str:
+    """The resume tailoring rules, derived from the user's profile.
 
     All skills boundaries, preserved entities, and formatting rules are
     derived from the profile -- nothing is hardcoded.
@@ -64,9 +73,6 @@ def _build_tailor_prompt(profile: dict) -> str:
     # Include ALL banned words from the validator so the LLM knows exactly
     # what will be rejected — the validator checks for these automatically.
     banned_str = ", ".join(BANNED_WORDS)
-
-    education = profile.get("experience", {})
-    education_level = education.get("education_level", "")
 
     return f"""You are a senior technical recruiter rewriting a resume to get this person an interview.
 
@@ -110,11 +116,47 @@ BULLETS: Strong verb + what you built + quantified impact. Vary verbs (Built, De
 - Do NOT change real numbers ({metrics_str})
 - Preserved companies: {companies_str} -- names stay as-is
 - Preserved school: {school}
-- Must fit 1 page.
+- Must fit 1 page."""
 
-## OUTPUT: Return ONLY valid JSON. No markdown fences. No commentary. No "here is" preamble.
 
-{{"title":"Role Title","summary":"2-3 tailored sentences.","skills":{{"Languages":"...","Frameworks":"...","DevOps & Infra":"...","Databases":"...","Tools":"..."}},"experience":[{{"header":"Title at Company","subtitle":"Tech | Dates","bullets":["bullet 1","bullet 2","bullet 3","bullet 4"]}}],"projects":[{{"header":"Project Name - Description","subtitle":"Tech | Dates","bullets":["bullet 1","bullet 2"]}}],"education":"{school} | {education_level}"}}"""
+def _resume_shape(profile: dict) -> str:
+    """Example of the resume JSON object the LLM must return."""
+    school = profile.get("resume_facts", {}).get("preserved_school", "")
+    education_level = profile.get("experience", {}).get("education_level", "")
+    return (
+        '{"title":"Role Title","summary":"2-3 tailored sentences.","skills":{"Languages":"...",'
+        '"Frameworks":"...","DevOps & Infra":"...","Databases":"...","Tools":"..."},'
+        '"experience":[{"header":"Title at Company","subtitle":"Tech | Dates",'
+        '"bullets":["bullet 1","bullet 2","bullet 3","bullet 4"]}],'
+        '"projects":[{"header":"Project Name - Description","subtitle":"Tech | Dates",'
+        '"bullets":["bullet 1","bullet 2"]}],'
+        f'"education":"{school} | {education_level}"}}'
+    )
+
+
+def _build_tailor_prompt(profile: dict) -> str:
+    """Resume-only tailoring prompt (rules + output format)."""
+    return (_tailor_rules(profile)
+            + '\n\n## OUTPUT: Return ONLY valid JSON. No markdown fences. No commentary. No "here is" preamble.\n\n'
+            + _resume_shape(profile))
+
+
+def _build_application_prompt(profile: dict) -> str:
+    """One request for both the tailored resume and the cover letter.
+
+    They share the same context (resume, job, profile), so generating them
+    together costs one LLM request instead of two or more.
+    """
+    return (
+        _tailor_rules(profile)
+        + "\n\n## COVER LETTER\nAlso write a cover letter for this job, consistent with the tailored resume.\n\n"
+        + cover_letter_rules(profile)
+        + "\n\n## OUTPUT: Return ONLY a JSON object with exactly two keys:\n"
+        + '{"resume": <the tailored resume object>, '
+        + '"cover_letter": "<the full letter text, paragraphs separated by \\n\\n>"}\n\n'
+        + "The resume object has this shape:\n"
+        + _resume_shape(profile)
+    )
 
 
 def _build_judge_prompt(profile: dict) -> str:
@@ -134,9 +176,8 @@ def _build_judge_prompt(profile: dict) -> str:
 
     return f"""You are a resume quality judge. A tailoring engine rewrote a resume to target a specific job. Your job is to catch LIES, not style changes.
 
-You must answer with EXACTLY this format:
-VERDICT: PASS or FAIL
-ISSUES: (list any problems, or "none")
+Answer with ONLY a JSON object: {{"verdict": "PASS" or "FAIL", "issues": "<problems found, or none>"}}
+If a cover letter is included, apply the same rules to it: it may only claim work, tools and numbers from the original resume.
 
 ## CONTEXT -- what the tailoring engine was instructed to do (all of this is ALLOWED):
 - Change the title to match the target role
@@ -300,7 +341,8 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
 # ── LLM Judge ────────────────────────────────────────────────────────────
 
 def judge_tailored_resume(
-    original_text: str, tailored_text: str, job_title: str, profile: dict
+    original_text: str, tailored_text: str, job_title: str, profile: dict,
+    cover_letter: str = "",
 ) -> dict:
     """LLM judge layer: catches subtle fabrication that programmatic checks miss.
 
@@ -309,155 +351,186 @@ def judge_tailored_resume(
         tailored_text: Tailored resume text.
         job_title: Target job title.
         profile: User profile for building the judge prompt.
+        cover_letter: Cover letter written alongside the resume, if any.
 
     Returns:
-        {"passed": bool, "verdict": str, "issues": str, "raw": str}
+        {"passed": bool, "verdict": str, "issues": str}
     """
-    judge_prompt = _build_judge_prompt(profile)
-
+    letter_part = f"\n\n---\n\nCOVER LETTER:\n{cover_letter}" if cover_letter else ""
     messages = [
-        {"role": "system", "content": judge_prompt},
+        {"role": "system", "content": _build_judge_prompt(profile)},
         {"role": "user", "content": (
             f"JOB TITLE: {job_title}\n\n"
             f"ORIGINAL RESUME:\n{original_text}\n\n---\n\n"
-            f"TAILORED RESUME:\n{tailored_text}\n\n"
-            "Judge this tailored resume:"
+            f"TAILORED RESUME:\n{tailored_text}{letter_part}\n\n"
+            "Judge it:"
         )},
     ]
+    try:
+        data = get_client().chat_json(messages, max_tokens=512, temperature=0.1)
+    except ValueError:
+        data = {}
+    verdict = str(data.get("verdict", "")).strip().upper() if isinstance(data, dict) else ""
+    passed = verdict == "PASS"
+    issues = str(data.get("issues") or "none") if isinstance(data, dict) else "unreadable judge reply"
+    return {"passed": passed, "verdict": verdict or "UNREADABLE", "issues": issues}
 
-    client = get_client()
-    response = client.chat(messages, max_tokens=512, temperature=0.1)
 
-    passed = "VERDICT: PASS" in response.upper()
-    issues = "none"
-    if "ISSUES:" in response.upper():
-        issues_idx = response.upper().index("ISSUES:")
-        issues = response[issues_idx + 7:].strip()
+def _generated_text(resume: dict, letter: str) -> str:
+    """The LLM-written prose (not the code-injected header), for number checks."""
+    parts = [str(resume.get("title", "")), str(resume.get("summary", ""))]
+    for section in ("experience", "projects"):
+        for entry in resume.get(section) or []:
+            if isinstance(entry, dict):
+                parts += [str(entry.get("header", "")), str(entry.get("subtitle", ""))]
+                parts += [str(b) for b in entry.get("bullets", [])]
+    if isinstance(resume.get("skills"), dict):
+        parts += [str(v) for v in resume["skills"].values()]
+    parts.append(letter or "")
+    return "\n".join(parts)
 
-    return {
-        "passed": passed,
-        "verdict": "PASS" if passed else "FAIL",
-        "issues": issues,
-        "raw": response,
-    }
+
+def judge_reasons(resume_text: str, resume: dict, letter: str, mode: str) -> list[str]:
+    """Why the LLM fact-check should run; empty = the free checks found nothing.
+
+    strict always runs it and lenient never does. In normal mode it runs only
+    when code spots a likely fabrication anywhere in the resume or letter:
+    numbers that aren't in the original resume (invented metrics), or tools
+    from the fabrication watchlist that the original never mentions. Banned
+    buzzwords are a style problem and don't need the judge.
+    """
+    if mode == "lenient":
+        return []
+    if mode == "strict":
+        return ["strict mode"]
+    generated = _generated_text(resume, letter)
+    reasons = []
+    invented = new_numbers(resume_text, generated)
+    if invented:
+        reasons.append(f"numbers not in your resume: {', '.join(invented[:5])}")
+    original_lower, generated_lower = resume_text.lower(), generated.lower()
+    tools = sorted(t for t in FABRICATION_WATCHLIST if len(t) > 2
+                   and re.search(rf"(?<!\w){re.escape(t)}(?!\w)", generated_lower)
+                   and not re.search(rf"(?<!\w){re.escape(t)}(?!\w)", original_lower))
+    if tools:
+        reasons.append(f"tools not in your resume: {', '.join(tools[:5])}")
+    return reasons
 
 
 # ── Core Tailoring ───────────────────────────────────────────────────────
 
-def tailor_resume(
+def tailor_application(
     resume_text: str, job: dict, profile: dict,
     max_retries: int = 3, validation_mode: str = "normal",
-) -> tuple[str, dict]:
-    """Generate a tailored resume via JSON output + fresh context on each retry.
+) -> tuple[str, str, dict]:
+    """Tailored resume AND cover letter for one job, usually in one LLM request.
 
-    Key design choices:
-    - LLM returns structured JSON, code assembles the text (no header leaks)
-    - Each retry starts a FRESH conversation (no apologetic spiral)
-    - Issues from previous attempts are noted in the system prompt
-    - Em dashes and smart quotes are auto-fixed, not rejected
-
-    Args:
-        resume_text:      Base resume text.
-        job:              Job dict with title, site, location, full_description.
-        profile:          User profile dict.
-        max_retries:      Maximum retry attempts.
-        validation_mode:  "strict", "normal", or "lenient".
-                          strict  -- banned words trigger retries; judge must pass
-                          normal  -- banned words = warnings only; judge can fail on last retry
-                          lenient -- banned words ignored; LLM judge skipped
+    - One JSON request returns both; code checks validate each.
+    - The LLM judge only runs when judge_reasons() finds something (or in
+      strict mode), instead of after every attempt.
+    - A bad resume regenerates both; a bad cover letter alone gets a
+      letter-only retry (generate_cover_letter).
+    - Each retry is a fresh conversation with the previous issues listed.
 
     Returns:
-        (tailored_text, report) where report contains validation details.
+        (tailored_text, cover_letter, report). report["requests"] counts
+        LLM requests used; report["status"] is "approved",
+        "approved_with_judge_warning", "failed_validation" or
+        "exhausted_retries".
     """
-    job_text = (
-        f"TITLE: {job['title']}\n"
-        f"COMPANY: {job['site']}\n"
-        f"LOCATION: {job.get('location', 'N/A')}\n\n"
-        f"DESCRIPTION:\n{(job.get('full_description') or '')[:6000]}"
-    )
-
     report: dict = {
-        "attempts": 0, "validator": None, "judge": None,
-        "status": "pending", "validation_mode": validation_mode,
+        "attempts": 0, "requests": 0, "validator": None, "cover_validator": None,
+        "judge": None, "judge_reasons": [], "status": "pending", "validation_mode": validation_mode,
     }
-    avoid_notes: list[str] = []
-    tailored = ""
     client = get_client()
-    tailor_prompt_base = _build_tailor_prompt(profile)
+    base_prompt = _build_application_prompt(profile)
+    target = job_text(job)
+    avoid_notes: list[str] = []
+    tailored, letter, letter_ok = "", "", False
 
     for attempt in range(max_retries + 1):
         report["attempts"] = attempt + 1
-
-        # Fresh conversation every attempt
-        prompt = tailor_prompt_base
+        prompt = base_prompt
         if avoid_notes:
             prompt += "\n\n## AVOID THESE ISSUES (from previous attempt):\n" + "\n".join(
                 f"- {n}" for n in avoid_notes[-5:]
             )
-
         messages = [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": f"ORIGINAL RESUME:\n{resume_text}\n\n---\n\nTARGET JOB:\n{job_text}\n\nReturn the JSON:"},
+            {"role": "user", "content": f"ORIGINAL RESUME:\n{resume_text}\n\n---\n\nTARGET JOB:\n{target}\n\n"
+                                        "Return the JSON:"},
         ]
-
-        raw = client.chat(messages, max_tokens=2048, temperature=0.4)
-
-        # Parse JSON from response
+        report["requests"] += 1
         try:
-            data = extract_json(raw)
+            data = client.chat_json(messages, max_tokens=3072, temperature=0.4)
         except ValueError:
             avoid_notes.append("Output was not valid JSON. Return ONLY a JSON object, nothing else.")
             continue
+        resume = data.get("resume") if isinstance(data, dict) else None
+        if not isinstance(resume, dict):
+            avoid_notes.append('Return a JSON object with "resume" and "cover_letter" keys.')
+            continue
 
-        # Layer 1: Validate JSON fields
-        validation = validate_json_fields(data, profile, mode=validation_mode)
+        # Cover letter: keep the best one seen (a valid one wins)
+        raw_letter = data.get("cover_letter")
+        if isinstance(raw_letter, str) and raw_letter.strip() and not letter_ok:
+            candidate = clean_letter(raw_letter)
+            cover_check = validate_cover_letter(candidate, mode=validation_mode)
+            report["cover_validator"] = cover_check
+            letter, letter_ok = candidate, cover_check["passed"]
+
+        validation = validate_json_fields(resume, profile, mode=validation_mode)
         report["validator"] = validation
-
         if not validation["passed"]:
-            # Only retry if there are hard errors (warnings never block)
             avoid_notes.extend(validation["errors"])
             if attempt < max_retries:
                 continue
-            # Last attempt — assemble whatever we got
-            tailored = assemble_resume_text(data, profile)
+            tailored = assemble_resume_text(resume, profile)
             report["status"] = "failed_validation"
-            return tailored, report
+            return tailored, letter, report
 
-        # Assemble text (header injected by code, em dashes auto-fixed)
-        tailored = assemble_resume_text(data, profile)
-
-        # Layer 2: LLM judge (catches subtle fabrication) — skipped in lenient mode
-        if validation_mode == "lenient":
-            report["judge"] = {"verdict": "SKIPPED", "passed": True, "issues": "none"}
+        tailored = assemble_resume_text(resume, profile)
+        reasons = judge_reasons(resume_text, resume, letter, validation_mode)
+        report["judge_reasons"] = reasons
+        if not reasons:
+            report["judge"] = {"verdict": "SKIPPED", "passed": True, "issues": "code checks clean"}
             report["status"] = "approved"
-            return tailored, report
+            break
 
-        judge = judge_tailored_resume(resume_text, tailored, job.get("title", ""), profile)
+        report["requests"] += 1
+        judge = judge_tailored_resume(resume_text, tailored, job.get("title", ""), profile, letter)
         report["judge"] = judge
+        if judge["passed"]:
+            report["status"] = "approved"
+            break
+        avoid_notes.append(f"Judge rejected: {judge['issues']}")
+        letter_ok = False  # the judge saw the letter too; regenerate it with the resume
+        if attempt < max_retries:
+            continue
+        report["status"] = "approved_with_judge_warning"
+        break
+    else:
+        report["status"] = "exhausted_retries"
+        return tailored, letter, report
 
-        if not judge["passed"]:
-            avoid_notes.append(f"Judge rejected: {judge['issues']}")
-            if attempt < max_retries:
-                # In normal mode, only retry on judge failure if there are retries left
-                if validation_mode != "lenient":
-                    continue
-            # Accept best attempt on last retry (all modes) or if lenient
-            report["status"] = "approved_with_judge_warning"
-            return tailored, report
-
-        # Both passed
-        report["status"] = "approved"
-        return tailored, report
-
-    report["status"] = "exhausted_retries"
-    return tailored, report
+    if not letter_ok:
+        # Resume is fine; only the letter needs another go (plain-text request)
+        stats = {"requests": 0}
+        letter = generate_cover_letter(tailored, job, profile, max_retries=1,
+                                       validation_mode=validation_mode, stats=stats)
+        report["requests"] += stats["requests"]
+    return tailored, letter, report
 
 
 # ── Batch Entry Point ────────────────────────────────────────────────────
 
 def run_tailoring(min_score: int = 7, limit: int = 20,
                   validation_mode: str = "normal") -> dict:
-    """Generate tailored resumes for high-scoring jobs.
+    """Generate tailored resumes and cover letters for high-scoring jobs.
+
+    Each job's resume and cover letter come from one LLM request (see
+    tailor_application), so the separate cover-letter stage only has work
+    for jobs tailored before this change.
 
     Args:
         min_score:       Minimum fit_score to tailor for.
@@ -465,7 +538,8 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
         validation_mode: "strict", "normal", or "lenient".
 
     Returns:
-        {"approved": int, "failed": int, "errors": int, "elapsed": float}
+        {"approved": int, "failed": int, "errors": int, "cover_letters": int,
+         "requests": int, "elapsed": float}
     """
     profile = load_profile()
     resume_text = RESUME_PATH.read_text(encoding="utf-8")
@@ -476,9 +550,11 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
 
     if not jobs:
         log.info("No untailored jobs with score >= %d.", min_score)
-        return {"approved": 0, "failed": 0, "errors": 0, "elapsed": 0.0}
+        return {"approved": 0, "failed": 0, "errors": 0, "cover_letters": 0, "requests": 0, "elapsed": 0.0}
 
     TAILORED_DIR.mkdir(parents=True, exist_ok=True)
+    COVER_LETTER_DIR.mkdir(parents=True, exist_ok=True)
+    total_requests = 0
     log.info("Tailoring resumes for %d jobs (score >= %d)...", len(jobs), min_score)
     t0 = time.time()
     completed = 0
@@ -488,12 +564,13 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
     for job in jobs:
         completed += 1
         try:
-            tailored, report = tailor_resume(resume_text, job, profile,
-                                             validation_mode=validation_mode)
+            tailored, letter, report = tailor_application(resume_text, job, profile,
+                                                          validation_mode=validation_mode)
+            total_requests += report["requests"]
 
             # Build safe filename prefix
             safe_title = re.sub(r"[^\w\s-]", "", job["title"])[:50].strip().replace(" ", "_")
-            safe_site = re.sub(r"[^\w\s-]", "", job["site"])[:20].strip().replace(" ", "_")
+            safe_site = re.sub(r"[^\w\s-]", "", job.get("company") or job["site"])[:20].strip().replace(" ", "_")
             prefix = f"{safe_site}_{safe_title}"
 
             # Save tailored resume text
@@ -519,12 +596,23 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             # Generate PDF for approved resumes (best-effort)
             # "approved_with_judge_warning" is also a success — resume was generated.
             pdf_path = None
+            cl_path = None
             if report["status"] in ("approved", "approved_with_judge_warning"):
                 try:
                     from applypilot.scoring.pdf import convert_to_pdf
                     pdf_path = str(convert_to_pdf(txt_path))
                 except Exception:
                     log.debug("PDF generation failed for %s", txt_path, exc_info=True)
+                # Cover letter from the same request
+                if letter:
+                    cl_file = COVER_LETTER_DIR / f"{prefix}_CL.txt"
+                    cl_file.write_text(letter, encoding="utf-8")
+                    cl_path = str(cl_file)
+                    try:
+                        from applypilot.scoring.pdf import convert_to_pdf
+                        convert_to_pdf(cl_file)
+                    except Exception:
+                        log.debug("PDF generation failed for %s", cl_file, exc_info=True)
 
             result = {
                 "url": job["url"],
@@ -534,6 +622,8 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                 "site": job["site"],
                 "status": report["status"],
                 "attempts": report["attempts"],
+                "requests": report["requests"],
+                "cover_letter_path": cl_path,
             }
         except Exception as e:
             result = {
@@ -548,10 +638,11 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
         elapsed = time.time() - t0
         rate = completed / elapsed if elapsed > 0 else 0
         log.info(
-            "%d/%d [%s] attempts=%s | %.1f jobs/min | %s",
+            "%d/%d [%s] attempts=%s requests=%s | %.1f jobs/min | %s",
             completed, len(jobs),
             result["status"].upper(),
             result.get("attempts", "?"),
+            result.get("requests", "?"),
             rate * 60,
             result["title"][:40],
         )
@@ -566,6 +657,12 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                 "tailor_attempts=COALESCE(tailor_attempts,0)+1 WHERE url=?",
                 (r["path"], now, r["url"]),
             )
+            if r.get("cover_letter_path"):
+                conn.execute(
+                    "UPDATE jobs SET cover_letter_path=?, cover_letter_at=?, "
+                    "cover_attempts=COALESCE(cover_attempts,0)+1 WHERE url=?",
+                    (r["cover_letter_path"], now, r["url"]),
+                )
         else:
             conn.execute(
                 "UPDATE jobs SET tailor_attempts=COALESCE(tailor_attempts,0)+1 WHERE url=?",
@@ -574,18 +671,24 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
     conn.commit()
 
     elapsed = time.time() - t0
+    cover_letters = sum(1 for r in results if r.get("cover_letter_path"))
     log.info(
-        "Tailoring done in %.1fs: %d approved, %d failed_validation, %d failed_judge, %d errors",
+        "Tailoring done in %.1fs: %d approved, %d failed_validation, %d failed_judge, %d errors, "
+        "%d cover letters, %d LLM requests",
         elapsed,
         stats.get("approved", 0),
         stats.get("failed_validation", 0),
         stats.get("failed_judge", 0),
         stats.get("error", 0),
+        cover_letters,
+        total_requests,
     )
 
     return {
         "approved": stats.get("approved", 0),
         "failed": stats.get("failed_validation", 0) + stats.get("failed_judge", 0),
         "errors": stats.get("error", 0),
+        "cover_letters": cover_letters,
+        "requests": total_requests,
         "elapsed": elapsed,
     }
