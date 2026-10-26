@@ -39,6 +39,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- Jora (and SEEK/Indeed/LinkedIn) job ads: the local engine opens the ad's Apply link to the employer's form instead
+  of filling the job board's search box; relative apply links (Jora's `/job/rd/...`) are kept and made absolute
+  instead of discarded.
 - `applypilot apply --url` never matched jobs that hadn't been attempted (`apply_status` NULL).
 - An empty location accept list discarded every non-remote job.
 - Indeed searched the US site regardless of location.
