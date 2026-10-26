@@ -77,8 +77,7 @@ Everything is stored on your computer in `~/.applypilot/`.
 | **De-duplicate** | Links repeat listings of the same role (same company and title, same employer link, or near-identical text). Keeps one, preferring LinkedIn, then Indeed, then Jora | None |
 | **Enrich** | Fetches each job's full description and application link | Only for unusual pages |
 | **Score** | Skips titles on your skip list for free, then rates the rest 1–10 against your resume, 10 jobs per request | ~1 per 10 jobs |
-| **Tailor** | Rewrites your resume for each good match (score ≥ 7). Your real employers, projects and metrics are preserved, and an automatic fact-check rejects invented claims | A few per job |
-| **Cover letter** | Writes a short, specific letter per job | 1+ per job |
+| **Tailor + cover letter** | For each good match (score ≥ 7), rewrites your resume and writes a short, specific cover letter in one request. Your real employers, projects and metrics are preserved, and invented numbers or tools trigger an automatic fact-check | Usually 1 per job |
 | **PDF** | Renders the tailored resume and cover letter as PDFs | None |
 | **Apply** | Fills the form in a visible browser and waits for you to submit | ~1 per form page |
 
