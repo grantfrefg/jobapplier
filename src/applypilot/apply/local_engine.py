@@ -37,6 +37,7 @@ import httpx
 
 from applypilot import config
 from applypilot.apply.dashboard import add_event, update_state
+from applypilot.database import apply_link
 
 logger = logging.getLogger(__name__)
 
@@ -755,9 +756,9 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
         "file_values": file_values,
         "safe_profile": redacted_profile(profile, placeholders),
         "safe_resume": redact(text_values.get("{{RESUME_TEXT}}", ""), placeholders),
-        "ats": detect_ats(job.get("application_url") or job["url"]),
+        "ats": detect_ats(apply_link(job)),
     }
-    target = job.get("application_url") or job["url"]
+    target = apply_link(job)
 
     update_state(worker_id, status="applying", job_title=job["title"],
                  company=job.get("site", ""), score=job.get("fit_score", 0),
@@ -771,12 +772,17 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
         lf.write(f"\n{'=' * 60}\n[{datetime.now():%Y-%m-%d %H:%M:%S}] {job['title']}\n"
                  f"URL: {target}\nModel: {ctx['model']}\n{'=' * 60}\n")
         context = launch_browser(p)
+        page = context.pages[0] if context.pages else context.new_page()
+        nav_error = None
         try:
-            page = context.pages[0] if context.pages else context.new_page()
             page.goto(target, wait_until="domcontentloaded", timeout=60000)
-            page.wait_for_load_state("networkidle", timeout=15000)
         except Exception as e:
+            nav_error = str(e).strip().splitlines()[0][:200]
             lf.write(f"  navigation: {e}\n")
+        try:
+            page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass  # busy pages never go network-idle; the DOM is already loaded
 
         try:
             needs: list[str] = []
@@ -784,6 +790,11 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
             step = 0
             while True:
                 controls, frame_by_id, needs = _fill_page(page, job, ctx, lf)
+                if nav_error:
+                    # Don't leave the user looking at a blank page without a reason
+                    needs = [f"Couldn't open the job page ({target}): {nav_error}. Open it yourself in "
+                             "this browser, then choose 'Fill this page again'."] + needs
+                    nav_error = None
                 update_state(worker_id, actions=step + 1, last_action=f"local: filled step {step + 1}")
 
                 # Re-scan after filling: conditional fields may have appeared,

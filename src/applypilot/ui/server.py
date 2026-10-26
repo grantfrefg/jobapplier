@@ -268,7 +268,7 @@ def _job_file(url: str, kind: str) -> Path:
 # ---------------------------------------------------------------------------
 
 def create_app() -> FastAPI:
-    from applypilot.database import get_connection, get_stats, init_db
+    from applypilot.database import apply_link, get_connection, get_stats, init_db
 
     config.load_env()
     config.ensure_dirs()
@@ -516,7 +516,7 @@ def create_app() -> FastAPI:
             ORDER BY fit_score IS NULL, fit_score DESC, discovered_at DESC
             LIMIT 500
         """).fetchall()
-        return [dict(r) for r in rows]
+        return [{**dict(r), "link": apply_link(r)} for r in rows]
 
     @app.post("/api/jobs/reset")
     def reset_job(body: dict) -> dict:
