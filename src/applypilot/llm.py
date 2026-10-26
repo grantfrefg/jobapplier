@@ -15,6 +15,7 @@ import time
 
 import httpx
 
+from applypilot import budget
 from applypilot.config import DEFAULT_GEMINI_MODEL
 
 log = logging.getLogger(__name__)
@@ -223,6 +224,15 @@ class LLMClient:
             if first.get("role") == "user" and not first["content"].startswith("/no_think"):
                 messages = [{"role": first["role"], "content": f"/no_think\n{first['content']}"}] + messages[1:]
 
+        # Pipeline work stops cleanly when the day's Gemini budget is spent
+        budget.check(self.model if self._is_gemini else None, budget.PIPELINE)
+        text = self._chat_with_retries(messages, temperature, max_tokens, json_mode)
+        if self._is_gemini:
+            budget.record(self.model)
+        return text
+
+    def _chat_with_retries(self, messages: list[dict], temperature: float, max_tokens: int,
+                           json_mode: bool) -> str:
         for attempt in range(_MAX_RETRIES):
             try:
                 # Route to native Gemini if we've already confirmed it's needed
@@ -252,6 +262,8 @@ class LLMClient:
 
             except httpx.HTTPStatusError as exc:
                 resp = exc.response
+                if self._is_gemini and budget.is_daily_quota_error(resp.status_code, resp.text):
+                    raise budget.exhausted_error(self.model) from exc  # retrying today won't help
                 if resp.status_code in (429, 503) and attempt < _MAX_RETRIES - 1:
                     # Respect Retry-After header if provided (Gemini sends this).
                     retry_after = (

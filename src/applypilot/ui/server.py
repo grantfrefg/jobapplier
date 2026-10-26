@@ -29,12 +29,14 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 
-from applypilot import config
+from applypilot import budget, config
 
 STATIC_DIR = Path(__file__).parent / "static"
 PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
 
-ENV_KEYS = ("EXECUTION_ENGINE", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY", "CAPSOLVER_API_KEY")
+ENV_KEYS = ("EXECUTION_ENGINE", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY", "CAPSOLVER_API_KEY",
+            "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE")
+NUMBER_KEYS = {"GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE"}
 SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "CAPSOLVER_API_KEY"}
 VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
 GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
@@ -231,6 +233,15 @@ class ApplySession:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _budget_status() -> dict | None:
+    """Today's Gemini usage, when a Gemini key is what's being used."""
+    if not os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_URL"):
+        return None
+    try:
+        return budget.status(config.get_local_engine_model())
+    except Exception:  # the database isn't ready yet
+        return None
+
 def _deep_merge(base: dict, override: dict) -> dict:
     out = dict(base)
     for k, v in override.items():
@@ -335,6 +346,7 @@ def create_app() -> FastAPI:
             },
             "stats": {k: stats.get(k, 0) for k in
                       ("total", "scored", "tailored", "with_cover_letter", "applied", "ready_to_apply")},
+            "budget": _budget_status(),
             "vnc_url": os.environ.get("APPLYPILOT_VNC_URL", ""),
             "data_dir": str(config.APP_DIR),
         }
@@ -363,6 +375,8 @@ def create_app() -> FastAPI:
             value = str(body[key] or "").strip()
             if key in SECRET_KEYS and not value:
                 continue  # blank secret field = keep the saved one
+            if key in NUMBER_KEYS and value and not value.isdigit():
+                raise HTTPException(400, f"{key} must be a whole number")
             if key == "EXECUTION_ENGINE" and value not in config.EXECUTION_ENGINES:
                 raise HTTPException(400, f"EXECUTION_ENGINE must be one of {config.EXECUTION_ENGINES}")
             updates[key] = value
@@ -392,6 +406,7 @@ def create_app() -> FastAPI:
             raise HTTPException(502, f"Couldn't reach Google: {e}") from e
         if not resp.is_success:
             raise HTTPException(400, f"Gemini said: {error_detail(resp) or resp.status_code} (model: {model})")
+        budget.record(model)
         return {"ok": True, "model": model}
 
     # -- resume ------------------------------------------------------------

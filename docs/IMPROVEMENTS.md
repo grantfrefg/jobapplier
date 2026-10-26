@@ -30,7 +30,7 @@ estimates from the code paths, not measurements.
 | A3 | Structured (JSON) output | Small | Retries from unreadable replies | Scoring **done** (#4). Writing: with B |
 | B | One writing request per job | Medium | ~3–12 → ~1–2 per job | **Done** (#9) |
 | C | Remember how to read each site | Small | ~2 per title per run → ~0 | **Done** (#12) |
-| D | Daily request budget | Medium | Spends requests on the best jobs | Planned |
+| D | Daily request budget | Medium | Spends requests on the best jobs | **Done** (#13) |
 | E1 | Standard fields in code + answer bank | Medium | ~1 per page → 0 on known pages | **Done** (#11) |
 | E2 | Site adapters (SEEK, Greenhouse, Lever) | Large | Fewer wrong answers on those sites | Planned |
 
@@ -130,7 +130,21 @@ runs.
 **Problem:** nothing tracks requests against the daily limit. When the quota
 runs out, the remaining work fails partway through a stage.
 
-**Plan:**
+**Change (done in #13):**
+- `budget.py` counts Gemini requests per model per US Pacific day in the
+  `llm_usage` table (the LLM client, the local apply engine and **Test key**).
+- The pipeline keeps a reserve for applying (`GEMINI_APPLY_RESERVE`, default
+  50 of `GEMINI_DAILY_LIMIT`, default 500). Scoring, tailoring and cover
+  letters stop cleanly when they reach it and leave the remaining jobs for
+  the next run (no failed attempts recorded). Tailoring already goes
+  highest score first.
+- A daily-quota 429 from Google is believed over the local count and isn't
+  retried.
+- The web UI header shows "N of 500 Gemini requests left today"; Setup →
+  **Daily request limit** changes the numbers. The pipeline summary prints
+  the same.
+
+**Original plan:**
 - Count requests per model per day (Pacific time, when Google's quotas
   reset), stored in the database.
 - Let each run spend what's left in priority order: score, then tailor the

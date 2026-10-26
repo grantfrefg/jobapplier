@@ -16,6 +16,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
@@ -625,6 +626,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                 "requests": report["requests"],
                 "cover_letter_path": cl_path,
             }
+        except BudgetExhausted as e:
+            # Not this job's fault: leave it (and the rest) untouched for the next run
+            log.warning("%s Stopping: %d jobs left for the next run.", e, len(jobs) - completed + 1)
+            break
         except Exception as e:
             result = {
                 "url": job["url"], "title": job["title"], "site": job["site"],

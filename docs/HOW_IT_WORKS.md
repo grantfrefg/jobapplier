@@ -125,4 +125,12 @@ Google's free tier limits **requests per day** per model. Everything uses `gemin
 | Jora | ~2 once, to learn the page; then 0 (re-learns only if the saved plan stops finding jobs) |
 | Apply | ~1 per form page; 0 for pages where every field is a standard field or a saved answer |
 
+### Daily budget
+ApplyPilot counts every Gemini request against the daily limit (`GEMINI_DAILY_LIMIT`, default 500), per US Pacific day because that's when Google resets it. The header in the web UI shows how many are left.
+
+- Finding and preparing jobs (scoring, tailoring, Jora) stops cleanly when only the apply reserve (`GEMINI_APPLY_RESERVE`, default 50) is left. Jobs it didn't get to are untouched and picked up on the next run. Tailoring works through the highest-scoring jobs first, so the budget goes to your best matches.
+- Applying can use the reserve. When it's all gone, the app tells you on the "Your turn" panel and you can fill the page yourself; pages that need no AI still fill.
+- If Google reports the daily quota is used up (for example the key is also used elsewhere), the app believes Google and stops straight away instead of retrying.
+- OpenAI and local models aren't budgeted.
+
 [IMPROVEMENTS.md](IMPROVEMENTS.md) is the plan to reduce this further.
