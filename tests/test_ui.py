@@ -233,3 +233,12 @@ def test_gemini_key_check(client, monkeypatch):
 
     client.post("/api/settings", json={"GEMINI_API_KEY": "AIza-good-key-111", "LLM_MODEL": "gemini-3.5-flash"})
     assert client.post("/api/settings/test-gemini").json() == {"ok": True, "model": "gemini-3.5-flash"}
+
+
+def test_job_list_links_to_listing_when_no_application_link(client, tmp_path):
+    """Regression: a stored 'None' link made the job title open /None on the UI ({"detail":"Not Found"})."""
+    _seed_job(tmp_path, "https://linkedin.com/jobs/view/1")
+    database.get_connection().execute(
+        "UPDATE jobs SET application_url = 'None' WHERE url = 'https://linkedin.com/jobs/view/1'")
+    jobs = client.get("/api/jobs?view=all").json()
+    assert jobs[0]["link"] == "https://linkedin.com/jobs/view/1"

@@ -154,7 +154,8 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
 
         # Skip manual ATS sites (unsolvable CAPTCHAs)
         from applypilot.config import is_manual_ats
-        apply_url = row["application_url"] or row["url"]
+        from applypilot.database import apply_link
+        apply_url = apply_link(row)
         if is_manual_ats(apply_url):
             conn.execute(
                 "UPDATE jobs SET apply_status = 'manual', apply_error = 'manual ATS' WHERE url = ?",

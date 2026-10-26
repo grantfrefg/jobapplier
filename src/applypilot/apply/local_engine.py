@@ -37,6 +37,7 @@ import httpx
 
 from applypilot import config
 from applypilot.apply.dashboard import add_event, update_state
+from applypilot.database import apply_link
 
 logger = logging.getLogger(__name__)
 
@@ -755,9 +756,9 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
         "file_values": file_values,
         "safe_profile": redacted_profile(profile, placeholders),
         "safe_resume": redact(text_values.get("{{RESUME_TEXT}}", ""), placeholders),
-        "ats": detect_ats(job.get("application_url") or job["url"]),
+        "ats": detect_ats(apply_link(job)),
     }
-    target = job.get("application_url") or job["url"]
+    target = apply_link(job)
 
     update_state(worker_id, status="applying", job_title=job["title"],
                  company=job.get("site", ""), score=job.get("fit_score", 0),
