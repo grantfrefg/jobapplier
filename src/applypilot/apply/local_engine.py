@@ -8,7 +8,9 @@ Claude Code CLI, this engine:
   2. Opens the job's application URL and extracts a compact description of
      every form control (label, type, options, current value) from the DOM,
      including inside iframes (Greenhouse embeds).
-  3. Sends that field list, plus a *redacted* profile and resume, to Gemini
+  3. Fills standard fields (name, contact, address, uploads) and questions
+     it has answered before (the answer bank, see answers.py) in code, then
+     sends the remaining fields, plus a *redacted* profile and resume, to Gemini
      via the REST generateContent endpoint, and receives fill actions.
      Personal identifiers (name, email, phone, street address, postcode,
      tax / ID numbers, URLs) are sent only as {{PLACEHOLDER}} tokens and are
@@ -23,6 +25,7 @@ Claude Code CLI, this engine:
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -36,6 +39,7 @@ from pathlib import Path
 import httpx
 
 from applypilot import config
+from applypilot.apply import answers
 from applypilot.apply.dashboard import add_event, update_state
 from applypilot.database import apply_link
 
@@ -545,8 +549,39 @@ def _apply_action(action: dict, frame_by_id: dict, local_values: dict[str, str],
     return f"{kind} {fid}"
 
 
+def _run_actions(actions: list[dict], frame_by_id: dict, ctx: dict, lf) -> list[dict]:
+    """Apply actions in order; returns the ones that took effect."""
+    done = []
+    for action in actions:
+        try:
+            line = _apply_action(action, frame_by_id, ctx["local_values"], ctx["file_values"])
+        except Exception as e:
+            line = None
+            lf.write(f"  !! {action.get('action')} {action.get('id')} failed: {str(e)[:120]}\n")
+        if line:
+            done.append(action)
+            lf.write(f"  >> {line}\n")
+    return done
+
+
+def _remember_ai_answers(conn, fields: list[dict], done: list[dict], pii_values: set[str]) -> None:
+    """Save the AI's answers to short, reusable questions into the answer bank."""
+    by_id = {f["id"]: f for f in fields}
+    for action in done:
+        f = by_id.get(action.get("id"))
+        value = str(action.get("value", "")).strip()
+        if not f or "{{" in value or value.lower() in pii_values or answers.is_standard(f):
+            continue
+        if f["type"] == "radio" and action["action"] == "check" and f.get("group"):
+            answers.save_answer(conn, f["group"], f.get("label", ""), "ai")
+        elif (f["type"] == "select" and action["action"] == "select"
+              or f["type"] in ("text", "number") and action["action"] == "fill" and len(value) <= 80):
+            answers.save_answer(conn, f.get("label", ""), value, "ai")
+
+
 def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[str]]:
-    """Scan the current page, ask Gemini for actions, apply them.
+    """Scan the current page and fill it: standard fields and saved answers
+    in code, then Gemini for whatever is left (if anything).
 
     Returns (controls, frame_by_id, needs_attention).
     """
@@ -555,25 +590,59 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
     if not fields:
         return controls, frame_by_id, []
 
+    known, remaining = answers.standard_actions(fields, ctx["local_values"], ctx["file_values"],
+                                                ctx["profile"])
+    conn = ctx.get("conn")
+    if conn is not None:
+        from_bank, remaining, used = answers.bank_actions(conn, remaining)
+        known += from_bank
+        if used:
+            lf.write(f"  answer bank: {len(used)} saved answer(s) reused\n")
+    done = _run_actions(known, frame_by_id, ctx, lf)
+    lf.write(f"  filled {len(done)}/{len(known)} fields without AI\n")
+
+    # Ticked boxes and already-chosen options need nothing from the AI
+    if not any(not (f["type"] == "checkbox" and f.get("checked")) for f in remaining):
+        lf.write("  nothing left for Gemini on this page\n")
+        return controls, frame_by_id, []
+
     prompt = _build_user_prompt(
-        job, fields, ctx["safe_profile"], ctx["safe_resume"],
+        job, remaining, ctx["safe_profile"], ctx["safe_resume"],
         has_cover_pdf="{{COVER_LETTER_PDF}}" in ctx["file_values"],
         has_cover_text=bool(ctx["local_values"].get("{{COVER_LETTER_TEXT}}")),
         ats=detect_ats(page.url) or ctx["ats"],
     )
     result = _call_gemini(prompt, ctx["api_key"], ctx["model"])
-    done = 0
-    for action in result["actions"]:
+    done = _run_actions(result["actions"], frame_by_id, ctx, lf)
+    lf.write(f"  applied {len(done)}/{len(result['actions'])} AI actions for {len(remaining)} fields\n")
+    if conn is not None:
         try:
-            line = _apply_action(action, frame_by_id, ctx["local_values"], ctx["file_values"])
-        except Exception as e:
-            line = None
-            lf.write(f"  !! {action.get('action')} {action.get('id')} failed: {str(e)[:120]}\n")
-        if line:
-            done += 1
-            lf.write(f"  >> {line}\n")
-    lf.write(f"  applied {done}/{len(result['actions'])} actions\n")
+            _remember_ai_answers(conn, remaining, done, ctx["pii_values"])
+        except Exception as e:  # the bank is a convenience; never fail the application over it
+            lf.write(f"  answer bank: {e}\n")
     return controls, frame_by_id, [str(n) for n in result["needs_attention"]]
+
+
+def _page_answers(page, ctx: dict) -> dict[str, tuple[str, str]]:
+    """Reusable answers currently on the page ({} if it's gone)."""
+    try:
+        if page.is_closed():
+            return {}
+        fields, _, _ = _scan(page)
+    except Exception:
+        return {}
+    return answers.answers_on_page(fields, ctx["pii_values"])
+
+
+def _learn_from_user(conn, before: dict, after: dict, lf) -> int:
+    """Save answers you typed or changed at the review step (they beat the AI's)."""
+    learned = 0
+    for key, (question, answer) in after.items():
+        if before.get(key, (None, None))[1] != answer:
+            learned += answers.save_answer(conn, question, answer, "user")
+    if learned:
+        lf.write(f"  answer bank: learned {learned} answer(s) from you\n")
+    return learned
 
 
 def _find_apply_link(controls: list[dict]) -> str | None:
@@ -725,6 +794,17 @@ def _load_documents(job: dict, profile: dict) -> tuple[dict[str, str], dict[str,
     return text_values, file_values
 
 
+def _call_gate(gate, page, needs: list[str], dry_run: bool, snapshot) -> str:
+    """Call a gate, passing `snapshot` to gates that accept it."""
+    try:
+        params = inspect.signature(gate).parameters
+    except (TypeError, ValueError):
+        params = {}
+    if "snapshot" in params:
+        return gate(page, needs, dry_run, snapshot=snapshot)
+    return gate(page, needs, dry_run)
+
+
 def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
             gate=None) -> tuple[str, int]:
     """Fill one application in a visible local browser and wait for the human.
@@ -749,8 +829,19 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
     if "{{RESUME_PDF}}" not in file_values:
         return "failed:resume_pdf_missing", 0
 
+    try:
+        from applypilot.database import get_connection
+        conn = get_connection()
+        answers.ensure_table(conn)
+    except Exception as e:
+        logger.warning("Answer bank unavailable: %s", e)
+        conn = None
+
     ctx = {
         "api_key": api_key,
+        "profile": profile,
+        "conn": conn,
+        "pii_values": {v.strip().lower() for v in placeholders.values() if v.strip()},
         "model": config.get_local_engine_model(),
         "local_values": {**placeholders, **text_values},
         "file_values": file_values,
@@ -827,7 +918,21 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
                     continue
 
                 _highlight_submit(controls, frame_by_id)
-                decision = gate(page, needs, dry_run)
+                before = answers.answers_on_page(fields_now, ctx["pii_values"])
+                latest: dict = {}
+
+                def snapshot():
+                    # Called by the gate while it waits, so answers survive you
+                    # pressing Submit (which navigates away from the form).
+                    latest.update(_page_answers(page, ctx))
+
+                decision = _call_gate(gate, page, needs, dry_run, snapshot)
+                if decision != "declined" and conn is not None:
+                    snapshot()
+                    try:
+                        _learn_from_user(conn, before, latest, lf)
+                    except Exception as e:
+                        lf.write(f"  answer bank: {e}\n")
                 if decision == "rescan":
                     last_signature = None
                     continue

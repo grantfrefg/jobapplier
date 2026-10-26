@@ -31,7 +31,8 @@ estimates from the code paths, not measurements.
 | B | One writing request per job | Medium | ~3–12 → ~1–2 per job | **Done** (#9) |
 | C | Remember how to read each site | Small | ~2 per title per run → ~0 | Planned |
 | D | Daily request budget | Medium | Spends requests on the best jobs | Planned |
-| E | Smarter form-filling | Large | Fewer requests; more consistent answers | Planned |
+| E1 | Standard fields in code + answer bank | Medium | ~1 per page → 0 on known pages | **Done** (#11) |
+| E2 | Site adapters (SEEK, Greenhouse, Lever) | Large | Fewer wrong answers on those sites | Planned |
 
 ---
 
@@ -135,14 +136,27 @@ runs out, the remaining work fails partway through a stage.
 including name, email and phone, and answers the same screening questions
 again on every application.
 
-**Plan:**
+**Change (E1, done in #11):**
+- Standard fields (name, email, phone, LinkedIn/GitHub/website, address,
+  city, state, country, resume/CV and cover letter) are matched by label and
+  filled in code. Fields that already have a value are left alone.
+- The answer bank (`answers` table) remembers short screening answers
+  (drop-downs, radio buttons, short text). The AI's answers are saved as
+  "AI"; anything you type or change at the review step is saved as "you"
+  and always wins. Long free-text answers and anything holding your
+  personal details are never saved. View and delete them in Setup →
+  **Saved answers**.
+- Gemini only sees the fields still unanswered. A page where everything is
+  known costs **no request**.
+
+**Original plan:**
 - **Fill standard fields in code:** name, email, phone, LinkedIn, address,
   resume and cover letter uploads, matched by label. No AI needed.
 - **Answer bank:** save each screening question with its answer. When you
   change an answer in the browser before clicking Submit, store your
   version so the same question is answered your way next time. The AI is
   only asked about questions it hasn't seen.
-- **Site adapters:** dedicated handlers for SEEK, Greenhouse and Lever,
+- **Site adapters (E2, planned):** dedicated handlers for SEEK, Greenhouse and Lever,
   whose forms are predictable.
 - The human-approval step (you click Submit) stays exactly as it is.
 

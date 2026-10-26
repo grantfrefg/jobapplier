@@ -85,9 +85,10 @@ Cover letters are written together with the tailored resume (above). The separat
 
 ### The free local engine
 1. Opens a **visible** browser with its own saved profile (`~/.applypilot/local-playwright-profile`). Log in to SEEK, LinkedIn or Workday there once and you stay logged in. It uses installed Chrome or Edge, or ApplyPilot's own Chromium (Setup → **Install browser**).
-2. Reads every form field on the page, including inside embedded frames (Greenhouse), and asks Gemini how to fill them. The prompt includes hints for SEEK (e.g. right-to-work questions), Greenhouse, Lever and Workday.
-3. Fills text fields, drop-downs, checkboxes and radio buttons, and uploads the tailored resume and cover letter.
-4. Clicks only **Next / Continue / Save and continue / Review** to move through multi-page forms.
+2. Reads every form field on the page, including inside embedded frames (Greenhouse).
+3. Fills what it already knows **without the AI**: standard fields (name, email, phone, LinkedIn, address, state, resume and cover letter uploads) from your profile, and screening questions from the **answer bank**. Fields that already hold a value are left alone.
+4. Asks Gemini only about the fields still unanswered (none left means no request). The prompt includes hints for SEEK (e.g. right-to-work questions), Greenhouse, Lever and Workday.
+5. Clicks only **Next / Continue / Save and continue / Review** to move through multi-page forms.
 
 ### Privacy
 - Gemini never sees your name, email, phone, street address, postcode, profile URLs, or any profile field that looks like an ID number (tax file number, licence number, date of birth and so on). It sees `{{PLACEHOLDER}}` tokens, and the real values are filled in on your computer.
@@ -107,6 +108,12 @@ Cover letters are written together with the tailored resume (above). The separat
 | Never apply to this job | `failed` (reason `user_declined`) | Never offered again |
 | Fill this page again | (no change) | Re-reads and re-fills the current page, e.g. after you log in |
 
+### Answer bank
+- Short screening answers (drop-downs, radio buttons, short text such as "Notice period") are saved in the `answers` table and reused when the same question comes up again, on any site.
+- Answers the AI gave are saved as **AI**. Answers you type or change in the browser while the app waits for you are saved as **you**, and an AI answer never replaces one of yours.
+- Long free-text answers ("Why do you want this job?") and anything containing your personal details are never saved.
+- Setup → **Saved answers** lists them; delete any you don't want reused.
+
 ## Gemini usage
 
 Google's free tier limits **requests per day** per model. Everything uses `gemini-3.5-flash-lite` (about 500/day). Approximate usage:
@@ -116,6 +123,6 @@ Google's free tier limits **requests per day** per model. Everything uses `gemin
 | Score | ~1 per 10 jobs (skipped titles are free) |
 | Tailor + cover letter | usually 1 per good match; 2 when the fact-check runs or the letter is retried |
 | Jora | ~2 per job title per run |
-| Apply | ~1 per form page |
+| Apply | ~1 per form page; 0 for pages where every field is a standard field or a saved answer |
 
 [IMPROVEMENTS.md](IMPROVEMENTS.md) is the plan to reduce this further.
