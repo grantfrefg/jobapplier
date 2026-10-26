@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urljoin
 
 import httpx
 import yaml
@@ -48,29 +48,14 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 # -- Location filtering -------------------------------------------------------
 
-def _load_location_filter(search_cfg: dict | None = None):
+def _load_location_filter(search_cfg: dict | None = None) -> tuple[list[str], list[str]]:
     """Load location accept/reject lists from search config."""
-    if search_cfg is None:
-        search_cfg = config.load_search_config()
-    accept = search_cfg.get("location_accept", [])
-    reject = search_cfg.get("location_reject_non_remote", [])
-    return accept, reject
+    return config.load_location_filter(search_cfg)
 
 
 def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> bool:
-    """Check if a job location passes the user's location filter."""
-    if not location:
-        return True
-    loc = location.lower()
-    if any(r in loc for r in ("remote", "anywhere", "work from home", "wfh", "distributed")):
-        return True
-    for r in reject:
-        if r.lower() in loc:
-            return False
-    for a in accept:
-        if a.lower() in loc:
-            return True
-    return False
+    """Check if a job location passes the user's location filter (see config.location_ok)."""
+    return config.location_ok(location, accept, reject)
 
 
 # -- Site configuration from YAML --------------------------------------------
@@ -99,10 +84,13 @@ def _store_jobs_filtered(
     existing = 0
     filtered = 0
 
+    base = config.load_base_urls().get(site)
     for job in jobs:
         url = job.get("url")
         if not url:
             continue
+        if base and not url.startswith(("http://", "https://")):
+            url = urljoin(base, url)  # e.g. Jora links are "/job/..."
         if not _location_ok(job.get("location"), accept_locs, reject_locs):
             filtered += 1
             continue
@@ -1103,6 +1091,14 @@ def run_smart_extract(
     """
     search_cfg = config.load_search_config()
     accept_locs, reject_locs = _load_location_filter(search_cfg)
+
+    if sites is None:
+        sites = load_sites()
+        # searches.yaml `smart_extract_sites:` picks sites by name; an empty
+        # list turns smart extraction off (each page costs LLM requests).
+        allow = config.source_allowlist(search_cfg, "smart_extract_sites")
+        if allow is not None:
+            sites = [s for s in sites if str(s.get("name", "")).lower() in allow]
 
     targets = build_scrape_targets(sites=sites, search_cfg=search_cfg)
 

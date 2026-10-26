@@ -81,6 +81,22 @@ On a normal desktop, the browser window opens on your screen instead of inside t
 
 ---
 
+## Job sources in Australia
+
+When the job search country is **Australia** (the default in the setup wizard and the web UI), discovery uses:
+
+- **Indeed Australia** (au.indeed.com) and **LinkedIn**, through JobSpy.
+- **Jora** (au.jora.com), through smart extract. This costs about 2 Gemini requests per job title searched.
+
+The bundled North American sources are switched off: ZipRecruiter, the Canadian and US-remote boards in `config/sites.yaml`, and the Canadian/US employers in `config/employers.yaml`. These choices live in `searches.yaml` as `sites`, `smart_extract_sites` and `workday_employers`; delete a key to use every bundled source again. Jobs are kept if their location matches `location_accept` (generated from the city you enter, e.g. *Sydney, NSW, New South Wales*) or they're remote.
+
+**Not included:**
+- **SEEK:** its terms prohibit scraping and it has strong bot protection. Applying to SEEK jobs you find yourself works as normal.
+- **APS Jobs:** its listings don't render for automated browsers.
+- **Glassdoor:** it blocks automated searches (it returned "403 blocked" when tested from a server), and Glassdoor applications are on the blocked list because they route through Glassdoor accounts.
+
+---
+
 ## Sharing with friends: the desktop app
 
 The **Desktop app** GitHub Actions workflow builds a double-click app for Windows and Mac (Apple Silicon and Intel). Each build runs the tests and smoke-tests the packaged app before uploading it. The desktop app is the same web UI in **friend mode**:

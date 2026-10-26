@@ -145,6 +145,74 @@ def load_blocked_sites() -> tuple[set[str], list[str]]:
     return sites, patterns
 
 
+# ---------------------------------------------------------------------------
+# Location filtering (shared by every discovery source)
+# ---------------------------------------------------------------------------
+
+_REMOTE_WORDS = ("remote", "anywhere", "work from home", "wfh", "distributed")
+
+# Abbreviation -> full name, so "Sydney, NSW" also accepts "New South Wales"
+AU_STATES = {
+    "nsw": "New South Wales", "vic": "Victoria", "qld": "Queensland",
+    "wa": "Western Australia", "sa": "South Australia", "tas": "Tasmania",
+    "act": "Australian Capital Territory", "nt": "Northern Territory",
+}
+
+
+def location_accept_patterns(location: str) -> list[str]:
+    """Accept patterns for a location like "Sydney, NSW" -> Sydney, NSW, New South Wales."""
+    patterns: list[str] = []
+    for part in (p.strip() for p in location.split(",")):
+        if not part or part.lower() in _REMOTE_WORDS:
+            continue
+        patterns.append(part)
+        full = AU_STATES.get(part.lower())
+        if full:
+            patterns.append(full)
+    return list(dict.fromkeys(patterns))
+
+
+def load_location_filter(search_cfg: dict | None = None) -> tuple[list[str], list[str]]:
+    """(accept, reject) location patterns from searches.yaml."""
+    if search_cfg is None:
+        search_cfg = load_search_config()
+    accept = list(search_cfg.get("location_accept") or [])
+    reject = list(search_cfg.get("location_reject_non_remote") or [])
+    return accept, reject
+
+
+def location_ok(location: str | None, accept: list[str], reject: list[str]) -> bool:
+    """Should a job at `location` be kept?
+
+    Unknown and remote locations are kept. Otherwise reject patterns win,
+    then the job must match an accept pattern -- unless no accept patterns
+    are configured, in which case everything not rejected is kept.
+    Patterns match whole words, so "WA" doesn't match "Warsaw".
+    """
+    import re
+    if not location:
+        return True
+    loc = location.lower()
+    if any(r in loc for r in _REMOTE_WORDS):
+        return True
+
+    def _hit(pattern: str) -> bool:
+        return re.search(rf"(?<!\w){re.escape(pattern.lower())}(?!\w)", loc) is not None
+
+    if any(_hit(r) for r in reject):
+        return False
+    if not accept:
+        return True
+    return any(_hit(a) for a in accept)
+
+
+def source_allowlist(search_cfg: dict, key: str) -> set[str] | None:
+    """Names listed under `key` (e.g. smart_extract_sites), or None = use all."""
+    if key not in search_cfg or search_cfg[key] is None:
+        return None
+    return {str(v).lower() for v in search_cfg[key]}
+
+
 def load_blocked_sso() -> list[str]:
     """Load blocked SSO domains from sites.yaml."""
     cfg = load_sites_config()

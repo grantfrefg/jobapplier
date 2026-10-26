@@ -40,35 +40,14 @@ def load_employers() -> dict:
 
 # -- Location filtering from search config -----------------------------------
 
-def _load_location_filter(search_cfg: dict | None = None):
+def _load_location_filter(search_cfg: dict | None = None) -> tuple[list[str], list[str]]:
     """Load location accept/reject lists from search config."""
-    if search_cfg is None:
-        search_cfg = config.load_search_config()
-
-    accept = search_cfg.get("location_accept", [])
-    reject = search_cfg.get("location_reject_non_remote", [])
-    return accept, reject
+    return config.load_location_filter(search_cfg)
 
 
 def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> bool:
-    """Check if a job location passes the user's location filter."""
-    if not location:
-        return True
-
-    loc = location.lower()
-
-    if any(r in loc for r in ("remote", "anywhere", "work from home", "wfh", "distributed")):
-        return True
-
-    for r in reject:
-        if r.lower() in loc:
-            return False
-
-    for a in accept:
-        if a.lower() in loc:
-            return True
-
-    return False
+    """Check if a job location passes the user's location filter (see config.location_ok)."""
+    return config.location_ok(location, accept, reject)
 
 
 # -- HTML stripper -----------------------------------------------------------
@@ -483,14 +462,20 @@ def run_workday_discovery(employers: dict | None = None, workers: int = 1) -> di
     Returns:
         Dict with stats: found, new, existing, queries.
     """
+    search_cfg = config.load_search_config()
     if employers is None:
         employers = load_employers()
+        # searches.yaml `workday_employers:` picks which registry entries to crawl
+        # (by key or name); an empty list turns Workday discovery off.
+        allow = config.source_allowlist(search_cfg, "workday_employers")
+        if allow is not None:
+            employers = {k: v for k, v in employers.items()
+                         if k.lower() in allow or str(v.get("name", "")).lower() in allow}
 
     if not employers:
-        log.warning("No employers configured. Create config/employers.yaml.")
+        log.info("Workday discovery: no employers selected, skipping.")
         return {"found": 0, "new": 0, "existing": 0, "queries": 0}
 
-    search_cfg = config.load_search_config()
     queries_cfg = search_cfg.get("queries", [])
     accept_locs, reject_locs = _load_location_filter(search_cfg)
 

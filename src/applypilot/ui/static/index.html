@@ -162,10 +162,15 @@
     <div class="card">
       <h2>What jobs to look for</h2>
       <p class="sub">Used by "Find jobs" to search job boards.</p>
-      <label for="s-location">Location</label>
-      <input type="text" id="s-location" placeholder="e.g. Sydney, NSW or Remote">
-      <label for="s-distance">Search radius in miles (0 = remote only)</label>
-      <input type="number" id="s-distance" value="0" min="0">
+      <label for="s-country">Country</label>
+      <select id="s-country">
+        <option value="australia">Australia</option><option value="new zealand">New Zealand</option>
+        <option value="uk">United Kingdom</option><option value="usa">United States</option>
+        <option value="canada">Canada</option></select>
+      <label for="s-location">City or region</label>
+      <input type="text" id="s-location" placeholder="e.g. Sydney, NSW">
+      <label class="choice"><input type="checkbox" id="s-remote">
+        <span>Also include remote jobs</span></label>
       <label for="s-roles">Job titles, comma separated</label>
       <input type="text" id="s-roles" placeholder="Data Analyst, Business Analyst">
       <div class="row"><button class="btn" id="save-searches">Save search</button></div>
@@ -360,13 +365,14 @@ async function loadSearches() {
   $("#searches-yaml").value = s.yaml;
   if (s.exists && s.simple) {
     $("#s-location").value = s.simple.location;
-    $("#s-distance").value = s.simple.distance;
+    $("#s-country").value = s.simple.country;
+    $("#s-remote").checked = s.simple.include_remote;
     $("#s-roles").value = s.simple.roles.join(", ");
   }
 }
 $("#save-searches").addEventListener("click", () => guarded(async () => {
   await post("/api/searches", {
-    location: $("#s-location").value, distance: Number($("#s-distance").value || 0),
+    location: $("#s-location").value, country: $("#s-country").value, include_remote: $("#s-remote").checked,
     roles: $("#s-roles").value.split(","),
   });
   await loadSearches(); await refreshStatus();

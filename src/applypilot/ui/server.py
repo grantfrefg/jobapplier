@@ -396,9 +396,11 @@ def create_app() -> FastAPI:
             try:
                 parsed = yaml.safe_load(text) or {}
                 defaults = parsed.get("defaults") or {}
+                locs = [loc for loc in parsed.get("locations") or [] if isinstance(loc, dict)]
                 simple = {
                     "location": str(defaults.get("location", "")),
-                    "distance": int(defaults.get("distance") or 0),
+                    "country": str(parsed.get("country") or "australia").lower(),
+                    "include_remote": any(loc.get("remote") for loc in locs),
                     "roles": [str(q.get("query", "")) for q in parsed.get("queries") or [] if isinstance(q, dict)],
                 }
             except (yaml.YAMLError, AttributeError, TypeError, ValueError):
@@ -417,7 +419,11 @@ def create_app() -> FastAPI:
             roles = [r.strip() for r in body.get("roles", []) if str(r).strip()]
             if not roles:
                 raise HTTPException(400, "Add at least one job title")
-            text = build_search_yaml(str(body.get("location") or "Remote"), int(body.get("distance") or 0), roles)
+            location = str(body.get("location") or "").strip()
+            if not location:
+                raise HTTPException(400, "Add a city or region, e.g. Sydney, NSW")
+            text = build_search_yaml(location, roles, str(body.get("country") or "australia"),
+                                     bool(body.get("include_remote")))
         try:
             parsed = yaml.safe_load(text)
         except yaml.YAMLError as e:
