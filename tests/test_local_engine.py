@@ -61,9 +61,9 @@ def test_execution_engine(monkeypatch, raw, expected):
 
 
 @pytest.mark.parametrize("raw, expected", [
-    (None, "gemini-2.5-flash"),
+    (None, "gemini-3.5-flash-lite"),
     ("gemini-1.5-flash", "gemini-1.5-flash"),
-    ("gpt-4o-mini", "gemini-2.5-flash"),  # non-Gemini model for other stages is ignored
+    ("gpt-4o-mini", "gemini-3.5-flash-lite"),  # non-Gemini model for other stages is ignored
 ])
 def test_local_engine_model(monkeypatch, raw, expected):
     if raw is None:
@@ -303,4 +303,34 @@ def test_gemini_error_message_is_readable(monkeypatch):
     real_client = httpx.Client
     monkeypatch.setattr(le.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
     with pytest.raises(RuntimeError, match="API key not valid"):
-        le._call_gemini("hi", "bad", "gemini-2.5-flash")
+        le._call_gemini("hi", "bad", "gemini-3.5-flash-lite")
+
+
+def test_pipeline_llm_error_includes_google_message():
+    """The pipeline's LLM client must say *why* Gemini refused, not just '400'."""
+    import httpx
+    from applypilot import llm
+
+    client = llm.LLMClient(llm._GEMINI_COMPAT_BASE, llm.DEFAULT_GEMINI_MODEL, "bad")
+    client._client = httpx.Client(transport=httpx.MockTransport(
+        lambda req: httpx.Response(400, json=[{"error": {"message": "Please pass a valid API key"}}])))
+    with pytest.raises(httpx.HTTPStatusError, match="Please pass a valid API key"):
+        client.ask("hi")
+    assert llm.DEFAULT_GEMINI_MODEL == config.DEFAULT_GEMINI_MODEL == "gemini-3.5-flash-lite"
+
+
+def test_env_example_values_are_really_empty():
+    """'KEY=   # comment' parses as the comment text, which then gets sent as an API key."""
+    from pathlib import Path
+    from dotenv import dotenv_values
+    example = Path(__file__).resolve().parent.parent / ".env.example"
+    values = dotenv_values(example)
+    assert values.pop("EXECUTION_ENGINE") == "claude_code"
+    assert values == {"GEMINI_API_KEY": "", "CAPSOLVER_API_KEY": ""}
+
+    # Uncommenting an optional "# KEY=" line must not pick up a note either
+    import io
+    import re
+    uncommented = re.sub(r"^# ([A-Z_]+=)", r"\1", example.read_text(), flags=re.M)
+    for key, value in dotenv_values(stream=io.StringIO(uncommented)).items():
+        assert "#" not in (value or ""), f"{key} would be set to a comment: {value!r}"
