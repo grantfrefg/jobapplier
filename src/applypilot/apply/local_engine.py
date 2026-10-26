@@ -38,7 +38,7 @@ from pathlib import Path
 
 import httpx
 
-from applypilot import config
+from applypilot import budget, config
 from applypilot.apply import answers
 from applypilot.apply.dashboard import add_event, update_state
 from applypilot.database import apply_link
@@ -434,9 +434,12 @@ def _call_gemini(prompt: str, api_key: str, model: str) -> dict:
         "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"},
     }
     url = _GEMINI_URL.format(model=model)
+    budget.check(model, budget.APPLY)
     with httpx.Client(timeout=_GEMINI_TIMEOUT) as client:
         for attempt in range(_GEMINI_MAX_RETRIES):
             resp = client.post(url, json=payload, headers={"x-goog-api-key": api_key})
+            if budget.is_daily_quota_error(resp.status_code, resp.text):
+                raise budget.exhausted_error(model)
             if resp.status_code in (429, 500, 503) and attempt < _GEMINI_MAX_RETRIES - 1:
                 wait = min(10 * (2 ** attempt), 60)
                 logger.warning("Gemini HTTP %s, retrying in %ds", resp.status_code, wait)
@@ -451,6 +454,7 @@ def _call_gemini(prompt: str, api_key: str, model: str) -> dict:
                 raise RuntimeError(f"Gemini error ({resp.status_code}): {detail}")
             resp.raise_for_status()
             break
+    budget.record(model)
     data = resp.json()
     text = "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
     return parse_json_response(text)

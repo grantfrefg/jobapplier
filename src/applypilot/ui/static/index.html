@@ -100,7 +100,7 @@
     <button data-tab="find">2. Find jobs</button>
     <button data-tab="apply">3. Apply</button>
   </nav>
-  <div class="badges"><span class="badge" id="engine-badge">…</span><span class="badge" id="tier-badge">…</span>
+  <div class="badges"><span class="badge" id="engine-badge">…</span><span class="badge" id="tier-badge">…</span><span class="badge" id="budget-badge" style="display:none"></span>
     <button class="btn secondary" id="quit" style="display:none;padding:2px 12px">Quit</button></div>
 </header>
 
@@ -130,6 +130,14 @@
       <input type="password" id="gemini" placeholder="Paste your key" autocomplete="off">
       <label for="model">Gemini model</label>
       <input type="text" id="model" placeholder="gemini-3.5-flash-lite">
+      <details><summary>Daily request limit</summary>
+        <p class="sub" style="margin-top:8px">Google's free tier allows a set number of requests per day (resets at midnight US Pacific time). Finding and preparing jobs stops early to keep some for applying.</p>
+        <label for="daily-limit">Requests per day for your model</label>
+        <input type="number" id="daily-limit" min="0" placeholder="500">
+        <label for="apply-reserve">Keep this many for applying</label>
+        <input type="number" id="apply-reserve" min="0" placeholder="50">
+        <p class="muted" id="budget-detail"></p>
+      </details>
       <details class="dev-only"><summary>Optional keys</summary>
         <label for="openai">OpenAI API key (instead of Gemini, for scoring and tailoring only)</label>
         <input type="password" id="openai" autocomplete="off">
@@ -313,6 +321,16 @@ async function refreshStatus() {
   tb.textContent = "Tier " + status.tier + ": " + status.tier_label;
   tb.className = "badge " + (status.tier === 3 ? "ok" : "warn");
   $("#data-dir").textContent = status.data_dir;
+  const b = status.budget, bb = $("#budget-badge");
+  bb.style.display = b ? "" : "none";
+  if (b) {
+    bb.textContent = b.left + " of " + b.limit + " Gemini requests left today";
+    bb.className = "badge " + (b.left === 0 ? "warn" : b.pipeline_left === 0 ? "warn" : "ok");
+    bb.title = "Resets in about " + b.resets_in_hours + " hours (midnight US Pacific time)";
+    $("#budget-detail").textContent = "Today: " + b.used + " used, " + b.pipeline_left +
+      " left for finding and preparing jobs, " + b.left + " in total (" + b.apply_reserve +
+      " kept for applying). Resets in about " + b.resets_in_hours + " hours.";
+  }
   document.body.classList.toggle("desktop", status.desktop);
   $("#quit").style.display = status.desktop ? "" : "none";
   tb.style.display = status.desktop ? "none" : "";
@@ -344,6 +362,8 @@ async function loadSettings() {
   const s = await api("/api/settings");
   $$("input[name=engine]").forEach((r) => (r.checked = r.value === s.EXECUTION_ENGINE));
   $("#model").value = s.LLM_MODEL || "";
+  $("#daily-limit").value = s.GEMINI_DAILY_LIMIT || "";
+  $("#apply-reserve").value = s.GEMINI_APPLY_RESERVE || "";
   for (const [id, key] of [["gemini", "GEMINI_API_KEY"], ["openai", "OPENAI_API_KEY"], ["capsolver", "CAPSOLVER_API_KEY"]]) {
     $("#" + id).value = "";
     $("#" + id).placeholder = s[key].set ? "Saved " + s[key].hint + " (leave blank to keep)" : "Paste your key";
@@ -354,6 +374,7 @@ $("#save-settings").addEventListener("click", () => guarded(async () => {
     EXECUTION_ENGINE: ($("input[name=engine]:checked") || {}).value || "claude_code",
     GEMINI_API_KEY: $("#gemini").value, OPENAI_API_KEY: $("#openai").value,
     CAPSOLVER_API_KEY: $("#capsolver").value, LLM_MODEL: $("#model").value,
+    GEMINI_DAILY_LIMIT: $("#daily-limit").value, GEMINI_APPLY_RESERVE: $("#apply-reserve").value,
   });
   await loadSettings(); await refreshStatus();
 }, "Settings saved"));

@@ -26,6 +26,8 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `EXECUTION_ENGINE` | `claude_code` (`local_playwright` in the desktop app) | `local_playwright`: free, fills forms and **you** click Submit. `claude_code`: paid Claude Code CLI, submits automatically |
 | `OPENAI_API_KEY` | — | Use OpenAI instead of Gemini (scoring and writing only; the local apply engine needs Gemini) |
 | `LLM_URL`, `LLM_API_KEY` | — | Use a local OpenAI-compatible server (llama.cpp, Ollama) instead |
+| `GEMINI_DAILY_LIMIT` | `500` | Gemini requests per day for your model (Google's free-tier limit). Requests are counted per US Pacific day, when Google resets them |
+| `GEMINI_APPLY_RESERVE` | `50` | Requests kept for applying: finding and preparing jobs stops when only this many are left |
 | `CAPSOLVER_API_KEY` | — | CAPTCHA solving, `claude_code` engine only |
 | `CHROME_PATH` | auto-detected | Browser for the apply engines (Chrome, Edge or Chromium) |
 

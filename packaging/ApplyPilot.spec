@@ -15,6 +15,14 @@ for pkg in ("applypilot", "jobspy", "curl_cffi", "uvicorn"):
     binaries += b
     hiddenimports += h
 
+# Time zone data for the daily Gemini budget (Windows has no system copy)
+try:
+    d, b, h = collect_all("tzdata")
+    datas += d
+    hiddenimports += h
+except Exception:
+    pass  # budget.py falls back to a fixed US Pacific offset
+
 hiddenimports += collect_submodules("applypilot")
 hiddenimports += ["applypilot.__main__"]
 
