@@ -107,3 +107,17 @@ def test_cover_letter_claims():
     bad += " I also run Kubernetes."
     problems = " ".join(check(letter=bad)["letter_errors"])
     assert "machine learning engineer" in problems and "60" in problems and "kubernetes" in problems
+
+
+def test_rewordings_of_real_skills_are_kept():
+    resume = ("Built recommender systems on Google Cloud (Vertex AI) with machine learning and LLMs. "
+              "Partner with stakeholders. Personalisation at scale.")
+    source = facts.Source(resume)
+    skills = {"Skills": "Google Cloud Platform (GCP), Machine learning (ML), Large language models (LLMs), "
+                        "Recommendation systems, Stakeholder management, Personalisation, AWS, MLOps, "
+                        "Communication skills"}
+    kept, dropped = facts.filter_skills(skills, source)
+    assert kept["Skills"] == ("Google Cloud Platform (GCP), Machine learning (ML), Large language models (LLMs), "
+                              "Recommendation systems, Stakeholder management, Personalisation")
+    assert dropped == ["AWS", "MLOps", "Communication skills"]  # never in the resume
+    assert source.covers("personalization")  # US and Australian spellings are the same word

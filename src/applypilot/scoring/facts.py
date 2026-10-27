@@ -60,6 +60,33 @@ _NOT_A_TITLE = _STOP | {"your", "our", "their", "other", "fellow", "team", "team
                         "hiring", "interviewing", "candidate", "candidates"}
 
 
+# Short and long forms of the same thing: a resume saying one counts for the other
+# ("GCP" for "Google Cloud", "machine learning (ML)" for "ML").
+ALIASES: list[set[str]] = [
+    {"gcp", "google cloud", "google cloud platform"},
+    {"aws", "amazon web services"},
+    {"azure", "microsoft azure"},
+    {"ml", "machine learning"},
+    {"ai", "artificial intelligence"},
+    {"llm", "llms", "large language model", "large language models"},
+    {"nlp", "natural language processing"},
+    {"genai", "gen ai", "generative ai"},
+    {"k8s", "kubernetes"},
+    {"ci/cd", "continuous integration", "continuous delivery"},
+    {"etl", "extract transform load"},
+    {"bi", "business intelligence"},
+    {"api", "apis"},
+    {"a/b test", "a/b testing", "a/b tests", "ab testing"},
+    {"recsys", "recommender system", "recommender systems", "recommendation system", "recommendation systems"},
+    {"postgres", "postgresql"},
+]
+# Words that describe how a skill is used without adding a new fact:
+# "stakeholder management" is real if the resume shows stakeholder work.
+GENERIC = {"management", "communication", "engagement", "collaboration", "skills", "skill", "practices",
+           "techniques", "methods", "principles", "concepts", "fundamentals", "best", "strong", "advanced",
+           "hands-on", "experience", "knowledge", "proficiency", "expertise"}
+
+
 def normalize(text: str) -> str:
     """Lower case, accents and punctuation flattened, single spaces."""
     import unicodedata
@@ -70,6 +97,7 @@ def normalize(text: str) -> str:
 
 def _stem(word: str) -> str:
     word = word.strip("./-")
+    word = re.sub(r"(?<=[a-z])i([sz])(e|ed|es|ing|ation|ations)$", r"i\1\2", word).replace("iz", "is")
     for suffix in ("ing", "ies", "es", "ed", "s"):
         if len(word) > len(suffix) + 3 and word.endswith(suffix):
             return word[: -len(suffix)] + ("y" if suffix == "ies" else "")
@@ -86,8 +114,11 @@ class Source:
     def __init__(self, resume_text: str, extra_skills: list[str] | None = None):
         self.raw = resume_text or ""
         self.text = normalize(resume_text)
+        for group in ALIASES:  # a short or long form in the resume stands for all of them
+            if any(re.search(rf"(?<![a-z0-9]){re.escape(a)}(?![a-z0-9])", self.text) for a in group):
+                self.text += " " + " ; ".join(sorted(group)) + " "
         self.extra = [normalize(s) for s in extra_skills or [] if str(s).strip()]
-        self.words = set(_tokens(resume_text))
+        self.words = set(_tokens(self.text))
         for s in extra_skills or []:
             self.words.update(_tokens(str(s)))
 
@@ -110,8 +141,16 @@ class Source:
         return False
 
     def covers(self, phrase: str) -> bool:
-        """Every meaningful word of the phrase appears somewhere in the real facts."""
-        return all(t in self.words for t in _tokens(phrase))
+        """Every meaningful word of the phrase appears somewhere in the real facts.
+
+        Generic words ("management", "skills") don't count, but at least one
+        word must be a real one: "stakeholder management" needs "stakeholder".
+        """
+        if self.mentions(phrase):
+            return True
+        words = _tokens(phrase)
+        specific = [t for t in words if t not in GENERIC]
+        return bool(specific) and all(t in self.words for t in specific)
 
 
 # ── Skills from the profile ──────────────────────────────────────────────

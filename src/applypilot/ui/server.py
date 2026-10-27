@@ -609,7 +609,7 @@ def create_app() -> FastAPI:
                 _fill_ats(job)  # resumes written before the ATS check existed
             report = json.loads(job.pop("ats_report") or "null")
             job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
-                                                                "missing_gap", "issues")}
+                                                                "missing_gap", "issues", "removed_skills")}
             for k in ("tailored_resume_path", "score_reasoning", "full_description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})

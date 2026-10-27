@@ -449,6 +449,9 @@ def _australianise_resume(resume: dict, original: str) -> dict:
     for key in ("title", "focus", "summary"):
         if isinstance(out.get(key), str):
             out[key] = australianise(out[key], original)
+    if isinstance(out.get("skills"), dict):
+        out["skills"] = {k: australianise(v, original) if isinstance(v, str) else v
+                         for k, v in out["skills"].items()}
     for section in ("experience", "projects"):
         entries = []
         for entry in out.get(section) or []:
@@ -746,6 +749,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             # ATS check (no AI): how a parser and a keyword search see this resume
             from applypilot.scoring import ats
             report["ats"] = ats.check(tailored, job, resume_text)
+            report["ats"]["removed_skills"] = report.get("dropped_skills") or []
 
             # Save validation report
             report_path = TAILORED_DIR / f"{prefix}_REPORT.json"
