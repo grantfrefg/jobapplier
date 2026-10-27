@@ -802,6 +802,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                         convert_to_pdf(cl_file)
                     except Exception:
                         log.debug("PDF generation failed for %s", cl_file, exc_info=True)
+                if pdf_path:  # check the PDF too, read back the way a parser reads it
+                    report["ats"] = {**ats.check(tailored, job, resume_text, pdf_path=pdf_path),
+                                     "removed_skills": report.get("dropped_skills") or []}
+                    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
             result = {
                 "url": job["url"],
