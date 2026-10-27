@@ -72,6 +72,19 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed
+- **Prompt review (2):**
+  - Fact-check: checks against the original resume plus your confirmed profile skills (it used only the profile's
+    skills list and `real_metrics`, so it could reject skills and numbers that are in your resume); must quote the
+    unsupported phrase and passes when it can't (no more "when in doubt, FAIL"); sees the job ad so statements about
+    the employer aren't treated as claims about you; no longer allows moving bullets between roles.
+  - Form filling: sees the job description (specific "Why this role?" and selection criteria answers) and the job
+    board ("How did you hear about us?"); salary figures are base excluding super, with 12% added when a form asks
+    for the package; referral and "worked here before" questions are answered.
+  - Scoring: knows whether you take contract or full-time work, and caps jobs paying clearly below your minimum.
+  - Writer uses the ad's form of a term ("AWS" vs "Amazon Web Services"); the cover letter answers what the ad asks
+    for (availability, a question) and mentions sponsorship or relocation in one sentence only when it applies, and
+    may quote numbers from the ad.
+  - Claude Code engine salary: Australian (base excluding super, 38-hour week, day rates), no fixed US$110K floor.
 - Default model `gemini-3.5-flash-lite` for every stage (was `gemini-2.0-flash`).
 - LLM errors include the provider's message (e.g. "Please pass a valid API key").
 - Location filter shared by all sources, matching whole words. State abbreviations are expanded (NSW → New South Wales).

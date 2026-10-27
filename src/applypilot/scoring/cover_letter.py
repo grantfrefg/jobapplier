@@ -53,6 +53,23 @@ def cover_letter_rules(profile: dict) -> str:
     extra = profile_skills(profile)
     skills_str = "the tools named in the resume" + (f", plus {', '.join(extra)}" if extra else "")
 
+    # Relocation or sponsorship: one plain sentence when it matters, never otherwise
+    auth = profile.get("work_authorization", {})
+    avail = profile.get("availability", {})
+    city = profile.get("personal", {}).get("city") or ""
+    situation = ""
+    when = [f"{label}: {avail[key]}" for key, label in (("notice_period", "notice period"),
+                                                         ("earliest_start_date", "earliest start"))
+            if str(avail.get(key) or "").strip()]
+    if when:
+        situation += f"\nAvailability, if the ad asks: {'; '.join(when)}."
+    if str(auth.get("require_sponsorship") or "").strip().lower() in ("yes", "true", "y"):
+        situation += ("\nThe candidate needs visa sponsorship: say so in one plain sentence near the end "
+                     "(employers ask anyway, and hiding it wastes everyone's time).")
+    if str(avail.get("willing_to_relocate") or "").strip().lower() in ("yes", "true", "y") and city:
+        situation += (f"\nThe candidate lives in {city} and will relocate: if the role is in another city, say so "
+                      "in one plain sentence. If it's in their city or remote, don't mention location.")
+
     # Real metrics from resume_facts
     real_metrics = resume_facts.get("real_metrics", [])
     preserved_projects = resume_facts.get("preserved_projects", [])
@@ -85,6 +102,8 @@ real numbers or scale where the resume has them. Use the ad's own words for the 
 that the candidate really has (recruiters and ATS search for them).{projects_hint}{metrics_hint}
 If the ad asks applicants to address selection criteria (common in Australian government and
 university roles), touch on each one briefly with a real example from the resume.
+If the ad asks the letter to cover something specific (availability or start date, why this team, a
+question to answer), answer it, using only facts the candidate gave.{situation}
 
 CLOSE (1-2 sentences): One specific reason for THIS role, taken from the job description (the
 product, system, technical challenge or team). If the employer isn't named (e.g. a recruitment agency
@@ -167,10 +186,10 @@ def _strip_preamble(text: str) -> str:
 
 # ── Core Generation ──────────────────────────────────────────────────────
 
-def _fact_errors(letter: str, resume_text: str, profile: dict) -> list[str]:
+def _fact_errors(letter: str, resume_text: str, profile: dict, job_ad: str = "") -> list[str]:
     from applypilot.scoring import facts
     from applypilot.scoring.tailor import letter_problems
-    return letter_problems(letter, facts.source_for(resume_text, profile), resume_text)
+    return letter_problems(letter, facts.source_for(resume_text, profile), resume_text, job_ad)
 
 
 def generate_cover_letter(
@@ -224,7 +243,7 @@ def generate_cover_letter(
         letter = australianise(clean_letter(client.chat(messages, max_tokens=1024, temperature=0.7)), resume_text)
 
         validation = validate_cover_letter(letter, mode=validation_mode, original_text=resume_text)
-        fact_errors = _fact_errors(letter, resume_text, profile)
+        fact_errors = _fact_errors(letter, resume_text, profile, job.get("full_description") or "")
         validation["errors"] += fact_errors
         if not validation["errors"]:
             return letter

@@ -42,6 +42,7 @@ from applypilot.scoring.validator import (
 log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 5  # max cross-run retries before giving up
+_JUDGE_AD_CHARS = 2500  # job ad shown to the fact-check (enough for the role and employer details)
 
 _FAILURE = {
     "failed_judge": "The fact-check rejected every draft",
@@ -137,6 +138,8 @@ Recruiters search and rank applications by the ad's exact words, so:
 - For every must-have the candidate really has, use the ad's own wording at least once (in the
   skills or a bullet): if the ad says "stakeholder management", don't only write "partnered with".
 - Write each acronym out once with the acronym: "machine learning (ML)", "Google Cloud Platform (GCP)".
+- When the resume and the ad name the same thing differently ("Amazon Web Services" vs "AWS",
+  "Postgres" vs "PostgreSQL"), use the ad's form, so a search for the ad's word finds it.
 - Keep job titles, employers and dates exactly as in the resume, dates as "Mar 2021 - Present".
 - Plain words only: no tables, columns, symbols, emojis or icons in any field.
 
@@ -226,61 +229,51 @@ def _build_application_prompt(profile: dict) -> str:
 
 def _build_judge_prompt(profile: dict) -> str:
     """Build the LLM judge prompt from the user's profile."""
-    boundary = profile.get("skills_boundary", {})
-    resume_facts = profile.get("resume_facts", {})
+    extra = facts.profile_skills(profile)  # confirmed profile skills (template examples only once confirmed)
+    skills_str = ", ".join(extra) if extra else "(none)"
 
-    # Flatten allowed skills for the judge
-    all_skills: list[str] = []
-    for items in boundary.values():
-        if isinstance(items, list):
-            all_skills.extend(items)
-    skills_str = ", ".join(all_skills) if all_skills else "N/A"
+    return f"""You are a resume fact-checker. A tailoring engine rewrote a candidate's resume (and a cover
+letter) for a specific job. Your only job is to catch claims about the CANDIDATE that the original resume
+doesn't support. Style, wording, order and emphasis are not your concern.
 
-    real_metrics = resume_facts.get("real_metrics", [])
-    metrics_str = ", ".join(real_metrics) if real_metrics else "only those in the original resume"
+Answer with ONLY a JSON object:
+{{"verdict": "PASS" or "FAIL", "issues": "<for each problem: the exact phrase quoted, then why it isn't
+supported; or none>"}}
 
-    return f"""You are a resume quality judge. A tailoring engine rewrote a resume to target a specific job. Your job is to catch LIES, not style changes.
+## WHAT YOU CHECK AGAINST
+- The ORIGINAL RESUME: every tool, skill, number, title, employer, qualification and achievement in it is
+  real and may be used.
+- Plus these extra skills the candidate listed in their profile: {skills_str}
+- The JOB AD excerpt is given so you can tell what the letter says about the role or employer. Statements
+  about the employer, team, product or role ("your platform team's move to event streaming") are not
+  claims about the candidate: never fail them.
 
-Answer with ONLY a JSON object: {{"verdict": "PASS" or "FAIL", "issues": "<problems found, or none>"}}
-If a cover letter is included, apply the same rules to it: it may only claim work, tools and numbers from the original resume.
+## ALLOWED (never fail for these)
+- Rewording a bullet, even heavily, as long as the underlying work is real; using the job's term for the
+  same work ("REST APIs" for "web services"; "AWS" for "Amazon Web Services")
+- Rewriting the summary from facts in the resume
+- Reordering anything; dropping bullets, projects or skills; regrouping skills
+- Combining two bullets from the same role, or splitting one, without creating a new cause and effect
+- Tone, length, structure and formatting
 
-## CONTEXT -- what the tailoring engine was instructed to do (all of this is ALLOWED):
-- Rewrite the summary for the target job (using only real facts)
-- Reorder bullets and projects to put the most relevant first
-- Reframe bullets to use the job's language
-- Drop low-relevance bullets and replace with more relevant ones from other sections
-- Reorder the skills section to put job-relevant skills first
-- Change tone and wording extensively
+## FAIL ONLY FOR THESE (quote the phrase)
+1. A tool, language, framework, platform, certification or skill that is neither in the original resume nor
+   in the extra skills above, even a closely related one: an interviewer will ask about it.
+2. A number that isn't in the original resume, or a real number changed (80% made 95%, 500 made 1000).
+3. Work with no basis in any original bullet, or an achievement moved to a different role or project.
+4. A company, role, degree or qualification that doesn't exist in the original.
+5. A job title the candidate hasn't held, used for them anywhere: the headline, the summary ("AI engineer
+   with 7 years") or the letter ("as a machine learning engineer"). Naming the job being applied for
+   ("the AI Engineer role") is fine.
+6. Two separate facts joined into a new claim ("cut costs 50% while serving 10 million customers" when
+   those come from unrelated bullets).
+7. A claim of experience with something the job ad asks for that the original resume never shows.
 
-## WHAT IS FABRICATION (FAIL for these):
-1. Adding tools, languages, frameworks or certifications (in skills, bullets, summary or cover letter)
-   that aren't in the original. The allowed skills are ONLY: {skills_str}
-2. Inventing NEW metrics or numbers not in the original. The real metrics are: {metrics_str}
-3. Inventing work that has no basis in any original bullet (completely new achievements).
-4. Adding companies, roles, or degrees that don't exist.
-5. Changing real numbers (inflating 80% to 95%, 500 nodes to 1000 nodes).
-6. Giving the candidate a job title they haven't held, anywhere: the headline, the summary ("AI engineer
-   with 7 years"), or the cover letter ("as a machine learning engineer"). The title they held is a fact.
-7. Joining separate facts into a new claim (a cost saving from one project credited to another, or
-   "cut costs while serving 10 million customers" when those are two unrelated facts).
-8. Claiming experience with something the job wants that the original never shows.
-
-## WHAT IS NOT FABRICATION (do NOT fail for these):
-- Rewording any bullet, even heavily, as long as the underlying work is real
-- Combining two original bullets into one
-- Splitting one original bullet into two
-- Describing the same work with different emphasis
-- Dropping bullets entirely
-- Reordering anything
-- Rewriting the summary, as long as every claim in it is in the original
-
-## JUDGEMENT
-- Wording, emphasis and structure are free: never fail for style, tone, reordering or regrouping.
-- A tool, language, framework, certification or number that isn't in the original resume or the allowed
-  skills list is fabrication, even if it's closely related or easy to learn: an interviewer will ask about it.
-- Using the job's term for the same real work ("REST APIs" for "web services") is fine.
-- When in doubt, FAIL: a resume that claims too little costs nothing; one that claims too much costs
-  the candidate's credibility in the interview."""
+## HOW TO DECIDE
+- FAIL only when you can quote a specific phrase that breaks a rule above. A vague feeling that something
+  is "exaggerated" is not a reason; if you can't point to the unsupported fact, PASS.
+- Check a doubtful skill or number by searching the original resume for it, including other forms of the
+  same name (GCP / Google Cloud, k8s / Kubernetes) before calling it new."""
 
 
 # ── JSON Extraction ───────────────────────────────────────────────────────
@@ -412,7 +405,7 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
 
 def judge_tailored_resume(
     original_text: str, tailored_text: str, job_title: str, profile: dict,
-    cover_letter: str = "",
+    cover_letter: str = "", job_ad: str = "",
 ) -> dict:
     """LLM judge layer: catches subtle fabrication that programmatic checks miss.
 
@@ -422,22 +415,25 @@ def judge_tailored_resume(
         job_title: Target job title.
         profile: User profile for building the judge prompt.
         cover_letter: Cover letter written alongside the resume, if any.
+        job_ad: The job description (an excerpt is shown, so statements about the
+            employer or role aren't mistaken for claims about the candidate).
 
     Returns:
         {"passed": bool, "verdict": str, "issues": str}
     """
     letter_part = f"\n\n---\n\nCOVER LETTER:\n{cover_letter}" if cover_letter else ""
+    ad_part = f"JOB AD (excerpt):\n{job_ad[:_JUDGE_AD_CHARS]}\n\n---\n\n" if job_ad else ""
     messages = [
         {"role": "system", "content": _build_judge_prompt(profile)},
         {"role": "user", "content": (
-            f"JOB TITLE: {job_title}\n\n"
+            f"JOB TITLE: {job_title}\n\n{ad_part}"
             f"ORIGINAL RESUME:\n{original_text}\n\n---\n\n"
             f"TAILORED RESUME:\n{tailored_text}{letter_part}\n\n"
             "Judge it:"
         )},
     ]
     try:
-        data = get_client().chat_json(messages, max_tokens=512, temperature=0.1)
+        data = get_client().chat_json(messages, max_tokens=700, temperature=0.1)
     except ValueError:
         data = {}
     verdict = str(data.get("verdict", "")).strip().upper() if isinstance(data, dict) else ""
@@ -553,12 +549,16 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
     if education and not source.covers(re.sub(r"[|,]", " ", education)):
         errors.append("Education doesn't match the resume. Copy it exactly.")
 
-    return {"resume": fixed, "errors": errors, "letter_errors": letter_problems(letter, source, resume_text),
+    return {"resume": fixed, "errors": errors,
+            "letter_errors": letter_problems(letter, source, resume_text, (job or {}).get("full_description") or ""),
             "dropped_skills": dropped, "title_replaced": replaced, "added_keywords": added}
 
 
-def letter_problems(letter: str, source: "facts.Source", resume_text: str) -> list[str]:
-    """Facts in a cover letter that aren't in the resume."""
+def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_ad: str = "") -> list[str]:
+    """Facts in a cover letter that aren't in the resume.
+
+    Numbers from the job ad are allowed too: "your team of 40 engineers" is about the employer.
+    """
     if not letter:
         return []
     problems = []
@@ -568,7 +568,7 @@ def letter_problems(letter: str, source: "facts.Source", resume_text: str) -> li
     tools = facts.new_tools(letter, source)
     if tools:
         problems.append(f"Mentions {', '.join(tools)}, which the resume never does.")
-    invented = new_numbers(resume_text, letter)
+    invented = new_numbers(resume_text + "\n" + job_ad, letter)
     if invented:
         problems.append(f"Numbers not in the resume: {', '.join(invented[:5])}.")
     return problems
@@ -672,7 +672,8 @@ def tailor_application(
             break
 
         report["requests"] += 1
-        judge = judge_tailored_resume(resume_text, tailored, job.get("title", ""), profile, letter)
+        judge = judge_tailored_resume(resume_text, tailored, job.get("title", ""), profile, letter,
+                                      job_ad=job.get("full_description") or "")
         report["judge"] = judge
         if judge["passed"]:
             report["status"] = "approved"
