@@ -267,12 +267,13 @@ def test_status_shows_gemini_budget(client, monkeypatch):
     assert client.post("/api/settings", json={"GEMINI_DAILY_LIMIT": "lots"}).status_code == 400
 
 
-def test_redo_clears_and_starts_tailoring(client, tmp_path, monkeypatch):
+def test_redo_marks_and_starts_rewriting(client, tmp_path, monkeypatch):
     _seed_job(tmp_path, "https://example.com/job/1")
     started = []
     from applypilot.ui import server
     monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, **kw: started.append(args))
-    r = client.post("/api/jobs/redo", json={"url": "https://example.com/job/1", "min_score": 8})
-    assert r.status_code == 200 and r.json()["cleared"] == 1
-    assert started == [["run", "tailor", "cover", "pdf", "--min-score", "8"]]
-    assert client.get("/api/jobs?view=ready").json() == []  # waiting to be rewritten
+    r = client.post("/api/jobs/redo", json={"url": "https://example.com/job/1"})
+    assert r.status_code == 200 and r.json()["marked"] == 1
+    assert started == [["redo", "--pending"]]  # only the marked jobs, whatever their score
+    [job] = client.get("/api/jobs?view=ready").json()  # still ready: old documents kept until replaced
+    assert job["redo_requested"] == 1

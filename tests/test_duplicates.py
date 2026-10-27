@@ -123,7 +123,11 @@ def test_never_applies_twice(conn):
 JORA, INDEED, LINKEDIN = "https://au.jora.com/job/1", "https://au.indeed.com/viewjob?jk=2", "https://linkedin.com/jobs/view/3"
 
 
-def test_redo_clears_documents_and_reprioritises_sites(conn):
+def _redo_marks(conn):
+    return {r[0] for r in conn.execute("SELECT url FROM jobs WHERE redo_requested = 1")}
+
+
+def test_redo_keeps_documents_and_reprioritises_sites(conn):
     # The Jora listing was found and tailored first, so it was the canonical copy
     add(conn, JORA, "Jora", company="Acme", desc=DESC, tailored_resume_path="/t/jora.txt",
         cover_letter_path="/c/jora.txt", tailor_attempts=1, fit_score=8)
@@ -133,12 +137,17 @@ def test_redo_clears_documents_and_reprioritises_sites(conn):
     assert dup_map(conn)[LINKEDIN] == JORA
 
     assert database.redo_documents(conn) == 1
-    row = conn.execute("SELECT tailored_resume_path, cover_letter_path, tailor_attempts FROM jobs "
-                       "WHERE url = ?", (JORA,)).fetchone()
-    assert tuple(row) == (None, None, 0)
-    # LinkedIn now leads, so it's the one tailored next
+    row = conn.execute("SELECT tailored_resume_path, cover_letter_path FROM jobs WHERE url = ?", (JORA,)).fetchone()
+    assert tuple(row) == ("/t/jora.txt", "/c/jora.txt")  # nothing deleted
+    # LinkedIn now leads, so it carries the Redo mark and is the one rewritten
     assert dup_map(conn) == {LINKEDIN: None, INDEED: LINKEDIN, JORA: LINKEDIN}
-    assert [j["url"] for j in database.get_jobs_by_stage(conn, "pending_tailor", min_score=7)] == [LINKEDIN]
+    assert _redo_marks(conn) == {LINKEDIN}
+    assert [j["url"] for j in database.get_jobs_by_stage(conn, "pending_redo")] == [LINKEDIN]
+
+    # If LinkedIn's rewrite doesn't pass, the mark goes and Jora's documents are used again
+    database.finish_redo(conn, LINKEDIN)
+    database.mark_duplicates(conn)
+    assert dup_map(conn)[LINKEDIN] == JORA and _redo_marks(conn) == set()
 
 
 def test_redo_keeps_applied_jobs_and_frees_stuck_ones(conn):
@@ -147,18 +156,17 @@ def test_redo_keeps_applied_jobs_and_frees_stuck_ones(conn):
         agent_id="worker-0")  # left over from an apply run that never finished
     add(conn, LINKEDIN, "linkedin", title="ML Engineer", tailored_resume_path="/t/c.txt")
     assert database.redo_documents(conn) == 2
-    kept = {r[0] for r in conn.execute("SELECT url FROM jobs WHERE tailored_resume_path IS NOT NULL")}
-    assert kept == {JORA}
+    assert _redo_marks(conn) == {INDEED, LINKEDIN}
     row = conn.execute("SELECT apply_status, agent_id FROM jobs WHERE url = ?", (INDEED,)).fetchone()
-    assert tuple(row) == (None, None)  # back in the apply queue once rewritten
+    assert tuple(row) == (None, None)  # back in the apply queue
 
 
 def test_redo_skips_the_job_being_applied_to(conn):
     add(conn, INDEED, "indeed", title="Data Engineer", tailored_resume_path="/t/b.txt", apply_status="in_progress")
     add(conn, LINKEDIN, "linkedin", title="ML Engineer", tailored_resume_path="/t/c.txt")
     assert database.redo_documents(conn, applying_now=INDEED) == 1
-    row = conn.execute("SELECT apply_status, tailored_resume_path FROM jobs WHERE url = ?", (INDEED,)).fetchone()
-    assert tuple(row) == ("in_progress", "/t/b.txt")
+    row = conn.execute("SELECT apply_status, redo_requested FROM jobs WHERE url = ?", (INDEED,)).fetchone()
+    assert tuple(row) == ("in_progress", 0)
 
 
 def test_redo_one_job_includes_its_other_listings(conn):
@@ -168,6 +176,5 @@ def test_redo_one_job_includes_its_other_listings(conn):
         tailored_resume_path="/t/other.txt")
     database.mark_duplicates(conn)
     assert database.redo_documents(conn, url=LINKEDIN) == 1  # a duplicate's url reaches its canonical copy
-    tailored = {r[0] for r in conn.execute("SELECT url FROM jobs WHERE tailored_resume_path IS NOT NULL")}
-    assert tailored == {INDEED}
+    assert _redo_marks(conn) == {LINKEDIN}                  # the preferred listing of that role only
     assert database.redo_documents(conn, url="https://nowhere") == 0

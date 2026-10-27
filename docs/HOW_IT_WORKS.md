@@ -68,7 +68,12 @@ Two checks guard every result:
 
 If the resume fails, both documents are regenerated. If only the letter fails, just the letter is retried.
 
-**Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job). Jobs you've applied to keep theirs, as does a job open in the browser at that moment; jobs stuck "in progress" from an apply run that never finished are rewritten and put back in the queue. Redo also re-picks which listing to use when a role is on several sites, by `site_priority` (LinkedIn, then Indeed, then Jora), so a role first found on Jora is rewritten for its LinkedIn or Indeed listing. Each job costs about one Gemini request, and a run tailors up to 20 jobs; run it again for more.
+**Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job).
+- Only the jobs you redo are rewritten, whatever their score; nothing else in the queue is tailored.
+- Nothing is deleted first: a job keeps its old resume and cover letter (and stays ready to apply) until the new ones pass the checks. If a rewrite doesn't pass, the old documents stay. If the day's Gemini budget runs out, the rest are rewritten on the next run.
+- Jobs you've applied to keep theirs, as does a job open in the browser at that moment; jobs stuck "in progress" from an apply run that never finished are put back in the queue.
+- Redo also re-picks which listing to use when a role is on several sites, by `site_priority` (LinkedIn, then Indeed, then Jora), so a role first found on Jora is rewritten for its LinkedIn or Indeed listing. If that rewrite fails, the Jora listing and its documents are used again.
+- Each job costs about one Gemini request.
 
 `--validation` controls how strict this is:
 - `strict`: banned words are errors, and the AI fact-check always runs.

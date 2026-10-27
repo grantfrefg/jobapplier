@@ -819,13 +819,28 @@ def _learn_from_user(conn, before: dict, after: dict, lf) -> int:
     return learned
 
 
+# The job board's own "go to the application" links: Jora's redirect to the
+# employer, SEEK's apply flow, Indeed's "apply on company site" redirect.
+_BOARD_APPLY_HREF = re.compile(r"jora\.com/job/rd/|seek\.com\.au/job/\d+/apply|indeed\.com/(applystart|rc/clk)",
+                               re.IGNORECASE)
+_APPLY_TEXT = re.compile(r"^\s*(quick\s+)?apply\b|\bapply (now|on (the )?(company|employer)('s)? (site|website))\b",
+                         re.IGNORECASE)
+
+
 def _find_apply_link(controls: list[dict]) -> str | None:
-    """On a job listing page, return the href of an 'Apply' *link* (navigation only)."""
-    for c in controls:
-        if c["tag"] == "a" and c.get("href", "").startswith("http") and re.search(
-            r"\bapply\b", c["text"], re.IGNORECASE
-        ):
-            return c["href"]
+    """On a job listing page, return the href of its 'Apply' *link* (navigation only).
+
+    Prefers the board's own apply links, then links whose text starts with
+    "Apply"; a link that merely mentions applying ("How to apply", a similar
+    job's "Quick apply" further down) is the last resort, and the first such
+    link on the page wins, which is the ad's own button on these boards.
+    """
+    links = [c for c in controls if c["tag"] == "a" and c.get("href", "").startswith("http")]
+    for rule in (lambda c: _BOARD_APPLY_HREF.search(c["href"]) and re.search(r"\bapply\b", c["text"], re.I),
+                 lambda c: _APPLY_TEXT.search(c["text"]) and not re.search(r"\bhow to\b", c["text"], re.I)):
+        match = next((c for c in links if rule(c)), None)
+        if match:
+            return match["href"]
     return None
 
 
