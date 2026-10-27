@@ -93,6 +93,8 @@ It uses no AI requests. It's a guide, not a prediction of any one vendor's ranki
 - `normal` (default): banned words are warnings.
 - `lenient`: banned words are ignored and the AI fact-check is skipped. The code fact checks always run.
 
+**Your own documents.** On the Apply tab, **use my own resume** / **use my own cover letter** under a job takes a PDF or Word (.docx) file you wrote. Applying uploads yours (as `Your_Name_Resume.docx`, for example) instead of the generated one, and the form-filling AI reads its text. A job with your own resume isn't tailored (so it costs no requests) and is ready to apply even if its generated drafts were rejected. Its ATS score checks your file; a PDF with no readable text (a scan) is flagged, since applicant tracking systems can't read it either. **use generated** (or **remove my resume**) switches back. The files are kept in `~/.applypilot/own_documents`.
+
 ## Cover letter and PDF
 
 Cover letters are written together with the tailored resume (above). The separate cover-letter stage only writes letters for jobs tailored before that change. Both documents are rendered to PDF for uploading, laid out for Australian applicant tracking systems (Workday, SuccessFactors, PageUp, JobAdder, Taleo) and recruiters:

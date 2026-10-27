@@ -77,6 +77,8 @@
   .log-help dt { font-weight: 600; margin-top: 8px; }
   .log-help dd { margin: 2px 0 0 0; color: var(--muted); }
   .log-help p { margin: 8px 0 0; color: var(--muted); }
+  .own-docs { font-size: 12px; margin-top: 4px; }
+  .own-docs a { color: var(--muted); }
   .muted { color: var(--muted); font-size: 12px; }
   .table-wrap { overflow-x: auto; }
   .gate { border: 2px solid var(--warn); background: var(--warn-bg); }
@@ -386,6 +388,13 @@
           submit everything yourself. Then press <b>Mark applied</b> so the job moves to <i>Applied</i> and isn't
           offered again. The same PDFs for the job you're applying to are also in the <code>ApplyPilot uploads</code>
           folder in your home folder.</dd>
+        <dt>Using your own resume or cover letter</dt>
+        <dd>Under a job's documents, <b>use my own resume</b> or <b>use my own cover letter</b> lets you pick a PDF
+          or Word file you wrote yourself. <b>Apply</b> then uploads yours instead of the generated one (you can
+          mix, e.g. your resume with the generated letter). A job with your own resume isn't sent to Gemini for
+          tailoring, and its ATS score checks your file. It also works for a job whose drafts were rejected: give
+          it your resume and it's ready to apply. <b>use generated</b> switches back. Your files are kept in the
+          <code>own_documents</code> folder inside <code>.applypilot</code>.</dd>
         <dt>Redo and Try again</dt>
         <dd><b>Redo</b> rewrites a job's resume and cover letter (for example after you update your resume or
           profile); the old ones stay until the new ones pass the checks. <b>Redo all documents</b> does it for
@@ -696,7 +705,43 @@ const ACCOUNT_HELP = {
   board: "Uses your login on that job board, which the app's browser remembers.",
   yes: "Create an account (or sign in) on the employer's site first, once per employer.",
 };
+// Your own resume / cover letter for a job, instead of the generated one
+function ownDocLinks(j) {
+  const links = [];
+  for (const [kind, own, label, generated] of [["resume", j.own_resume, "resume", j.generated_resume],
+                                              ["cover", j.own_cover, "cover letter", j.generated_cover]]) {
+    if (links.length) links.push(" · ");
+    if (own) {
+      links.push(el("a", { href: "#", title: generated ? "Remove your file and use the generated " + label + " again"
+                                                     : "Remove your file (this job has no generated " + label + ")",
+        onclick: (e) => { e.preventDefault(); guarded(async () => {
+          await post("/api/jobs/own-document/clear", { url: j.url, kind }); loadJobs(); refreshStatus();
+        }, generated ? "Using the generated " + label : "Removed your " + label); } },
+        generated ? "use generated " + label : "remove my " + label));
+    } else {
+      links.push(el("a", { href: "#", title: "Upload your own " + label + " (PDF or Word) for this job. " +
+        "Apply then uploads yours instead of the generated one.",
+        onclick: (e) => { e.preventDefault(); pickOwnDoc(j.url, kind, label); } }, "use my own " + label));
+    }
+  }
+  return links;
+}
+function pickOwnDoc(url, kind, label) {
+  const input = el("input", { type: "file", accept: ".pdf,.docx" });
+  input.addEventListener("change", () => guarded(async () => {
+    if (!input.files.length) return;
+    const form = new FormData();
+    form.append("url", url); form.append("kind", kind); form.append("file", input.files[0]);
+    await post("/api/jobs/own-document", form); loadJobs(); refreshStatus();
+  }, "Your " + label + " will be used for this job"));
+  input.click();
+}
+
 function atsBadge(a) {
+  if (a.unreadable) return el("span", { class: "badge warn", style: "cursor:help", title:
+    "No text could be read from your resume file. It may be a scanned image or a picture saved as PDF: " +
+    "applicant tracking systems can't read it either. Export it from Word or Google Docs as a PDF instead." },
+    "ATS: unreadable");
   const tone = a.score >= 80 ? "ok" : "warn";
   const lines = ["ATS check: " + a.score + "/100 (keyword match " + a.keyword_match + "%)"];
   if (a.issues && a.issues.length) lines.push("", "To look at:", ...a.issues.map((i) => "- " + i));
@@ -735,9 +780,12 @@ async function loadJobs() {
   $("#jobs").replaceChildren(...jobs.map((j) => {
     const link = j.link;
     const docs = [];
-    if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank" }, "Resume"));
+    if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank",
+      title: j.own_resume ? "Your own file, used instead of the generated resume" : "" }, j.own_resume ? "Your resume" : "Resume"));
     if (j.ats) docs.push(" · ", atsBadge(j.ats));
-    if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank" }, "Cover letter"));
+    if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank",
+      title: j.own_cover ? "Your own file, used instead of the generated cover letter" : "" }, j.own_cover ? "Your cover letter" : "Cover letter"));
+    if (!j.applied_at && !j.duplicate_of) docs.push(el("div", { class: "own-docs" }, ownDocLinks(j)));
     const statusText = j.redo_requested ? "Rewriting documents…"
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"

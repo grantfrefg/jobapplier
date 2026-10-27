@@ -112,10 +112,11 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
             like = f"%{target_url.split('?')[0].rstrip('/')}%"
             row = conn.execute("""
                 SELECT url, title, site, application_url, tailored_resume_path,
-                       fit_score, location, full_description, cover_letter_path
+                       fit_score, location, full_description, cover_letter_path,
+                       own_resume_path, own_cover_path
                 FROM jobs
                 WHERE (url = ? OR application_url = ? OR application_url LIKE ? OR url LIKE ?)
-                  AND tailored_resume_path IS NOT NULL
+                  AND (tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL)
                   AND duplicate_of IS NULL
                   AND COALESCE(apply_status, '') != 'in_progress'
                 LIMIT 1
@@ -135,9 +136,10 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
                 params.extend(blocked_patterns)
             row = conn.execute(f"""
                 SELECT url, title, site, application_url, tailored_resume_path,
-                       fit_score, location, full_description, cover_letter_path
+                       fit_score, location, full_description, cover_letter_path,
+                       own_resume_path, own_cover_path
                 FROM jobs
-                WHERE tailored_resume_path IS NOT NULL
+                WHERE (tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL)
                   AND duplicate_of IS NULL
                   AND (apply_status IS NULL OR apply_status = 'failed')
                   AND (apply_attempts IS NULL OR apply_attempts < ?)
@@ -230,11 +232,8 @@ def gen_prompt(target_url: str, min_score: int = 7,
         return None
 
     # Read resume text
-    resume_path = job.get("tailored_resume_path")
-    txt_path = Path(resume_path).with_suffix(".txt") if resume_path else None
-    resume_text = ""
-    if txt_path and txt_path.exists():
-        resume_text = txt_path.read_text(encoding="utf-8")
+    from applypilot.own_docs import documents
+    resume_text = documents(job)["resume"]["text"]
 
     prompt = prompt_mod.build_prompt(job=job, tailored_resume=resume_text)
 
@@ -319,11 +318,8 @@ def run_job(job: dict, port: int, worker_id: int = 0,
         return local_engine.run_job(job, worker_id=worker_id, dry_run=dry_run)
 
     # Read tailored resume text
-    resume_path = job.get("tailored_resume_path")
-    txt_path = Path(resume_path).with_suffix(".txt") if resume_path else None
-    resume_text = ""
-    if txt_path and txt_path.exists():
-        resume_text = txt_path.read_text(encoding="utf-8")
+    from applypilot.own_docs import documents
+    resume_text = documents(job)["resume"]["text"]
 
     # Build the prompt
     agent_prompt = prompt_mod.build_prompt(

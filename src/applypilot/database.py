@@ -19,6 +19,9 @@ from applypilot.config import DB_PATH
 _local = threading.local()
 
 
+# The job has a resume to send: the generated one or your own (own_docs.py)
+HAS_RESUME = "(tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL)"
+
 def get_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
     """Get a thread-local cached SQLite connection with WAL mode enabled.
 
@@ -214,6 +217,9 @@ _ALL_COLUMNS: dict[str, str] = {
     "tailored_resume_path": "TEXT",
     "tailored_at": "TEXT",
     "tailor_attempts": "INTEGER DEFAULT 0",
+    # Your own documents for this job, used instead of the generated ones (own_docs.py)
+    "own_resume_path": "TEXT",
+    "own_cover_path": "TEXT",
     "tailor_status": "TEXT",   # last result: approved, failed_judge, failed_validation, ...
     "tailor_issues": "TEXT",   # why the last try wasn't used (shown in the UI)
     # Cover letter
@@ -395,7 +401,7 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
         conn = get_connection()
     rows = [dict(r) for r in conn.execute(
         "SELECT rowid, url, title, company, site, application_url, description, full_description, "
-        "applied_at, tailored_resume_path, fit_score, duplicate_of, redo_requested FROM jobs"
+        "applied_at, tailored_resume_path, own_resume_path, fit_score, duplicate_of, redo_requested FROM jobs"
     ).fetchall()]
     priority = _site_priority()
 
@@ -404,7 +410,8 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
         return priority.index(site) if site in priority else len(priority)
 
     rows.sort(key=lambda r: (r["applied_at"] is None,
-                             r["tailored_resume_path"] is None or bool(r["redo_requested"]),
+                             (r["tailored_resume_path"] is None and r["own_resume_path"] is None)
+                             or bool(r["redo_requested"]),
                              site_rank(r["site"]),
                              -(r["fit_score"] if r["fit_score"] is not None else -1), r["rowid"]))
 
@@ -584,7 +591,7 @@ def get_stats(conn: sqlite3.Connection | None = None) -> dict:
 
     stats["ready_to_apply"] = conn.execute(
         "SELECT COUNT(*) FROM jobs "
-        "WHERE tailored_resume_path IS NOT NULL "
+        f"WHERE {HAS_RESUME} "
         "AND applied_at IS NULL AND duplicate_of IS NULL"
     ).fetchone()[0]
 
@@ -661,11 +668,11 @@ def get_jobs_by_stage(conn: sqlite3.Connection | None = None,
         ),
         "pending_tailor": (
             "fit_score >= ? AND full_description IS NOT NULL AND duplicate_of IS NULL "
-            "AND tailored_resume_path IS NULL AND COALESCE(tailor_attempts, 0) < 5"
+            "AND tailored_resume_path IS NULL AND own_resume_path IS NULL AND COALESCE(tailor_attempts, 0) < 5"
         ),
         "tailored": "tailored_resume_path IS NOT NULL",
         "pending_apply": (
-            "tailored_resume_path IS NOT NULL AND applied_at IS NULL "
+            f"{HAS_RESUME} AND applied_at IS NULL "
             "AND application_url IS NOT NULL AND duplicate_of IS NULL"
         ),
         "applied": "applied_at IS NOT NULL",
