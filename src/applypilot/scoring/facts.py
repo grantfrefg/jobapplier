@@ -84,7 +84,49 @@ ALIASES: list[set[str]] = [
     {"a/b test", "a/b testing", "a/b tests", "ab testing"},
     {"recsys", "recommender system", "recommender systems", "recommendation system", "recommendation systems"},
     {"postgres", "postgresql"},
+    {"node.js", "nodejs"},
+    {"react", "react.js", "reactjs"},
+    {"vue", "vue.js", "vuejs"},
+    {"next.js", "nextjs"},
+    {"c#", "csharp"},
+    {".net", "dotnet"},
+    {"golang", "go lang"},
+    {"sql server", "mssql", "microsoft sql server"},
+    {"power bi", "powerbi"},
+    {"excel", "microsoft excel", "ms excel"},
+    {"scikit-learn", "sklearn", "scikit learn"},
+    {"bigquery", "big query"},
+    {"mlops", "ml ops"},
+    {"rag", "retrieval augmented generation", "retrieval-augmented generation"},
+    {"restful", "rest api", "rest apis"},
+    {"tdd", "test-driven development", "test driven development"},
+    {"iac", "infrastructure as code"},
+    {"sre", "site reliability engineering"},
+    {"oop", "object-oriented programming", "object oriented programming"},
+    {"ux", "user experience"},
+    {"qa", "quality assurance"},
+    # other engineering disciplines
+    {"cad", "computer-aided design", "computer aided design"},
+    {"plc", "plcs", "programmable logic controller", "programmable logic controllers"},
+    {"scada", "supervisory control and data acquisition"},
+    {"bim", "building information modelling", "building information modeling"},
+    {"fea", "finite element analysis"},
+    {"cfd", "computational fluid dynamics"},
+    {"hvac", "heating ventilation and air conditioning"},
+    {"whs", "work health and safety"},
+    {"ohs", "occupational health and safety"},
+    {"rpeq", "registered professional engineer of queensland"},
+    {"cpeng", "chartered professional engineer"},
 ]
+
+
+def aliases_of(term: str) -> set[str]:
+    """Other forms of the same thing ("amazon web services" for "AWS"); empty if none are known."""
+    t = normalize(term).strip()
+    for group in ALIASES:
+        if t in group:
+            return group - {t}
+    return set()
 # Words that describe how a skill is used without adding a new fact:
 # "stakeholder management" is real if the resume shows stakeholder work.
 GENERIC = {"management", "communication", "engagement", "collaboration", "skills", "skill", "practices",

@@ -49,7 +49,7 @@ def test_parsing_and_knockout_problems_are_reported():
     issues = " ".join(report["issues"])
     assert "Work rights not stated" in issues and "No city and state" in issues
     assert "No date range" in issues
-    assert "missing here: machine learning" in issues
+    assert "'machine learning' (here: 'ml')" in issues  # another form of the ad's word: half credit
     assert "American spelling: personalization" not in issues  # their own resume spells it that way
     assert report["score"] < 70
 
@@ -80,3 +80,53 @@ def test_projects_are_optional_and_real_keywords_are_added():
     assert out["resume"]["skills"]["Key skills"] == "Power BI"
     assert "Tableau" not in str(out["resume"]["skills"])  # in the ad, but Jane doesn't have it
     assert tailor.validate_json_fields(out["resume"], PROFILE)["passed"]
+
+
+def test_other_forms_of_a_term_count_half_and_say_which_word_to_use():
+    job = {"title": "Data Scientist", "full_description": "Amazon Web Services and SQL."}
+    exact = ats.check(GOOD.replace("Google Cloud (BigQuery)", "Amazon Web Services"), job, ORIGINAL)
+    short = ats.check(GOOD.replace("Google Cloud (BigQuery)", "AWS"), job, ORIGINAL)
+    assert exact["other_form"] == {} and exact["keyword_match"] == 100
+    assert short["other_form"] == {"amazon web services": "aws"} and short["keyword_match"] == 50
+    assert any("'amazon web services' (here: 'aws')" in i for i in short["issues"])
+
+
+def test_characters_a_parser_may_misread():
+    assert ats.misread_characters("\ufb01nance team \ue001 (cid:12) ok") == ["\ufb01", "U+E001", "(cid:12)"]
+    report = ats.check(GOOD.replace("Built recommender", "Built \ufb01ne recommender"), JOB, ORIGINAL)
+    assert any(i.startswith("Characters a parser may misread") for i in report["issues"])
+
+
+# --- reading the PDF back ---------------------------------------------------
+
+def _pdf(tmp_path, text):
+    from test_own_docs import make_pdf
+    path = tmp_path / "r.pdf"
+    path.write_bytes(make_pdf(text))
+    return path
+
+
+def test_pdf_that_reads_back_correctly(tmp_path):
+    issues, passed = ats.pdf_readback(_pdf(tmp_path, GOOD), GOOD)
+    assert issues == [] and passed and passed[0].startswith("PDF reads back correctly")
+
+
+def test_pdf_readback_finds_what_a_parser_would_lose(tmp_path):
+    # Name last, no email, Education printed before Experience, a job without its dates
+    scrambled = GOOD.replace("Jane Doe\n", "", 1).replace("jane@example.com", "").replace("Jan 2021 - Present | ", "")
+    scrambled = scrambled.replace("EXPERIENCE\n", "EDUCATION\nUNSW\n\nEXPERIENCE\n", 1)
+    scrambled = scrambled.replace("\nEDUCATION\nUNSW | Master", "\nUNSW | Master") + "\nJane Doe\n"
+    issues, passed = ats.pdf_readback(_pdf(tmp_path, scrambled), GOOD)
+    text = " ".join(issues)
+    assert "your name isn't the first thing" in text
+    assert "email address can't be read" in text
+    assert "different order" in text
+    assert "may not link these jobs to their dates: Senior Data Scientist, Acme Health" in text
+    assert passed == []
+
+
+def test_pdf_with_no_text_is_flagged(tmp_path):
+    issues, _ = ats.pdf_readback(_pdf(tmp_path, ""), GOOD)
+    assert issues and "no readable text" in issues[0]
+    report = ats.check(GOOD, JOB, ORIGINAL, pdf_path=tmp_path / "r.pdf")
+    assert report["score"] < ats.check(GOOD, JOB, ORIGINAL)["score"]  # counts against the score

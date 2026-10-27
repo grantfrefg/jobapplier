@@ -1222,42 +1222,30 @@ def _load_documents(job: dict, profile: dict) -> tuple[dict[str, str], dict[str,
     for old in staged_uploads():  # only this job's documents, so the wrong one can't be picked
         old.unlink(missing_ok=True)
 
-    resume_path = job.get("tailored_resume_path")
-    if resume_path:
-        base = Path(resume_path)
-        for suffix in (".md", ".txt"):
-            if base.with_suffix(suffix).exists():
-                text_values["{{RESUME_TEXT}}"] = base.with_suffix(suffix).read_text(encoding="utf-8")
-                break
-        pdf = base.with_suffix(".pdf")
-        if pdf.exists():
-            upload = dest_dir / f"{name_slug}_Resume.pdf"
-            shutil.copy(pdf, upload)
-            file_values["{{RESUME_PDF}}"] = str(upload)
-
-    cl_path = job.get("cover_letter_path")
-    if cl_path:
-        base = Path(cl_path)
-        for suffix in (".md", ".txt"):
-            if base.with_suffix(suffix).exists():
-                text_values["{{COVER_LETTER_TEXT}}"] = base.with_suffix(suffix).read_text(encoding="utf-8")
-                break
-        pdf = base.with_suffix(".pdf")
-        if pdf.exists():
-            upload = dest_dir / f"{name_slug}_Cover_Letter.pdf"
-            shutil.copy(pdf, upload)
-            file_values["{{COVER_LETTER_PDF}}"] = str(upload)
+    # Your own resume / cover letter for this job when you gave one, else the generated ones
+    from applypilot.own_docs import documents
+    docs = documents(job)
+    for kind, name, text_key, file_key in (("resume", "Resume", "{{RESUME_TEXT}}", "{{RESUME_PDF}}"),
+                                           ("cover", "Cover_Letter", "{{COVER_LETTER_TEXT}}", "{{COVER_LETTER_PDF}}")):
+        doc = docs[kind]
+        if doc["text"]:
+            text_values[text_key] = doc["text"]
+        if doc["file"]:
+            upload = dest_dir / f"{name_slug}_{name}{doc['file'].suffix.lower()}"  # .pdf, or .docx if yours is
+            shutil.copy(doc["file"], upload)
+            file_values[file_key] = str(upload)
 
     return text_values, file_values
 
 
 def staged_uploads() -> list[Path]:
-    """The resume and cover letter PDFs ready for the current application (see config.UPLOAD_DIR)."""
+    """The resume and cover letter ready for the current application (see config.UPLOAD_DIR)."""
     folder = config.UPLOAD_DIR
     if not folder.is_dir():
         return []
     return sorted(p for p in folder.iterdir()
-                  if p.is_file() and p.name.endswith(("_Resume.pdf", "_Cover_Letter.pdf")))
+                  if p.is_file() and p.name.endswith(("_Resume.pdf", "_Cover_Letter.pdf",
+                                                      "_Resume.docx", "_Cover_Letter.docx")))
 
 
 def _call_gate(gate, page, needs: list[str], dry_run: bool, snapshot) -> str:

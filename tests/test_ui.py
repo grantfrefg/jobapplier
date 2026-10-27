@@ -363,3 +363,23 @@ def test_mark_applied_for_jobs_applied_to_outside_the_app(client, tmp_path):
     assert client.post("/api/jobs/mark-applied", json={"url": "https://example.com/job/1"}).json() == {"ok": True}
     assert client.get("/api/jobs?view=ready").json() == []
     assert [j["url"] for j in client.get("/api/jobs?view=applied").json()] == ["https://example.com/job/1"]
+
+
+def test_own_documents_through_the_api(client, tmp_path):
+    from test_own_docs import make_docx
+    _seed_job(tmp_path, "https://example.com/job/1")
+    url = "https://example.com/job/1"
+    bad = client.post("/api/jobs/own-document", data={"url": url, "kind": "resume"},
+                      files={"file": ("cv.doc", b"\xd0\xcf", "application/msword")})
+    assert bad.status_code == 400 and ".docx" in bad.json()["detail"]
+    r = client.post("/api/jobs/own-document", data={"url": url, "kind": "resume"},
+                    files={"file": ("My CV.docx", make_docx("Jane Doe\nEngineer"), "application/octet-stream")})
+    assert r.json() == {"ok": True}
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert job["own_resume"] == 1 and job["tailored"] == 1 and job["own_cover"] == 0
+    f = client.get("/api/jobs/file", params={"url": url, "kind": "resume"})
+    assert f.headers["content-type"].startswith("application/vnd.openxmlformats") and f.content.startswith(b"PK")
+    assert client.post("/api/jobs/own-document/clear", json={"url": url, "kind": "resume"}).json() == {"ok": True}
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert job["own_resume"] == 0
+    assert client.get("/api/jobs/file", params={"url": url, "kind": "resume"}).content.startswith(b"%PDF")
