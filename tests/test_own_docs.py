@@ -67,7 +67,7 @@ def jobs_db(tmp_path, monkeypatch):
     ("cv.docx", b"%PDF-1.4", "isn't a Word document"),
     ("cv.pdf", b"", "empty"),
     ("cv.pdf", b"%PDF" + b"x" * own_docs.MAX_BYTES, "over 10 MB"),
-])
+], ids=["old-doc", "fake-pdf", "fake-docx", "empty", "too-big"])  # short names: the 10 MB one would be the test id
 def test_only_real_pdf_and_word_files_are_taken(name, data, message):
     with pytest.raises(own_docs.BadDocument, match=message):
         own_docs.check_file(name, data)
