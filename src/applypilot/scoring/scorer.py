@@ -36,6 +36,13 @@ Score every posting independently against the candidate, not against each other.
 - Location: onsite or hybrid outside the candidate's area and they won't relocate. Remote is fine.
 - Seniority far off: e.g. Principal/Head of for a 2-year engineer, Graduate for a 10-year one.
 - Mandatory registration or licence the resume doesn't show (e.g. CPEng, RPEQ, NER, electrical licence).
+- Work type: the role is contract-only (or only full-time) and the candidate facts say they don't
+  want that kind of work. Score 4 or lower.
+
+## PAY
+If the posting states pay clearly below the candidate's minimum salary, score 5 at most. Compare like
+with like: Australian ads often quote a package "including super" (base is about 1/1.12 of it); a day
+rate is roughly the annual salary / 230. No pay stated: ignore pay.
 
 ## SCALE
 - 9-10: They do this job now. Core discipline and stack match (e.g. backend Python services for a
@@ -52,7 +59,8 @@ Score every posting independently against the candidate, not against each other.
 - Separate must-haves ("essential", "essential criteria", "required", "you have", "you'll bring") from
   nice-to-haves ("desirable", "highly regarded", "bonus", "a plus"). Missing nice-to-haves barely matter.
 - Australian ads: recruitment agency ads often hide the employer; judge the role described. Contract
-  roles with a day rate are fine; don't mark them down for that.
+  roles with a day rate are fine if the candidate takes contract work (see Work type); don't mark
+  them down for that alone.
 - Core stack and discipline beat tool lists: Java vs Python backend is a real gap; Jenkins vs
   GitHub Actions is not. Software vs civil engineering is a different field.
 - Count demonstrated experience (systems built and run, designs delivered, scale, ownership) over

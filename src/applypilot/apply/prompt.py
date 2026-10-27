@@ -62,7 +62,7 @@ def _build_profile_summary(profile: dict) -> str:
         lines.append(f"Work Permit: {work_auth['work_permit_type']}")
 
     # Compensation
-    currency = comp.get("salary_currency", "USD")
+    currency = comp.get("salary_currency", "AUD")
     lines.append(f"Salary Expectation: ${comp['salary_expectation']} {currency}")
 
     # Experience
@@ -126,23 +126,18 @@ def _build_salary_section(profile: dict) -> str:
     Adapts floor, range, and currency from the profile's compensation section.
     """
     comp = profile["compensation"]
-    currency = comp.get("salary_currency", "USD")
+    currency = comp.get("salary_currency", "AUD")
     floor = comp["salary_expectation"]
-    range_min = comp.get("salary_range_min", floor)
     range_max = comp.get("salary_range_max", str(int(floor) + 20000) if floor.isdigit() else floor)
     conversion_note = comp.get("currency_conversion_note", "")
 
-    # Compute example hourly rates at 3 salary levels
+    # Australian full-time hours (38 a week) and working days for hourly / day rates
+    hours, days = 38 * 52, 230
     try:
         floor_int = int(floor)
-        examples = [
-            (f"${floor_int // 1000}K", floor_int // 2080),
-            (f"${(floor_int + 25000) // 1000}K", (floor_int + 25000) // 2080),
-            (f"${(floor_int + 55000) // 1000}K", (floor_int + 55000) // 2080),
-        ]
-        hourly_line = ", ".join(f"{sal} = ${hr}/hr" for sal, hr in examples)
+        hourly_line = f"${floor_int // 1000}K = ${floor_int // hours}/hr = ${floor_int // days}/day"
     except (ValueError, TypeError):
-        hourly_line = "Divide annual salary by 2080"
+        hourly_line = f"divide the annual figure by {hours} for hourly, {days} for a day rate"
 
     # Currency conversion guidance
     if conversion_note:
@@ -151,15 +146,17 @@ def _build_salary_section(profile: dict) -> str:
         convert_line = "Posting is in a different currency? -> Target midpoint of their range. Convert if needed."
 
     return f"""== SALARY (think, don't just copy) ==
-${floor} {currency} is the FLOOR. Never go below it. But don't always use it either.
+${floor} {currency} BASE (excluding superannuation) is the FLOOR. Never go below it. But don't always use it either.
 
 Decision tree:
-1. Job posting shows a range (e.g. "$120K-$160K")? -> Answer with the MIDPOINT ($140K).
-2. Title says Senior, Staff, Lead, Principal, Architect, or level II/III/IV? -> Minimum $110K {currency}. Use midpoint of posted range if higher.
-3. {convert_line}
-4. No salary info anywhere? -> Use ${floor} {currency}.
-5. Asked for a range? -> Give posted midpoint minus 10% to midpoint plus 10%. No posted range? -> "${range_min}-${range_max} {currency}".
-6. Hourly rate? -> Divide your annual answer by 2080. ({hourly_line})"""
+1. Job posting shows a range above the floor (e.g. "$130K-$150K")? -> Answer with the MIDPOINT ($140K), never below the floor.
+2. {convert_line}
+3. No salary info anywhere? -> Use ${floor} {currency}.
+4. Asked for a range? -> "${floor}-${range_max} {currency}"
+   (or the posted midpoint -10% to +10% if that is higher).
+5. Base vs package: these figures are base. If the question asks for a package / "including super" /
+   total remuneration, add the 12% super guarantee (base x 1.12). In free text write e.g. "$120,000 plus super".
+6. Hourly or day rate (contract roles)? -> {hourly_line} (38-hour week; about {days} working days a year)."""
 
 
 def _build_screening_section(profile: dict) -> str:

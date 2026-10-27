@@ -48,7 +48,7 @@ class FakeLLM:
         self.calls: list[str] = []
 
     def chat_json(self, messages, temperature=0.0, max_tokens=4096):
-        if "resume quality judge" in messages[0]["content"]:
+        if "resume fact-checker" in messages[0]["content"]:
             self.calls.append("judge")
             return self.judge.pop(0) if self.judge else {"verdict": "PASS", "issues": "none"}
         self.calls.append("combined")

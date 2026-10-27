@@ -58,6 +58,10 @@ _NEXT_CLICK_TIMEOUT_MS = 15000
 # Cap on field descriptors sent to Gemini per page
 _MAX_FIELDS = 150
 _MAX_RESUME_CHARS = 8000
+_MAX_AD_CHARS = 3000  # job description shown to the form AI
+# jobs.site -> the name application forms use in "How did you hear about us?"
+_BOARD_NAMES = {"linkedin": "LinkedIn", "indeed": "Indeed", "jora": "Jora", "seek": "SEEK",
+                "glassdoor": "Glassdoor", "zip_recruiter": "ZipRecruiter", "google": "Google Jobs"}
 
 # ---------------------------------------------------------------------------
 # Safety gate: button classification
@@ -478,8 +482,9 @@ def _scan(page) -> tuple[list[dict], list[dict], dict]:
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = """You fill out job application forms for an applicant.
-You receive: the applicant profile, their resume, job info, and a JSON list of
-form fields extracted from the page (id, type, label, options, current value).
+You receive: the applicant profile, their resume, the job (title, where it was found and the
+ad's description), and a JSON list of form fields extracted from the page (id, type, label,
+options, current value).
 
 Return JSON: {"actions": [{"id": "...", "action": "...", "value": "..."}],
               "needs_attention": ["short note per required field you could not answer"]}
@@ -514,7 +519,14 @@ Screening questions (the applicant is an engineer applying in Australia):
   adjacent tools.
 - "Years of experience with X": count from the resume's dates for roles that used X; round
   down; 0 (or the lowest option) if X isn't in the resume.
-- Salary: AUD, from compensation (use salary_range_min-salary_range_max for a range).
+- Salary: AUD, from compensation (use salary_range_min-salary_range_max for a range). These
+  figures are BASE salary, excluding superannuation. If the question asks for a package or
+  "including super" (total remuneration), add the 12% super guarantee (e.g. 120000 base ->
+  134400 including super). In free text, write e.g. "$120,000 plus super".
+- "How did you hear about this job?": the job board in FOUND ON (pick the matching option, e.g.
+  "LinkedIn", "Indeed", "Jora", "SEEK"; otherwise "Job board" or "Other: <board>").
+- "Were you referred by an employee?": no. "Have you worked for / applied to this company
+  before?": no, unless the resume shows that employer.
 - Notice period / start date: from availability.
 - Relocation: from availability.willing_to_relocate; driver's licence from availability.
 - Aboriginal or Torres Strait Islander, gender, disability and other diversity questions: use
@@ -522,7 +534,9 @@ Screening questions (the applicant is an engineer applying in Australia):
 - Criminal history, medical conditions, police check / Working with Children Check details, or
   anything legal the profile doesn't answer: DON'T answer. Add a needs_attention note instead.
 - Free-text questions ("Why this role?", "Describe a project where..."): 2-4 sentences (or the
-  stated word limit), specific to this job, drawn from real resume work with a concrete detail.
+  stated word limit), specific to this job: name something from JOB DESCRIPTION (the product,
+  system, problem or team) and connect it to real resume work with a concrete detail. Never invent
+  facts about the employer beyond what the description says.
 - Selection criteria / "address the following" (Australian government, university and council
   forms): one answer per criterion in STAR order (situation, task, action, result) from a real
   resume example, within the stated word limit (otherwise about 150-250 words), first person.
@@ -595,6 +609,7 @@ def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
                        ats: str | None) -> str:
     sections = [
         f"JOB: {job.get('title', '')} @ {job.get('company') or job.get('site', '')} ({job.get('location', '')})",
+        f"FOUND ON: {_BOARD_NAMES.get(str(job.get('site') or '').lower(), job.get('site') or 'a job board')}",
         f"TODAY: {datetime.now():%d/%m/%Y}",
     ]
     if ats:
@@ -604,6 +619,9 @@ def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
         + (", {{COVER_LETTER_PDF}}" if has_cover_pdf else "")
         + (", {{COVER_LETTER_TEXT}}" if has_cover_text else "")
     )
+    description = (job.get("full_description") or "").strip()
+    if description:  # for "Why this role?" and selection criteria answers specific to this job
+        sections.append("JOB DESCRIPTION (excerpt):\n" + description[:_MAX_AD_CHARS])
     sections.append("APPLICANT PROFILE:\n" + json.dumps(safe_profile, indent=1))
     sections.append("RESUME:\n" + safe_resume[:_MAX_RESUME_CHARS])
     sections.append("FORM FIELDS:\n" + json.dumps(fields, indent=0))
