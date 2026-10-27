@@ -51,6 +51,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **Prompts reviewed for Australia, ATS and a human voice:** the ad's exact words for real skills (missing ones
   added by code), Australian spelling enforced in code, AI-sounding words and phrasing rejected in summaries and
   letters, letters sign off "Kind regards," and address selection criteria, projects no longer required.
+- **My skills list is accurate** (Setup): once ticked, everything in the profile's skills list counts as your own,
+  including entries that match the template's examples (ignored until then).
 - **Profile drop-downs:** Yes/No questions, state, country, work rights, clearance, notice period, currency,
   education and diversity questions are picked from a list (Setup and `applypilot init`); old wording is mapped.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
@@ -70,6 +72,12 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - Template example values ("Your City", "Company A"...) are never used as facts and can't be saved.
 - The fact check no longer reads describing words ("experienced engineer") as job titles.
 - Only tabs the application opened are followed; a tab you open yourself is never filled.
+- Real skills were removed from tailored resumes when the AI wrote them differently: an acronym spelt out
+  ("Google Cloud Platform (GCP)" for "Google Cloud"), US spelling, or "stakeholder management" for stakeholder
+  work. Short and long forms and spellings now match, and real tools in brackets are kept.
+- Upload boxes labelled only "Upload" (PageUp, e.g. Virgin) got the resume twice and were re-uploaded on "Fill this
+  page again". Boxes are now matched by their row or section, and the files to upload by hand are in a visible
+  `~/ApplyPilot uploads` folder, listed on the "Your turn" panel.
 - Different jobs whose apply link was a job board's sign-in page (every Jora quick-apply job, LinkedIn's sign-up
   page) or an employer link with the job ID in the query (PageUp) were treated as one role: all but one were hidden,
   and Redo skipped them. Sign-in pages no longer match, and only tracking parameters are ignored.
