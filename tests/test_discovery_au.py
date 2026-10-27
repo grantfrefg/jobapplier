@@ -102,3 +102,53 @@ def test_relative_jora_urls_resolved(tmp_path):
     new, _ = se._store_jobs_filtered(conn, jobs, "Jora", "css", *config.load_location_filter(AU_CFG))
     rows = [r[0] for r in conn.execute("SELECT url FROM jobs")]
     assert new == 1 and rows == ["https://au.jora.com/job/Data-Analyst-abc?x=1"]
+
+
+def test_blocked_board_is_named_and_skipped_for_the_rest_of_the_run(monkeypatch, caplog):
+    """A 429 from LinkedIn used to print as an unnamed 'response status code 429 (blocked: use a proxy)'
+    on every search; now it's named once and LinkedIn isn't asked again this run."""
+    import logging
+
+    import pandas as pd
+
+    calls = []
+
+    def fake_scrape(site_name, search_term, **kwargs):
+        calls.append(list(site_name))
+        if "linkedin" in site_name:  # JobSpy logs the failure under jobspy.linkedin and carries on
+            logging.getLogger("jobspy.linkedin").error("response status code 429 (blocked: use a proxy)")
+        return pd.DataFrame([{"job_url": f"https://au.indeed.com/viewjob?jk={search_term}", "title": search_term,
+                              "company": "Acme", "location": "Sydney, NSW", "site": "indeed"}])
+
+    monkeypatch.setattr(js, "scrape_jobs", fake_scrape)
+    cfg = {"queries": [{"query": "Data Scientist"}, {"query": "ML Engineer"}, {"query": "Data Engineer"}],
+           "locations": [{"location": "Sydney, NSW", "label": "Sydney"}]}
+    with caplog.at_level(logging.INFO):
+        result = js._full_crawl(cfg, sites=["indeed", "linkedin"], max_retries=0)
+    assert calls == [["indeed", "linkedin"], ["indeed"], ["indeed"]]
+    assert result["blocked"] == {"linkedin": "blocked: too many requests (HTTP 429)"}
+    assert result["new"] == 3
+    text = caplog.text
+    assert text.count("LinkedIn: blocked: too many requests (HTTP 429). Skipping LinkedIn") == 1
+    assert "LinkedIn was skipped this run" in text and "few hours" in text
+    assert logging.getLogger("jobspy").propagate  # restored afterwards
+
+
+def test_other_board_errors_are_named_but_not_skipped(monkeypatch, caplog):
+    import logging
+
+    import pandas as pd
+
+    calls = []
+
+    def fake_scrape(site_name, search_term, **kwargs):
+        calls.append(list(site_name))
+        logging.getLogger("jobspy.indeed").error("API error: something odd")
+        return pd.DataFrame()
+
+    monkeypatch.setattr(js, "scrape_jobs", fake_scrape)
+    cfg = {"queries": [{"query": "A"}, {"query": "B"}], "locations": [{"location": "Sydney, NSW"}]}
+    with caplog.at_level(logging.INFO):
+        result = js._full_crawl(cfg, sites=["indeed"], max_retries=0)
+    assert calls == [["indeed"], ["indeed"]] and result["blocked"] == {}
+    assert caplog.text.count("Indeed: API error: something odd") == 2

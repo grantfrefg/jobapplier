@@ -153,7 +153,7 @@ With the free engine, `applypilot apply` stops before each Submit and waits in t
 
 | Problem | Fix |
 |---|---|
-| Find jobs only finds Jora jobs | The log shows `JobSpy crawl failed: No module named 'curl_cffi'`: run `pip install curl_cffi`, then run Find jobs again. LinkedIn sometimes answers `429 (blocked)` for a few hours; the app skips it until then |
+| Find jobs only finds Jora jobs | The log shows `JobSpy crawl failed: No module named 'curl_cffi'`: run `pip install curl_cffi`, then run Find jobs again. LinkedIn sometimes blocks searches for a few hours ("LinkedIn: blocked: too many requests" in the log): the app skips it for the rest of that run; run Find jobs again later |
 | "This browser or app may not be secure" (Google sign-in) | Use Setup → **Log in to sites**, sign in there and close the window |
 | A job's resume doesn't change after **Redo** | Its new version failed the fact checks, so the old one was kept. The reasons are in `~/.applypilot/tailored_resumes/<job>_REPORT.json` (`validator` and `judge`) |
 | A resume lists a skill you don't have, or drops one you do | Update **Skills boundary** in your profile, tick **My skills list is accurate**, then **Redo** |
