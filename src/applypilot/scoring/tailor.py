@@ -803,6 +803,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                         convert_to_pdf(cl_file)
                     except Exception:
                         log.debug("PDF generation failed for %s", cl_file, exc_info=True)
+                if pdf_path:  # check the PDF too, read back the way a parser reads it
+                    report["ats"] = {**ats.check(tailored, job, resume_text, pdf_path=pdf_path),
+                                     "removed_skills": report.get("dropped_skills") or []}
+                    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
             result = {
                 "url": job["url"],
@@ -857,7 +861,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
         if r["status"] in _success_statuses:
             conn.execute(
                 "UPDATE jobs SET tailored_resume_path=?, tailored_at=?, "
-                "tailor_attempts=COALESCE(tailor_attempts,0)+1, ats_score=?, ats_report=?, "
+                "tailor_attempts=COALESCE(tailor_attempts,0)+1, "
+                # your own resume's ATS check stays while you're using it
+                "ats_score=CASE WHEN own_resume_path IS NULL THEN ? ELSE ats_score END, "
+                "ats_report=CASE WHEN own_resume_path IS NULL THEN ? ELSE ats_report END, "
                 "tailor_status='approved', tailor_issues=NULL WHERE url=?",
                 (r["path"], now, (r.get("ats") or {}).get("score"),
                  json.dumps(r["ats"]) if r.get("ats") else None, r["url"]),
