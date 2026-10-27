@@ -98,7 +98,9 @@ def load_profile() -> dict:
         raise FileNotFoundError(
             f"Profile not found at {PROFILE_PATH}. Run `applypilot init` first."
         )
-    return json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    from applypilot.profile_options import without_placeholders
+    # Example values left from the template ("Your City") are never used as facts
+    return without_placeholders(json.loads(PROFILE_PATH.read_text(encoding="utf-8")))
 
 
 def load_search_config() -> dict:

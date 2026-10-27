@@ -62,6 +62,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- Job discovery (Jora), job-detail fetching and the locate check crashed where Playwright's headless shell isn't
+  installed (the app's Install browser, CI); every background browser now falls back to the full Chromium, then
+  Chrome / Edge (`applypilot/browser.py`).
+- A lone upload box labelled "Attach" could get the cover letter when its section mentioned one; upload boxes now
+  read only their own row, and a page's only upload box takes the resume.
+- Template example values ("Your City", "Company A"...) are never used as facts and can't be saved.
+- The fact check no longer reads describing words ("experienced engineer") as job titles.
+- Only tabs the application opened are followed; a tab you open yourself is never filled.
 - Different jobs whose apply link was a job board's sign-in page (every Jora quick-apply job, LinkedIn's sign-up
   page) or an employer link with the job ID in the query (PageUp) were treated as one role: all but one were hidden,
   and Redo skipped them. Sign-in pages no longer match, and only tracking parameters are ignored.

@@ -57,7 +57,12 @@ _NOT_A_TITLE = _STOP | {"your", "our", "their", "other", "fellow", "team", "team
                         "lead", "principal", "staff", "head", "chief", "as", "is", "am", "be", "were", "was",
                         "my", "his", "her", "these", "those", "many", "several", "multiple", "partner",
                         "partnering", "partnered", "alongside", "between", "across", "mentoring", "mentored",
-                        "hiring", "interviewing", "candidate", "candidates"}
+                        "hiring", "interviewing", "candidate", "candidates",
+                        # describing words, not part of a title ("experienced engineer")
+                        "experienced", "skilled", "seasoned", "versatile", "passionate", "dedicated", "motivated",
+                        "proven", "accomplished", "talented", "capable", "strong", "hardworking", "hard-working",
+                        "results-driven", "detail-oriented", "curious", "pragmatic", "collaborative", "reliable",
+                        "creative", "analytical", "practical", "thoughtful", "driven", "high-performing"}
 
 
 # Short and long forms of the same thing: a resume saying one counts for the other

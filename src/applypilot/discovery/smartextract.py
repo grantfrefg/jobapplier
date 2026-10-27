@@ -34,6 +34,7 @@ from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
 from applypilot import config
+from applypilot.browser import launch_chromium
 from applypilot.config import CONFIG_DIR
 from applypilot.database import get_connection, init_db, store_jobs, get_stats
 from applypilot.llm import get_client
@@ -155,7 +156,7 @@ def collect_page_intelligence(url: str, headless: bool = True) -> dict:
                 pass
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = launch_chromium(p, headless=headless)
         page = browser.new_page(user_agent=UA)
         page.on("response", on_response)
 

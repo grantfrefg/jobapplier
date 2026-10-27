@@ -4,6 +4,7 @@ import os
 
 import pytest
 
+from applypilot.browser import launch_chromium
 from applypilot.apply import local_engine as le
 from applypilot.apply import sites
 from test_local_engine import FORM_HTML, _engine_env, _fake_gemini, _serve
@@ -57,7 +58,7 @@ def test_locate_follows_the_ad_to_the_application(tmp_path, monkeypatch):
     server, base = _serve(site)
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch()
+            browser = launch_chromium(p)
             page = browser.new_page()
             found = sites.locate(page, f"{base}/ad.html")
             assert found["account"] == "yes" and found["url"].endswith("signin.html")
