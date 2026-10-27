@@ -201,7 +201,8 @@ def apply(
     if not (gen and url):
         conn = get_connection()
         ready = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE tailored_resume_path IS NOT NULL AND applied_at IS NULL"
+            "SELECT COUNT(*) FROM jobs WHERE (tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL) "
+            "AND applied_at IS NULL"
         ).fetchone()[0]
         if ready == 0:
             console.print(

@@ -134,7 +134,8 @@ def locate(page, start_url: str) -> dict:
 
 def jobs_to_locate(conn, min_score: int = 7, recheck: bool = False) -> list[dict]:
     rows = conn.execute(
-        "SELECT * FROM jobs WHERE tailored_resume_path IS NOT NULL AND applied_at IS NULL "
+        "SELECT * FROM jobs WHERE (tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL) "
+        "AND applied_at IS NULL "
         "AND duplicate_of IS NULL AND COALESCE(apply_status, '') != 'in_progress' "
         "AND COALESCE(fit_score, 0) >= ? " + ("" if recheck else "AND apply_site IS NULL ") +
         "ORDER BY fit_score DESC", (min_score,)).fetchall()

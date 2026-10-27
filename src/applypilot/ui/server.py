@@ -306,17 +306,22 @@ def _write_env(updates: dict[str, str]) -> None:
 
 
 def _job_file(url: str, kind: str) -> Path:
+    """The document a job uses: your own file if you gave one, else the generated PDF."""
     from applypilot.database import get_connection
-    column = {"resume": "tailored_resume_path", "cover": "cover_letter_path"}.get(kind)
-    if not column:
+    from applypilot.own_docs import documents
+    if kind not in ("resume", "cover"):
         raise HTTPException(400, "kind must be resume or cover")
-    row = get_connection().execute(f"SELECT {column} FROM jobs WHERE url = ?", (url,)).fetchone()
-    if not row or not row[0]:
-        raise HTTPException(404, "No file for that job")
-    pdf = Path(row[0]).with_suffix(".pdf")
-    if not pdf.exists():
-        raise HTTPException(404, "PDF not generated yet (run the pdf stage)")
-    return pdf
+    row = get_connection().execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone()
+    if not row:
+        raise HTTPException(404, "No such job")
+    path = documents(dict(row))[kind]["file"]
+    if not path:
+        raise HTTPException(404, "No file for that job yet (run the pdf stage)")
+    return path
+
+
+_MEDIA = {".pdf": "application/pdf",
+          ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +329,7 @@ def _job_file(url: str, kind: str) -> Path:
 # ---------------------------------------------------------------------------
 
 def create_app() -> FastAPI:
-    from applypilot.database import apply_link, get_connection, get_stats, init_db
+    from applypilot.database import HAS_RESUME, apply_link, get_connection, get_stats, init_db
 
     config.load_env()
     config.ensure_dirs()
@@ -587,7 +592,7 @@ def create_app() -> FastAPI:
         from applypilot.database import mark_duplicates
         mark_duplicates(get_connection())
         where = {
-            "ready": "tailored_resume_path IS NOT NULL AND applied_at IS NULL AND duplicate_of IS NULL "
+            "ready": f"{HAS_RESUME} AND applied_at IS NULL AND duplicate_of IS NULL "
                      "AND COALESCE(apply_status, '') NOT IN ('applied', 'in_progress')",
             "applied": "applied_at IS NOT NULL",
             "all": "1 = 1",
@@ -602,8 +607,11 @@ def create_app() -> FastAPI:
                    COALESCE(tailor_attempts, 0) AS tailor_attempts,
                    apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
                    tailored_resume_path, score_reasoning, full_description,
-                   tailored_resume_path IS NOT NULL AS tailored,
-                   cover_letter_path IS NOT NULL AS has_cover,
+                   tailored_resume_path IS NOT NULL AS generated_resume,
+                   cover_letter_path IS NOT NULL AS generated_cover,
+                   {HAS_RESUME} AS tailored,
+                   (cover_letter_path IS NOT NULL OR own_cover_path IS NOT NULL) AS has_cover,
+                   own_resume_path IS NOT NULL AS own_resume, own_cover_path IS NOT NULL AS own_cover,
                    (SELECT site FROM jobs c WHERE c.url = jobs.duplicate_of) AS duplicate_site,
                    (SELECT group_concat(DISTINCT d.site) FROM jobs d WHERE d.duplicate_of = jobs.url) AS also_on
             FROM jobs WHERE {where}
@@ -613,11 +621,12 @@ def create_app() -> FastAPI:
         out = []
         for r in rows:
             job = dict(r)
-            if job["tailored_resume_path"] and job["ats_score"] is None:
+            if job["tailored_resume_path"] and job["ats_score"] is None and not job["own_resume"]:
                 _fill_ats(job)  # resumes written before the ATS check existed
             report = json.loads(job.pop("ats_report") or "null")
             job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
-                                                                "missing_gap", "issues", "removed_skills")}
+                                                                "missing_gap", "issues", "removed_skills",
+                                                                "unreadable")}
             for k in ("tailored_resume_path", "score_reasoning", "full_description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})
@@ -678,7 +687,30 @@ def create_app() -> FastAPI:
 
     @app.get("/api/jobs/file")
     def job_file(url: str, kind: str = "resume") -> FileResponse:
-        return FileResponse(_job_file(url, kind), media_type="application/pdf")
+        path = _job_file(url, kind)
+        return FileResponse(path, media_type=_MEDIA.get(path.suffix.lower(), "application/octet-stream"),
+                            filename=path.name if path.suffix.lower() == ".docx" else None)
+
+    @app.post("/api/jobs/own-document")
+    async def own_document(url: str = Form(...), kind: str = Form(...), file: UploadFile = File(...)) -> dict:
+        """Use your own resume or cover letter for this job instead of the generated one."""
+        from applypilot import own_docs
+        data = await file.read(own_docs.MAX_BYTES + 1)
+        try:
+            own_docs.save(get_connection(), url, kind, file.filename or "", data)
+        except own_docs.BadDocument as e:
+            raise HTTPException(400, str(e))
+        return {"ok": True}
+
+    @app.post("/api/jobs/own-document/clear")
+    def own_document_clear(body: dict) -> dict:
+        """Go back to the generated document for this job."""
+        from applypilot import own_docs
+        try:
+            own_docs.clear(get_connection(), body.get("url") or "", body.get("kind") or "")
+        except own_docs.BadDocument as e:
+            raise HTTPException(400, str(e))
+        return {"ok": True}
 
     # -- answer bank ---------------------------------------------------------
 

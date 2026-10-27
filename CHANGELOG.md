@@ -9,6 +9,10 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **Your own resume or cover letter for a job:** on the Apply tab, "use my own resume / cover letter" takes a PDF or
+  Word (.docx) file, and Apply uploads it instead of the generated one (you can mix). A job with your own resume
+  isn't sent for tailoring (no Gemini requests), becomes ready to apply even if its drafts were rejected, and its
+  ATS check reads your file (a scanned, unreadable PDF is flagged). "Use generated" switches back. Adds `pypdf`.
 - **Why a job got no documents:** when every draft is rejected (`FAILED_JUDGE`, `FAILED_VALIDATION`), the log now
   says why and what happens next, the Apply tab's **All jobs** view shows the reason (hover) with a **Try again**
   button, and **Find jobs** has a "What the log means" guide to the log lines (searches, blocked boards, tailoring
