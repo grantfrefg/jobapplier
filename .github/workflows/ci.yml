@@ -62,5 +62,8 @@ jobs:
           packaging tests
 
       - name: Test
-        # xvfb provides a display so the visible-browser tests run instead of skipping
-        run: xvfb-run -a pytest tests -v
+        # xvfb provides a display so the visible-browser tests run instead of skipping.
+        # A stuck test fails the step (keeping its log) instead of the job being
+        # cancelled, and faulthandler prints where every thread is after 3 minutes.
+        timeout-minutes: 10
+        run: xvfb-run -a pytest tests -v -o faulthandler_timeout=180
