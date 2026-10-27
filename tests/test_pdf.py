@@ -106,3 +106,22 @@ def test_batch_convert_renders_old_pdfs_again_once(tmp_path, monkeypatch):
     assert sorted(done) == ["a.txt", "a_CL.txt"]  # old layouts redone; rejected drafts and job texts skipped
     done.clear()
     assert pdf.batch_convert() == 0 and done == []  # only once
+
+
+def test_pdf_falls_back_when_the_headless_shell_is_missing(monkeypatch):
+    """The app's "Install browser" skips Playwright's headless shell (--no-shell)."""
+    tried = []
+
+    class Chromium:
+        def launch(self, **kwargs):
+            tried.append(kwargs)
+            if "channel" not in kwargs:
+                raise RuntimeError("Executable doesn't exist at .../chrome-headless-shell")
+            return "browser"
+
+    class P:
+        chromium = Chromium()
+
+    monkeypatch.setattr(config, "find_system_browsers", lambda: [])
+    assert pdf._launch_headless(P()) == "browser"
+    assert tried == [{"headless": True}, {"headless": True, "channel": "chromium"}]

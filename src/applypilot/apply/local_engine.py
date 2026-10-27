@@ -605,9 +605,22 @@ def _choose(frame, loc, value: str, timeout_ms: int = 4000) -> None:
     best match. Never presses Enter: in a plain input that would submit the
     form, which only the user may do.
     """
-    loc.click(timeout=3000)
-    if loc.evaluate("el => ['input', 'textarea'].includes(el.tagName.toLowerCase())"):
-        loc.fill(value, timeout=3000)
+    for _attempt in range(2):  # a busy page can swallow the first pick: check and retry once
+        loc.click(timeout=3000)
+        if loc.evaluate("el => ['input', 'textarea'].includes(el.tagName.toLowerCase())"):
+            loc.fill(value, timeout=3000)
+        best = _click_option(frame, value, timeout_ms)
+        if best is None:
+            raise RuntimeError(f"no option matching the answer ({len(_visible_options(frame))} shown)")
+        frame.page.wait_for_timeout(150)
+        shown = _chosen_text(loc)
+        if shown is None or answers.best_option([shown], best):
+            return
+    raise RuntimeError("the drop-down didn't keep the chosen option")
+
+
+def _click_option(frame, value: str, timeout_ms: int) -> str | None:
+    """Wait for a suggestion matching `value` and click it; returns its text."""
     waited = 0
     while waited <= timeout_ms:
         texts = _visible_options(frame)
@@ -616,10 +629,24 @@ def _choose(frame, loc, value: str, timeout_ms: int = 4000) -> None:
             for option in frame.locator(_OPTION_SELECTOR).all():
                 if option.inner_text().strip() == best:
                     option.click(timeout=3000)
-                    return
+                    return best
         frame.page.wait_for_timeout(250)
         waited += 250
-    raise RuntimeError(f"no option matching the answer ({len(_visible_options(frame))} shown)")
+    return None
+
+
+def _chosen_text(loc) -> str | None:
+    """What a searchable drop-down now shows (None if it can't be read)."""
+    try:
+        text = loc.evaluate("""el => {
+            const box = el.closest('[class*="container"]');
+            const v = box && box.querySelector('[class*="single-value"], [class*="singleValue"]');
+            if (el.tagName !== 'INPUT' && !v) return null;  // a widget we can't read back
+            return (el.value || (v ? v.innerText : '') || '').trim();
+        }""")
+    except Exception:
+        return None
+    return text or ""
 
 
 def _collect_combobox_options(fields: list[dict], frame_by_id: dict) -> None:

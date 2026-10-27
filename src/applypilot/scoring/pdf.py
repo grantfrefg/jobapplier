@@ -332,12 +332,31 @@ def build_letter_html(text: str, profile: dict | None = None, today=None) -> str
 
 # ── PDF Renderer ─────────────────────────────────────────────────────────
 
+def _launch_headless(p):
+    """A headless Chromium for printing, from whatever browser is installed.
+
+    Playwright's default headless build ("headless shell") isn't downloaded by
+    the app's "Install browser" button (it uses --no-shell), so fall back to
+    the full Chromium in headless mode, then to an installed Chrome / Edge.
+    """
+    from applypilot import config
+
+    errors = []
+    attempts = [{}, {"channel": "chromium"}] + [{"executable_path": exe} for exe in config.find_system_browsers()]
+    for kwargs in attempts:
+        try:
+            return p.chromium.launch(headless=True, **kwargs)
+        except Exception as e:
+            errors.append(str(e).strip().splitlines()[0][:120])
+    raise RuntimeError("No browser available to make PDFs: " + " | ".join(errors))
+
+
 def render_pdf(html: str, output_path: str) -> None:
     """Render HTML to an A4 PDF using Playwright's headless Chromium (page size and margins from the CSS)."""
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = _launch_headless(p)
         page = browser.new_page()
         page.set_content(html, wait_until="networkidle")
         page.pdf(path=output_path, prefer_css_page_size=True, print_background=True)
