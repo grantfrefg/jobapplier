@@ -241,7 +241,7 @@ def test_local_engine_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOCAL_BROWSER_PROFILE_DIR", tmp_path / "browser")
 
     prompts: list[str] = []
-    monkeypatch.setattr(le, "_call_gemini", _fake_gemini(prompts))
+    monkeypatch.setattr(le, "_call_ai", _fake_gemini(prompts))
 
     seen = {}
 
@@ -303,7 +303,7 @@ def test_gemini_error_message_is_readable(monkeypatch):
     real_client = httpx.Client
     monkeypatch.setattr(le.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
     with pytest.raises(RuntimeError, match="API key not valid"):
-        le._call_gemini("hi", "bad", "gemini-3.5-flash-lite")
+        le._call_ai("hi", "bad", "gemini-3.5-flash-lite")
 
 
 def test_pipeline_llm_error_includes_google_message():
@@ -350,7 +350,7 @@ def test_unreachable_job_page_is_reported_not_blank(tmp_path, monkeypatch):
     for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
                         "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
         monkeypatch.setattr(config, name, value)
-    monkeypatch.setattr(le, "_call_gemini", _fake_gemini([]))
+    monkeypatch.setattr(le, "_call_ai", _fake_gemini([]))
 
     seen = {}
 
@@ -393,7 +393,7 @@ def test_job_ad_page_follows_apply_link_without_filling_search(tmp_path, monkeyp
     for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
                         "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
         monkeypatch.setattr(config, name, value)
-    monkeypatch.setattr(le, "_call_gemini", _fake_gemini([]))
+    monkeypatch.setattr(le, "_call_ai", _fake_gemini([]))
     monkeypatch.setattr(le, "_is_job_listing", lambda url: url.endswith("ad.html"))
     seen = {}
 
@@ -429,7 +429,7 @@ def test_job_ad_without_apply_link_asks_the_user(tmp_path, monkeypatch):
     for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
                         "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
         monkeypatch.setattr(config, name, value)
-    monkeypatch.setattr(le, "_call_gemini", lambda *a: pytest.fail("the ad page was sent to the AI"))
+    monkeypatch.setattr(le, "_call_ai", lambda *a: pytest.fail("the ad page was sent to the AI"))
     monkeypatch.setattr(le, "_is_job_listing", lambda url: url.endswith("ad.html"))
     seen = {}
 
@@ -464,7 +464,7 @@ def _engine_env(tmp_path, monkeypatch):
     for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
                         "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
         monkeypatch.setattr(config, name, value)
-    monkeypatch.setattr(le, "_call_gemini", _fake_gemini([]))
+    monkeypatch.setattr(le, "_call_ai", _fake_gemini([]))
     monkeypatch.setattr(le, "_is_job_listing", lambda url: url.endswith("ad.html"))
     return str(resume_txt)
 

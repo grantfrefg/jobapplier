@@ -23,9 +23,12 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | Key | Default | Meaning |
 |---|---|---|
 | `GEMINI_API_KEY` | — | Your Google Gemini key ([get one free](https://aistudio.google.com/apikey)). Check it with **Test key** in Setup |
-| `LLM_MODEL` | `gemini-3.5-flash-lite` | Model for every AI step |
-| `EXECUTION_ENGINE` | `claude_code` (`local_playwright` in the desktop app) | `local_playwright`: free, fills forms and **you** click Submit. `claude_code`: paid Claude Code CLI, submits automatically |
-| `OPENAI_API_KEY` | — | Use OpenAI instead of Gemini (scoring and writing only; the local apply engine needs Gemini) |
+| `OPENAI_API_KEY` | — | Your own paid OpenAI API key (default model `gpt-5-mini`) |
+| `ANTHROPIC_API_KEY` | — | Your own paid Anthropic API key, for Claude (default model `claude-opus-5-5`; `claude-sonnet-5-5` or `claude-haiku-5-5` cost less) |
+| `LLM_PROVIDER` | the first with a key | `gemini`, `openai`, `anthropic` or `local`: which AI scores jobs, writes documents and answers forms (Setup → **AI for scoring, resumes and form answers**) |
+| `LLM_MODEL` | the provider's default | Model for every AI step; ignored if it isn't one of the chosen provider's models |
+| `EXECUTION_ENGINE` | `claude_code` (`local_playwright` in the desktop app) | `local_playwright`: fills forms and **you** click Submit (with any provider above). `claude_code`: paid Claude Code CLI, submits automatically. `codex`: OpenAI's Codex CLI, submits automatically |
+| `CODEX_MODEL` | Codex's default | Model for the `codex` engine |
 | `LLM_URL`, `LLM_API_KEY` | — | Use a local OpenAI-compatible server (llama.cpp, Ollama) instead |
 | `GEMINI_DAILY_LIMIT` | `500` | Gemini requests per day for your model (Google's free-tier limit). Requests are counted per US Pacific day, when Google resets them |
 | `GEMINI_APPLY_RESERVE` | `50` | Requests kept for applying: finding and preparing jobs stops when only this many are left |
