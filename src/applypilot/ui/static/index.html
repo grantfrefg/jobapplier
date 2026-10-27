@@ -306,6 +306,24 @@
         <dd>That job gets no documents and isn't offered on the Apply tab. It's tried again on the next run, up to
           5 times. <b>Apply → All jobs</b> shows the reason; <b>Try again</b> there retries it now. The rejected
           draft is kept as <code>…_REJECTED.txt</code> in the <code>tailored_resumes</code> folder.</dd>
+        <dt>Getting more jobs tailored</dt>
+        <dd>A few rejections are normal: they're jobs that ask for more than your resume shows. If many jobs
+          fail, in order of what to try first:<br>
+          1. <b>Make your resume and profile complete.</b> The checks only allow what's in them. Add real
+          experience, tools and achievements you left out of the resume (Setup → Resume), and list every skill
+          you really use in the profile's skills, then tick <b>My skills list is accurate</b>. Then press
+          <b>Try again</b> on the job (Apply → All jobs).<br>
+          2. <b>Press Try again.</b> Each try writes new drafts, and a borderline job often passes the second
+          time.<br>
+          3. <b>Set Strictness to lenient</b> (above) before pressing <b>Run</b> or <b>Try again</b>. It skips the
+          AI fact-check, the step that rejects "stretched" claims. The code checks still remove invented titles,
+          employers, skills, tools and numbers, but a reworded duty that overstates what you did can get through,
+          so read those resumes before you send them. It also halves the requests per job.<br>
+          4. <b>Skip jobs you can't honestly match.</b> If you're not senior, add "Senior" (or "Lead",
+          "Principal") to <i>Skip jobs whose title contains</i> in Setup → Job search, so those jobs aren't
+          tailored at all, or
+          raise the <b>Minimum score</b> so only close matches are tailored.<br>
+          A job that failed 5 times isn't tried again automatically; <b>Try again</b> still works on it.</dd>
         <dt>"Daily Gemini budget … used up"</dt>
         <dd>Today's free requests are used (some are kept for applying). It resets at midnight US Pacific time
           (late afternoon or evening in Australia); the remaining jobs wait for the next run.</dd>
@@ -704,7 +722,8 @@ function tailorHelp(j) {
   const left = 5 - j.tailor_attempts;
   lines.push("", left > 0 ? "Tried " + j.tailor_attempts + " of 5 times; it's tried again on the next run."
                           : "Tried 5 times; it won't be tried again automatically.",
-             "Try again retries it now.");
+             "Try again retries it now (with the Strictness set on Find jobs; lenient lets more through).",
+             "More ways to get it tailored: Find jobs → What the log means → Getting more jobs tailored.");
   return lines.join("\n");
 }
 
@@ -775,7 +794,7 @@ async function redo(url) {
   if (all && !confirm("Rewrite the resume and cover letter for every job you haven't applied to? " +
                       "This uses about two Gemini requests per job (writing and fact-checking).")) return;
   await guarded(async () => {
-    const r = await post("/api/jobs/redo", { url });
+    const r = await post("/api/jobs/redo", { url, validation: $("#validation").value });
     if (!r.marked) return toast("Nothing to rewrite.");
     toast("Rewriting " + (all ? r.marked + " job(s)" : "this job") +
           ". The old documents stay until the new ones are ready. Follow along on the Find jobs tab.");

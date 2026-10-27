@@ -16,6 +16,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **Apply tab guides and Mark applied:** "How to use this tab" (applying with the app step by step, accounts, or
   applying yourself with the downloaded documents) and "What the ATS score means". A **Mark applied** button moves a
   job you applied to yourself to Applied.
+- **Getting more jobs tailored:** the log guide explains what to do when many jobs are rejected (complete the
+  resume and skills list, Try again, lenient strictness and its trade-off, skipping titles you can't match).
+  **Try again** and **Redo** now use the Strictness picked on Find jobs.
 - **Free local apply engine** (`EXECUTION_ENGINE=local_playwright`): a visible browser plus your Gemini key fills
   application forms, including multi-page ones. Personal identifiers are sent to Gemini only as placeholders.
   Automation never clicks Submit/Apply/Send: you review and submit yourself.
