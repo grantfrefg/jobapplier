@@ -178,3 +178,31 @@ def test_redo_one_job_includes_its_other_listings(conn):
     assert database.redo_documents(conn, url=LINKEDIN) == 1  # a duplicate's url reaches its canonical copy
     assert _redo_marks(conn) == {LINKEDIN}                  # the preferred listing of that role only
     assert database.redo_documents(conn, url="https://nowhere") == 0
+
+
+def test_shared_sign_in_pages_dont_merge_different_jobs(conn):
+    """Regression: every Jora quick-apply job links to au.jora.com/users/sign_in?...; they're different roles."""
+    sign_in = "https://au.jora.com/users/sign_in?asp=apply_intent_ai_apply&return_to=%2Fcandidate%2Fjobs%2F{}"
+    add(conn, "https://au.jora.com/job/a", "Jora", title="Principal AI Platform Engineer", company="Talenza",
+        application_url=sign_in.format("aaa"))
+    add(conn, "https://au.jora.com/job/b", "Jora", title="AI Engineer & Data Scientist Consultant",
+        company="Sia Partners", application_url=sign_in.format("bbb"))
+    add(conn, "https://linkedin.com/jobs/view/1", "linkedin", title="ML Engineer", company="Acme",
+        application_url="https://www.linkedin.com/signup/cold-join?session_redirect=1")
+    add(conn, "https://linkedin.com/jobs/view/2", "linkedin", title="Data Engineer", company="Beta",
+        application_url="https://www.linkedin.com/signup/cold-join?session_redirect=2")
+    database.mark_duplicates(conn)
+    assert set(dup_map(conn).values()) == {None}
+
+
+def test_job_ids_in_the_query_keep_jobs_apart_but_tracking_tags_dont(conn):
+    pageup = "https://secure.dc2.pageuppeople.com/apply/549/aw/applicationForm/checkForm.asp?sData={}"
+    add(conn, "https://au.indeed.com/viewjob?jk=1", "indeed", title="Data Scientist",
+        application_url=pageup.format("A1"))
+    add(conn, "https://au.indeed.com/viewjob?jk=2", "indeed", title="ML Engineer", application_url=pageup.format("B2"))
+    add(conn, "https://linkedin.com/jobs/view/9", "linkedin", title="Data Scientist",
+        application_url=pageup.format("A1") + "&utm_source=linkedin")
+    database.mark_duplicates(conn)
+    dups = dup_map(conn)
+    assert dups["https://au.indeed.com/viewjob?jk=2"] is None          # a different job at the same employer
+    assert dups["https://au.indeed.com/viewjob?jk=1"] == "https://linkedin.com/jobs/view/9"  # same job, LinkedIn wins
