@@ -13,6 +13,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   says why and what happens next, the Apply tab's **All jobs** view shows the reason (hover) with a **Try again**
   button, and **Find jobs** has a "What the log means" guide to the log lines (searches, blocked boards, tailoring
   results, the daily budget) and a "How it works" guide to each step (also on hover over the step boxes).
+- **Apply tab guides and Mark applied:** "How to use this tab" (applying with the app step by step, accounts, or
+  applying yourself with the downloaded documents) and "What the ATS score means". A **Mark applied** button moves a
+  job you applied to yourself to Applied.
 - **Free local apply engine** (`EXECUTION_ENGINE=local_playwright`): a visible browser plus your Gemini key fills
   application forms, including multi-page ones. Personal identifiers are sent to Gemini only as placeholders.
   Automation never clicks Submit/Apply/Send: you review and submit yourself.
