@@ -829,6 +829,46 @@ def _find_apply_link(controls: list[dict]) -> str | None:
     return None
 
 
+# Job-board listing pages (the ad, not the application form). Their only
+# inputs are the site's search boxes, so they're never filled: the engine
+# follows the listing's Apply link to the employer's form instead.
+_LISTING_RE = re.compile(
+    r"(jora\.com/job/(?!rd/)|indeed\.com/(viewjob|rc/clk|m/viewjob)|linkedin\.com/jobs/view/"
+    r"|seek\.com\.au/job/\d+/?(\?|#|$))",
+    re.IGNORECASE,
+)
+_MAX_LISTING_HOPS = 3
+
+
+def _is_job_listing(url: str) -> bool:
+    return bool(_LISTING_RE.search(url or ""))
+
+
+def _leave_listing(page, lf) -> list[str] | None:
+    """On a job-board listing, open its Apply link (navigation, not submission).
+
+    Returns None if the page isn't a listing (or was left for the form), else
+    a note asking the user to start the application themselves.
+    """
+    for _ in range(_MAX_LISTING_HOPS):
+        if not _is_job_listing(page.url):
+            return None
+        _, controls, _ = _scan(page)
+        href = _find_apply_link(controls)
+        if not href:
+            return ["This is the job ad, and its Apply button isn't a plain link (e.g. LinkedIn Easy Apply or a "
+                    "sign-in). Click Apply in the browser, then choose 'Fill this page again'."]
+        lf.write(f"  job ad: following its apply link {href}\n")
+        page.goto(href, wait_until="domcontentloaded", timeout=60000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=10000)
+        except Exception:
+            pass
+    return None if not _is_job_listing(page.url) else [
+        "Still on a job ad after following its Apply link. Click Apply in the browser, then choose "
+        "'Fill this page again'."]
+
+
 # ---------------------------------------------------------------------------
 # Human approval gate
 # ---------------------------------------------------------------------------
@@ -1054,6 +1094,16 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
             last_signature = None
             step = 0
             while True:
+                listing_note = _leave_listing(page, lf)
+                if listing_note:
+                    # Don't type into the job board's search boxes
+                    _, controls, frame_by_id = _scan(page)
+                    _highlight_submit(controls, frame_by_id)
+                    decision = gate(page, listing_note, dry_run)
+                    if decision == "rescan":
+                        continue
+                    status = {"applied": "applied", "declined": "failed:user_declined"}.get(decision, "manual")
+                    break
                 controls, frame_by_id, needs = _fill_page(page, job, ctx, lf)
                 if nav_error:
                     # Don't leave the user looking at a blank page without a reason
