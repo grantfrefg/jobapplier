@@ -36,6 +36,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **Redo documents:** rewrite the resume and cover letter for one job or every job not yet applied to (Apply tab,
   or `applypilot redo`), re-picking the preferred site's listing (LinkedIn > Indeed > Jora). Old documents are kept
   until the new ones pass, and only the chosen jobs are rewritten, whatever their score.
+- **Australian resume layout:** A4 PDFs, location and work rights in the header, title/employer/dates on one
+  line, clickable links, empty sections left out; cover letter PDFs get a proper letter layout (they were rendered
+  with the resume template and lost lines). Existing PDFs are re-rendered once.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed
