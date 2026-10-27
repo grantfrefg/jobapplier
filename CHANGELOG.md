@@ -64,6 +64,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- The Apply browser showed "You are using an unsupported command-line flag: --no-sandbox" in Chrome and Edge: the
+  browser's sandbox is now left on (except on Linux, where containers can't use it).
 - Job discovery (Jora), job-detail fetching and the locate check crashed where Playwright's headless shell isn't
   installed (the app's Install browser, CI); every background browser now falls back to the full Chromium, then
   Chrome / Edge (`applypilot/browser.py`).
