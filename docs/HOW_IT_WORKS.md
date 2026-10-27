@@ -26,7 +26,7 @@ For other countries, every bundled source is used: ZipRecruiter, Canadian/US job
 ## De-duplicate
 
 The same role is often listed on Indeed, LinkedIn and Jora. Two listings count as one role if any of these hold:
-- they link to the same application page on the employer's site;
+- they link to the same application page on the employer's site (tracking tags such as `utm_` ignored; a job board's sign-in page, which many jobs share, never counts);
 - they have the same title and the same company (ignoring "Pty Ltd", "Group" and similar);
 - they have the same title and near-identical descriptions (used when the company isn't shown, which is common on Jora).
 
@@ -123,7 +123,10 @@ Cover letters are written together with the tailored resume (above). The separat
 **Uploads.** Each upload box gets the resume or the cover letter from its label, or, when it only says "Upload" or "Attach", from its row or section (PageUp, for example). The resume never goes in two boxes, and a box already showing one of the files isn't filled again. The current job's two PDFs are in a visible folder, `~/ApplyPilot uploads` (set `APPLYPILOT_UPLOAD_DIR` to move it), which holds only that job's files. The "Your turn" panel lists them with their full paths, for uploading by hand.
 
 ### Job ads and employer sites
-Most jobs found on Jora, Indeed and LinkedIn are applied for on the employer's own application system. The engine opens the ad, follows its Apply link (navigation only) and fills the form there.
+Most jobs found on Jora, Indeed and LinkedIn are applied for on the employer's own application system. The engine opens the ad, follows its Apply link (navigation only) and fills the form there. It never types into the job board's own search boxes.
+
+- **An Apply button that isn't a link** (LinkedIn Easy Apply, Jora quick apply): click it yourself, then **Fill this page again**. A form that opens in a pop-up (Easy Apply) is filled inside the pop-up only, including its own Next / Review buttons; Submit stays yours.
+- **An Apply button that opens a new tab** (LinkedIn's employer-site Apply): the engine switches to the new tab.
 
 - **Check where to apply** (Apply tab, or `applypilot locate`) opens each ready job in the same visible browser, follows the ad to the application page and labels the job, e.g. "Applies on Greenhouse · no account" or "Workday · account needed". It fills nothing and uses no AI. The **Ready: no employer account** view lists the quick ones (no account, or just your SEEK / LinkedIn login). Jobs are also labelled when you apply.
 - **Sign-in and create-account pages** (Workday, iCIMS, Taleo, SuccessFactors and other employer sites): the engine types your email, never a password, asks the AI nothing and clicks nothing. The "Your turn" panel says to sign in or create the account, then **Fill this page again**. The browser remembers the login for that employer. A long form that merely offers an optional password is filled as usual.
