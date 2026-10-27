@@ -498,6 +498,10 @@ def create_app() -> FastAPI:
         confirmed = bool(body.pop("skills_confirmed", False))
         body = po.normalise_profile(body)
         body["skills_confirmed"] = confirmed
+        examples = po.placeholder_fields(body)
+        if examples:
+            raise HTTPException(400, "Replace or clear the example values in: "
+                                + ", ".join(f.split(".", 1)[1].replace("_", " ") for f in examples))
         bad = po.invalid_choices(body)
         if bad:
             raise HTTPException(400, "Pick one of the listed options for: "

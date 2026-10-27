@@ -168,6 +168,9 @@ def _upload_actions(boxes: list[dict], file_values: dict[str, str]) -> dict[str,
             result[f["id"]] = None  # no cover letter PDF: the AI can't help either
         else:
             undecided.append(f)
+    if len(boxes) == 1 and undecided and "{{RESUME_PDF}}" in file_values:
+        result[undecided[0]["id"]] = "{{RESUME_PDF}}"  # the only upload box on the page is for the resume
+        undecided = []
     resumes = [i for i, t in result.items() if t == "{{RESUME_PDF}}"]
     for extra in resumes[1:]:  # never the resume twice: keep the first, leave the rest to the AI
         result.pop(extra)
