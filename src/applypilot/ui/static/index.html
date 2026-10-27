@@ -527,6 +527,15 @@ const ACCOUNT_HELP = {
   board: "Uses your login on that job board, which the app's browser remembers.",
   yes: "Create an account (or sign in) on the employer's site first, once per employer.",
 };
+function atsBadge(a) {
+  const tone = a.score >= 80 ? "ok" : "warn";
+  const lines = ["ATS check: " + a.score + "/100 (keyword match " + a.keyword_match + "%)"];
+  if (a.issues && a.issues.length) lines.push("", "To look at:", ...a.issues.map((i) => "- " + i));
+  if (a.missing_gap && a.missing_gap.length)
+    lines.push("", "The ad asks for (not in your resume, left out honestly): " + a.missing_gap.slice(0, 10).join(", "));
+  return el("span", { class: "badge " + tone, title: lines.join("\n"), style: "cursor:help" }, "ATS " + a.score);
+}
+
 async function loadJobs() {
   const view = $("#job-view").value;
   const query = view === "quick" ? "ready&quick=true" : view;
@@ -536,6 +545,7 @@ async function loadJobs() {
     const link = j.link;
     const docs = [];
     if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank" }, "Resume"));
+    if (j.ats) docs.push(" · ", atsBadge(j.ats));
     if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank" }, "Cover letter"));
     const statusText = j.redo_requested ? "Rewriting documents…"
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"

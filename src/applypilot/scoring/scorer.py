@@ -49,8 +49,10 @@ Score every posting independently against the candidate, not against each other.
 - 1-2: Different field.
 
 ## HOW TO JUDGE ENGINEERING ROLES
-- Separate must-haves ("essential", "required", "you have") from nice-to-haves ("desirable", "bonus").
-  Missing nice-to-haves barely matter.
+- Separate must-haves ("essential", "essential criteria", "required", "you have", "you'll bring") from
+  nice-to-haves ("desirable", "highly regarded", "bonus", "a plus"). Missing nice-to-haves barely matter.
+- Australian ads: recruitment agency ads often hide the employer; judge the role described. Contract
+  roles with a day rate are fine; don't mark them down for that.
 - Core stack and discipline beat tool lists: Java vs Python backend is a real gap; Jenkins vs
   GitHub Actions is not. Software vs civil engineering is a different field.
 - Count demonstrated experience (systems built and run, designs delivered, scale, ownership) over
