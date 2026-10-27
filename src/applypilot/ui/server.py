@@ -245,9 +245,11 @@ def _fill_ats(job: dict) -> None:
     """
     from applypilot.scoring import ats
     try:
-        text = Path(job["tailored_resume_path"]).read_text(encoding="utf-8")
+        path = Path(job["tailored_resume_path"])
+        text = path.read_text(encoding="utf-8")
         original = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
-        report = ats.check(text, job, original)
+        pdf = path.with_suffix(".pdf")
+        report = ats.check(text, job, original, pdf_path=pdf if pdf.exists() else None)
     except Exception:
         return
     job["ats_score"], job["ats_report"] = report["score"], json.dumps(report)
@@ -626,7 +628,7 @@ def create_app() -> FastAPI:
             report = json.loads(job.pop("ats_report") or "null")
             job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
                                                                 "missing_gap", "issues", "removed_skills",
-                                                                "unreadable")}
+                                                                "unreadable", "other_form")}
             for k in ("tailored_resume_path", "score_reasoning", "full_description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})

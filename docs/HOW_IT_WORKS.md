@@ -75,7 +75,8 @@ If the resume fails, both documents are regenerated. If only the letter fails, j
 **ATS check.** Every tailored resume gets a score out of 100 (the **ATS** badge on the Apply tab; hover for details, or `applypilot ats` in the terminal). Australian employers mostly use Workday or SAP SuccessFactors (banks, miners, retailers), PageUp (government, universities), JobAdder, Greenhouse, Lever and iCIMS, and SEEK applications are usually passed on into the employer's own system. None publish their rules, so the check mirrors what they all do:
 - **Parsing:** standard section headings, email and phone in the header, every job with a readable date range, 1-3 pages.
 - **Knockouts:** work rights and city/state stated (Australian employers filter on both); no date of birth or photo.
-- **Keywords:** the ad's tools and must-haves that appear in the resume, in its own words. Ones you don't have are listed but don't lower the score: they can't be added honestly.
+- **Keywords:** the ad's tools and must-haves that appear in the resume, in its own words. Ones you don't have are listed but don't lower the score: they can't be added honestly. Another form of the same term ("AWS" for "Amazon Web Services", "PLC" for "programmable logic controller") counts half and is listed with the ad's word to use: some systems match synonyms, but a recruiter's keyword search often only finds the exact word.
+- **The PDF, read back:** the generated PDF's text is extracted the way a parser does it, then checked: your name first, email and phone readable, sections in order, every job's title, employer and dates together. Characters a parser may misread (ligatures such as "ﬁ", icon-font glyphs) are flagged.
 - **Australian spelling.**
 It uses no AI requests. It's a guide, not a prediction of any one vendor's ranking.
 
