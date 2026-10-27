@@ -113,6 +113,8 @@ Most jobs found on Jora, Indeed and LinkedIn are applied for on the employer's o
 - **Check where to apply** (Apply tab, or `applypilot locate`) opens each ready job in the same visible browser, follows the ad to the application page and labels the job, e.g. "Applies on Greenhouse · no account" or "Workday · account needed". It fills nothing and uses no AI. The **Ready: no employer account** view lists the quick ones (no account, or just your SEEK / LinkedIn login). Jobs are also labelled when you apply.
 - **Sign-in and create-account pages** (Workday, iCIMS, Taleo, SuccessFactors and other employer sites): the engine types your email, never a password, asks the AI nothing and clicks nothing. The "Your turn" panel says to sign in or create the account, then **Fill this page again**. The browser remembers the login for that employer. A long form that merely offers an optional password is filled as usual.
 
+**Logging in (Google sign-in and friends).** Google, and some other sites, refuse to sign in while a browser is controlled by automation ("This browser or app may not be secure"). Setup → **Log in to sites** (or `applypilot login`, or a job's **Log in** button when it needs an employer account) opens the same browser and profile as a normal window with no automation. Sign in to Google, LinkedIn, SEEK or the employer there, then close the window with its X. The engine's browser then reuses those logins. The two can't be open at once, so close the login window before applying.
+
 | Applies on | Account |
 |---|---|
 | Greenhouse, Lever, SmartRecruiters, Ashby, Workable, JobAdder, BambooHR | None |

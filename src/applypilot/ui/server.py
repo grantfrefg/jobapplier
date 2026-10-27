@@ -302,6 +302,17 @@ def create_app() -> FastAPI:
     app = FastAPI(title="ApplyPilot", docs_url=None, redoc_url=None)
     task = SubprocessTask()
     session = ApplySession()
+    login: dict = {"proc": None}  # the normal (non-automated) login window, if open
+
+    def login_open() -> bool:
+        proc = login["proc"]
+        return proc is not None and proc.poll() is None
+
+    def require_profile_free() -> None:
+        """The login window and the automated browser share one profile."""
+        if login_open():
+            raise HTTPException(409, "Close the login window first (its X button saves your logins): "
+                                     "it uses the same browser profile")
     app.state.task, app.state.session = task, session
     app.state.last_request = time.time()
     app.state.shutdown = None  # set by applypilot.desktop
@@ -535,7 +546,7 @@ def create_app() -> FastAPI:
         rows = get_connection().execute(f"""
             SELECT url, title, company, site, location, fit_score, application_url, apply_status,
                    apply_error, applied_at, duplicate_of, redo_requested,
-                   apply_site, apply_site_name, apply_account,
+                   apply_site, apply_site_name, apply_account, apply_site_url,
                    tailored_resume_path IS NOT NULL AS tailored,
                    cover_letter_path IS NOT NULL AS has_cover,
                    (SELECT site FROM jobs c WHERE c.url = jobs.duplicate_of) AS duplicate_site,
@@ -551,6 +562,7 @@ def create_app() -> FastAPI:
         """Check where each ready job applies (opens the visible browser; no AI)."""
         if session.busy:
             raise HTTPException(409, "Finish the application that's open first (they share the browser)")
+        require_profile_free()
         args = ["locate", "--min-score", str(int(body.get("min_score", 7)))]
         if body.get("recheck"):
             args.append("--recheck")
@@ -611,6 +623,7 @@ def create_app() -> FastAPI:
     def browser_state() -> dict:
         return {"system": config.find_system_browsers(),
                 "playwright_chromium": config.has_playwright_chromium(),
+                "login_open": login_open(),
                 "install": task.snapshot() if task.label == "Install browser" else None}
 
     @app.post("/api/browser/install")
@@ -619,11 +632,43 @@ def create_app() -> FastAPI:
         task.start("Install browser", [], cmd=cmd, env=env)
         return browser_state()
 
+    @app.post("/api/browser/login")
+    def open_login(body: dict | None = None) -> dict:
+        """Open the app's browser profile as a normal window to log in to Google, LinkedIn, SEEK..."""
+        from applypilot.apply.login_browser import open_login_browser
+        if session.busy:
+            raise HTTPException(409, "Finish the current application first (they share the browser)")
+        if task.running and task.label == "Check where to apply":
+            raise HTTPException(409, "Wait for 'Check where to apply' to finish (they share the browser)")
+        if login_open():
+            return browser_state()
+        url = str((body or {}).get("url") or "").strip()
+        try:
+            login["proc"] = open_login_browser([url] if url.startswith(("http://", "https://")) else None)
+        except Exception as e:
+            raise HTTPException(500, str(e)[:300]) from e
+        return browser_state()
+
+    @app.post("/api/browser/login/close")
+    def close_login() -> dict:
+        """Fallback when the user can't close it: logins from the last ~30 s may not be saved
+        (the browser writes cookies to disk periodically and when its window is closed)."""
+        proc = login["proc"]
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        login["proc"] = None
+        return browser_state()
+
     @app.post("/api/browser/test")
     def test_browser() -> dict:
         """Open the browser for a few seconds to prove automation works."""
         if session.busy:
             raise HTTPException(409, "Finish the current application first")
+        require_profile_free()
         from playwright.sync_api import sync_playwright
         from applypilot.apply.local_engine import launch_browser
         try:
@@ -664,6 +709,7 @@ def create_app() -> FastAPI:
                 raise HTTPException(400, "Add your Gemini API key first (Setup tab)")
             if task.running and task.label == "Check where to apply":
                 raise HTTPException(409, "Wait for 'Check where to apply' to finish (they share the browser)")
+            require_profile_free()
             session.start(url, int(body.get("min_score", 0)))
             return {"mode": "local", **session.snapshot()}
         # Claude Code engine is autonomous: run the normal CLI as a subprocess
