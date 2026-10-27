@@ -360,11 +360,17 @@ _EXTRACT_JS = r"""
   // Drop ids from a previous scan so hidden/stale elements can't collide
   for (const el of document.querySelectorAll('[data-ap-id]')) el.removeAttribute('data-ap-id');
 
+  // An open dialog with form fields (LinkedIn Easy Apply, modal application
+  // forms) is the form: ignore the page behind it, its search boxes and buttons.
+  const dialogs = [...document.querySelectorAll('[role=dialog], [aria-modal=true], dialog[open]')]
+    .filter(d => visible(d) && d.querySelector('input:not([type=hidden]), select, textarea'));
+  const root = dialogs.length ? dialogs[dialogs.length - 1] : document;
+
   const fields = [];
   const skip = new Set(['hidden', 'submit', 'button', 'image', 'reset', 'password', 'search']);
   let n = 0;
   const sel = 'input, select, textarea, [role=combobox]:not(input), [contenteditable=true]';
-  for (const el of document.querySelectorAll(sel)) {
+  for (const el of root.querySelectorAll(sel)) {
     const tag = el.tagName.toLowerCase();
     const type = tag === 'input' ? (el.type || 'text').toLowerCase() : tag;
     if (skip.has(type) || el.disabled || el.readOnly || !visible(el)) continue;
@@ -404,7 +410,7 @@ _EXTRACT_JS = r"""
   const controls = [];
   const csel = 'button, input[type=submit], input[type=button], a[role=button], [role=button], a';
   let m = 0;
-  for (const el of document.querySelectorAll(csel)) {
+  for (const el of root.querySelectorAll(csel)) {
     if (!visible(el)) continue;
     const text = clean(el.innerText || el.value || el.getAttribute('aria-label') || '');
     if (!text || text.length > 60) continue;
@@ -886,6 +892,29 @@ def _is_job_listing(url: str) -> bool:
     return bool(_LISTING_RE.search(url or ""))
 
 
+_OPEN_FORM_JS = r"""() => [...document.querySelectorAll('[role=dialog], [aria-modal=true], dialog[open]')].some(d => {
+  const r = d.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 && d.querySelector('input:not([type=hidden]), select, textarea');
+})"""
+
+
+def _form_open_over_page(page) -> bool:
+    """An application form is open in a dialog on top of the page (e.g. LinkedIn Easy Apply)."""
+    for frame in page.frames:
+        try:
+            if frame.evaluate(_OPEN_FORM_JS):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _newest_tab(page):
+    """The most recently opened tab: an Apply button may open the employer's form in a new tab."""
+    tabs = [t for t in page.context.pages if not t.is_closed()]
+    return tabs[-1] if tabs else page
+
+
 def _leave_listing(page, lf) -> list[str] | None:
     """On a job-board listing, open its Apply link (navigation, not submission).
 
@@ -893,7 +922,7 @@ def _leave_listing(page, lf) -> list[str] | None:
     a note asking the user to start the application themselves.
     """
     for _ in range(_MAX_LISTING_HOPS):
-        if not _is_job_listing(page.url):
+        if not _is_job_listing(page.url) or _form_open_over_page(page):
             return None
         _, controls, _ = _scan(page)
         href = _find_apply_link(controls)
@@ -906,7 +935,7 @@ def _leave_listing(page, lf) -> list[str] | None:
             page.wait_for_load_state("networkidle", timeout=10000)
         except Exception:
             pass
-    return None if not _is_job_listing(page.url) else [
+    return None if not _is_job_listing(page.url) or _form_open_over_page(page) else [
         "Still on a job ad after following its Apply link. Click Apply in the browser, then choose "
         "'Fill this page again'."]
 
@@ -1136,6 +1165,14 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
             last_signature = None
             step = 0
             while True:
+                newest = _newest_tab(page)
+                if newest is not page:
+                    lf.write(f"  switched to the new tab {newest.url}\n")
+                    page = newest
+                    try:
+                        page.wait_for_load_state("domcontentloaded", timeout=15000)
+                    except Exception:
+                        pass
                 listing_note = _leave_listing(page, lf)
                 if listing_note:
                     # Don't type into the job board's search boxes

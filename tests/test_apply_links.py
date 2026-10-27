@@ -130,3 +130,10 @@ def _link(text, href):
 def test_find_apply_link_prefers_the_ads_own_button(controls, expected):
     from applypilot.apply import local_engine as le
     assert le._find_apply_link(controls) == expected
+
+
+def test_linkedin_signup_wall_is_not_an_application_link():
+    from applypilot.database import apply_link
+    job = {"url": "https://www.linkedin.com/jobs/view/4483253610",
+           "application_url": "https://www.linkedin.com/signup/cold-join?source=jobs_registration&session_redirect=x"}
+    assert apply_link(job) == "https://www.linkedin.com/jobs/view/4483253610"
