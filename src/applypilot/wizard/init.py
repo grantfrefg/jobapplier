@@ -35,6 +35,18 @@ console = Console()
 # Resume
 # ---------------------------------------------------------------------------
 
+
+def _choose(question: str, path: str, default: str) -> str:
+    """Pick from the same fixed answers as the Setup page (profile_options)."""
+    from applypilot.profile_options import OPTIONS
+    options = OPTIONS[path]
+    labels = [o or default for o in options] if "" in options else options
+    for i, label in enumerate(labels, 1):
+        console.print(f"  {i}. {label}")
+    pick = Prompt.ask(question, choices=[str(i) for i in range(1, len(labels) + 1)],
+                      default=str(labels.index(default) + 1) if default in labels else "1")
+    return options[int(pick) - 1]
+
 def _setup_resume() -> None:
     """Prompt for resume file and copy into APP_DIR."""
     console.print(Panel("[bold]Step 1: Resume[/bold]\nPoint to your master resume file (.txt or .pdf)."))
@@ -107,10 +119,10 @@ def _setup_profile() -> dict:
     # -- Work Authorization --
     console.print("\n[bold cyan]Work Authorization[/bold cyan]")
     profile["work_authorization"] = {
-        "legally_authorized_to_work": Confirm.ask("Are you legally authorized to work in your target country?"),
-        "require_sponsorship": Confirm.ask("Will you now or in the future need sponsorship?"),
-        "work_permit_type": Prompt.ask("Work rights (e.g. Australian citizen, Permanent resident, 482 visa — leave blank if N/A)", default=""),
-        "security_clearance": Prompt.ask("Security clearance held (e.g. Baseline, NV1 — leave blank if none)", default=""),
+        "legally_authorized_to_work": "Yes" if Confirm.ask("Are you legally authorised to work in Australia?") else "No",
+        "require_sponsorship": "Yes" if Confirm.ask("Will you now or in the future need sponsorship?") else "No",
+        "work_permit_type": _choose("Work rights", "work_authorization.work_permit_type", "Not set"),
+        "security_clearance": _choose("Security clearance held", "work_authorization.security_clearance", "None"),
     }
 
     # -- Compensation --
@@ -132,7 +144,7 @@ def _setup_profile() -> dict:
     target_role = Prompt.ask("Target role (what you're applying for, e.g. 'Senior Backend Engineer')", default=current_title)
     profile["experience"] = {
         "years_of_experience_total": Prompt.ask("Years of professional experience", default=""),
-        "education_level": Prompt.ask("Highest education (e.g. Bachelor's, Master's, PhD, Self-taught)", default=""),
+        "education_level": _choose("Highest education", "experience.education_level", "Bachelor's degree"),
         "current_title": current_title,
         "target_role": target_role,
     }
@@ -174,7 +186,7 @@ def _setup_profile() -> dict:
     # -- Availability --
     profile["availability"] = {
         "earliest_start_date": Prompt.ask("Earliest start date", default="Immediately"),
-        "notice_period": Prompt.ask("Notice period", default="2 weeks"),
+        "notice_period": _choose("Notice period", "availability.notice_period", "2 weeks"),
         "willing_to_relocate": "Yes" if Confirm.ask("Willing to relocate?", default=False) else "No",
         "drivers_licence": "Yes" if Confirm.ask("Do you have a driver's licence?", default=True) else "No",
     }

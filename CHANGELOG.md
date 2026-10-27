@@ -51,6 +51,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **Prompts reviewed for Australia, ATS and a human voice:** the ad's exact words for real skills (missing ones
   added by code), Australian spelling enforced in code, AI-sounding words and phrasing rejected in summaries and
   letters, letters sign off "Kind regards," and address selection criteria, projects no longer required.
+- **Profile drop-downs:** Yes/No questions, state, country, work rights, clearance, notice period, currency,
+  education and diversity questions are picked from a list (Setup and `applypilot init`); old wording is mapped.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed
