@@ -543,3 +543,33 @@ def test_apply_button_opening_a_new_tab_is_followed(tmp_path, monkeypatch):
     finally:
         server.shutdown()
     assert seen["first_url"].endswith("ad.html") and seen["url"].endswith("form.html") and seen["fn"] == "Jane"
+
+
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
+def test_a_tab_you_open_yourself_is_never_filled(tmp_path, monkeypatch):
+    """Opening your email in another tab, then 'Fill this page again', must stay on the application."""
+    pytest.importorskip("playwright")
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "form.html").write_text(FORM_HTML)
+    (site / "other.html").write_text('<label for="q">Search mail</label><input id="q">')
+    server, base = _serve(site)
+    resume = _engine_env(tmp_path, monkeypatch)
+    seen = {}
+
+    def gate(page, needs, dry_run):
+        if not seen:
+            other = page.context.new_page()  # like pressing Ctrl+T
+            other.goto(f"{base}/other.html")
+            seen["other"] = other
+            return "rescan"
+        seen.update(url=page.url, q=seen["other"].evaluate("() => q.value"))
+        return "manual"
+
+    job = {"title": "Engineer", "site": "x", "url": f"{base}/form.html", "application_url": None,
+           "tailored_resume_path": resume, "cover_letter_path": None, "fit_score": 9}
+    try:
+        assert le.run_job(job, gate=gate)[0] == "manual"
+    finally:
+        server.shutdown()
+    assert seen["url"].endswith("form.html") and seen["q"] == ""

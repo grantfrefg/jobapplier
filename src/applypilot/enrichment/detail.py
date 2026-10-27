@@ -23,6 +23,7 @@ from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
 from applypilot import config
+from applypilot.browser import launch_chromium
 from applypilot.config import DB_PATH
 from applypilot.database import get_connection, init_db, ensure_columns
 from applypilot.llm import get_client
@@ -144,7 +145,7 @@ def resolve_wttj_urls(conn: sqlite3.Connection) -> int:
                 pass
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = launch_chromium(p)
         page = browser.new_page(user_agent=UA)
         page.on("response", capture_algolia)
         page.goto(
@@ -633,10 +634,10 @@ def scrape_site_batch(
 
     try:
         with sync_playwright() as p:
-            launch_opts: dict = {"headless": True}
+            launch_opts: dict = {}
             if _PROXY_CONFIG:
                 launch_opts["proxy"] = _PROXY_CONFIG["playwright"]
-            browser = p.chromium.launch(**launch_opts)
+            browser = launch_chromium(p, **launch_opts)
             context = browser.new_context(user_agent=UA)
             page = context.new_page()
 

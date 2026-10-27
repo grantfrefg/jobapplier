@@ -393,13 +393,18 @@ _EXTRACT_JS = r"""
       f.accept = el.accept || '';
       f.has_file = el.files && el.files.length > 0;
       // Upload boxes are often labelled just "Upload" or "Attach"; what they
-      // are for ("Cover letter", "Resume / CV") is in their row or section:
-      // the largest container around the box that holds no other upload box.
+      // are for ("Cover letter", "Resume / CV") is in their own row: the
+      // nearest container with more than button words, stopping before one
+      // that holds another field (its text would describe that field).
+      const generic = new RegExp('attach|upload|browse|choose|select|files?|drop|drag|here|max|mb|' +
+                                 'pdf|docx?|\\b(or|and|to|a)\\b|[^a-z]', 'g');
       let box = el.parentElement, around = '';
       for (let i = 0; i < 6 && box && box !== document.body; i++, box = box.parentElement) {
-        if (box.querySelectorAll('input[type=file]').length > 1) break;
+        const others = [...box.querySelectorAll('input, select, textarea')]
+          .filter(x => x !== el && x.type !== 'hidden' && !(x.type === 'file' && x === el));
+        if (others.length) break;
         const t = clean(box.innerText);
-        if (t) around = t;
+        if (t && t.toLowerCase().replace(generic, '')) { around = t; break; }
       }
       if (around) f.context = around.slice(0, 160);
     } else if (el.getAttribute('role') === 'combobox' && tag !== 'input') {
@@ -1021,8 +1026,18 @@ def _record_apply_site(job: dict, page, ctx: dict, password: bool = False) -> No
 
 
 def _newest_tab(page):
-    """The most recently opened tab: an Apply button may open the employer's form in a new tab."""
-    tabs = [t for t in page.context.pages if not t.is_closed()]
+    """The newest tab this page opened: an Apply button may open the employer's form in a new tab.
+
+    Only tabs the page itself opened count, so a tab you open (to read an
+    email code, say) is never filled.
+    """
+    def opener(t):
+        try:
+            return t.opener()
+        except Exception:
+            return None
+
+    tabs = [t for t in page.context.pages if not t.is_closed() and t is not page and opener(t) == page]
     return tabs[-1] if tabs else page
 
 

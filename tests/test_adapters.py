@@ -330,8 +330,11 @@ def _box(i, label="Upload", context=""):
     ([_box("a", context="Resume Jane_Doe_Resume.pdf Remove")], {"a": None}),
     # Never the resume twice
     ([_box("a", "Resume"), _box("b", "Resume upload")], {"a": "{{RESUME_PDF}}"}),
-    # Instructions mentioning both: ask the AI
-    ([_box("a", context="Please attach your resume and cover letter")], {}),
+    # The page's only upload box takes the resume, even when its text mentions both or neither
+    ([_box("a", context="Please attach your resume and cover letter")], {"a": "{{RESUME_PDF}}"}),
+    ([_box("a", "Attach")], {"a": "{{RESUME_PDF}}"}),
+    # Two boxes and neither says which: ask the AI
+    ([_box("a", "Attach"), _box("b", "Attach")], {}),
 ])
 def test_upload_targets(boxes, expected):
     from applypilot.apply.answers import _upload_actions
@@ -376,3 +379,29 @@ def test_pageup_style_uploads_go_in_the_right_boxes_once(tmp_path, monkeypatch):
     assert seen[1] == seen[0]  # nothing uploaded again
     # Only this job's documents are in the visible upload folder
     assert sorted(p.name for p in le.staged_uploads()) == ["Jane_Doe_Cover_Letter.pdf", "Jane_Doe_Resume.pdf"]
+
+
+COVER_TEXT_NEARBY = """<!doctype html><html><body><form>
+<div class="section"><h3>Your application</h3>
+ <div class="row"><label for="cl">Cover letter (optional)</label><textarea id="cl"></textarea></div>
+ <div class="row"><div><button type="button">Attach</button><label for="f1">Attach</label>
+   <input type="file" id="f1"></div></div>
+</div></form></body></html>"""
+
+
+def test_upload_box_reads_only_its_own_row(tmp_path):
+    """Regression: a lone 'Attach' box took its section's text ('Cover letter') and got the cover letter."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+
+    from applypilot.apply.answers import _upload_actions
+    from applypilot.browser import launch_chromium
+    with sync_playwright() as p:
+        browser = launch_chromium(p)
+        page = browser.new_page()
+        page.set_content(COVER_TEXT_NEARBY)
+        fields, _, _ = le._scan(page)
+        browser.close()
+    [box] = [f for f in fields if f["type"] == "file"]
+    assert "cover" not in (box.get("context") or "").lower()
+    assert _upload_actions([box], FILES) == {box["id"]: "{{RESUME_PDF}}"}

@@ -339,3 +339,16 @@ def test_skills_confirmation_round_trip(client):
     assert json.loads(config.PROFILE_PATH.read_text())["skills_confirmed"] is True
     client.post("/api/profile", json=profile)  # unticked
     assert client.get("/api/profile").json()["skills_confirmed"] is False
+
+
+def test_template_examples_are_never_saved_or_used(client):
+    from applypilot import config
+    leftover = {**PROFILE, "personal": {**PROFILE["personal"], "city": "Your City"},
+                "resume_facts": {"preserved_companies": ["Company A"]}}
+    r = client.post("/api/profile", json=leftover)
+    assert r.status_code == 400 and "city" in r.json()["detail"] and "preserved companies" in r.json()["detail"]
+    # A profile saved before this check: the examples are blanked when it's used
+    config.PROFILE_PATH.write_text(json.dumps(leftover))
+    used = config.load_profile()
+    assert used["personal"]["city"] == "" and used["resume_facts"]["preserved_companies"] == []
+    assert used["personal"]["full_name"] == PROFILE["personal"]["full_name"]
