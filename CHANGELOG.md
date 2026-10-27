@@ -55,6 +55,10 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- Tailored resumes and cover letters could claim things that aren't true (a target-job title like "Forward Deployed
+  AI Engineer" as the headline, skills from the profile template's examples). Code now checks every title, skill,
+  tool, number, employer and qualification against the original resume, fixing or rejecting what doesn't match;
+  the AI fact-check runs on every job and its final rejection is no longer saved; Setup warns about example skills.
 - LinkedIn: the Easy Apply dialog is filled after you open it (only the dialog, never the page's search
   boxes), an Apply button that opens the employer's form in a new tab is followed, and LinkedIn's sign-up wall
   is no longer used as the apply link.

@@ -237,6 +237,21 @@ class ApplySession:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _example_skills_left() -> list[str]:
+    """Example skills from the profile template that the user never replaced (and doesn't
+    mention in their resume). Tailoring ignores them; Setup asks the user to fix the list."""
+    if not config.PROFILE_PATH.exists():
+        return []
+    try:
+        from applypilot.scoring.facts import Source, template_skills_left
+        profile = json.loads(config.PROFILE_PATH.read_text(encoding="utf-8"))
+        resume = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
+    except Exception:
+        return []
+    source = Source(resume)
+    return sorted({s for s in template_skills_left(profile) if not source.mentions(s)})
+
+
 def _budget_status() -> dict | None:
     """Today's Gemini usage, when a Gemini key is what's being used."""
     if not os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_URL"):
@@ -359,6 +374,7 @@ def create_app() -> FastAPI:
                 "claude_cli": shutil.which("claude") is not None,
                 "browser": bool(config.find_system_browsers()) or config.has_playwright_chromium(),
             },
+            "example_skills": _example_skills_left(),
             "stats": {k: stats.get(k, 0) for k in
                       ("total", "scored", "tailored", "with_cover_letter", "applied", "ready_to_apply")},
             "budget": _budget_status(),

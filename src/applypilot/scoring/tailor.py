@@ -20,7 +20,8 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import finish_redo, get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
-from applypilot.scoring.context import AU_STYLE, location_line, work_rights
+from applypilot.scoring import facts
+from applypilot.scoring.context import AU_STYLE, current_title, location_line, work_rights
 from applypilot.scoring.cover_letter import (
     COVER_LETTER_DIR,
     clean_letter,
@@ -30,7 +31,6 @@ from applypilot.scoring.cover_letter import (
 )
 from applypilot.scoring.validator import (
     BANNED_WORDS,
-    FABRICATION_WATCHLIST,
     new_numbers,
     sanitize_text,
     validate_cover_letter,
@@ -51,16 +51,10 @@ def _tailor_rules(profile: dict) -> str:
     All skills boundaries, preserved entities, and formatting rules are
     derived from the profile -- nothing is hardcoded.
     """
-    boundary = profile.get("skills_boundary", {})
     resume_facts = profile.get("resume_facts", {})
-
-    # Format skills boundary for the prompt
-    skills_lines = []
-    for category, items in boundary.items():
-        if isinstance(items, list) and items:
-            label = category.replace("_", " ").title()
-            skills_lines.append(f"{label}: {', '.join(items)}")
-    skills_block = "\n".join(skills_lines)
+    extra_skills = facts.profile_skills(profile)
+    skills_block = ", ".join(extra_skills) if extra_skills else "(none: use only skills named in the resume)"
+    title_now = current_title(profile) or "their most recent job title in the resume"
 
     # Preserved entities
     companies = resume_facts.get("preserved_companies", [])
@@ -85,19 +79,26 @@ gets an interview for the target job. Return the tailored resume as a JSON objec
 3. First 3 bullets of the most recent role: the job's must-haves, with outcomes.
 4. Skills: the must-haves visible at a glance.
 
-## SKILLS (real skills only)
-List only skills that appear in the original resume or in this boundary:
-{skills_block}
-Never add a tool, language, framework, standard or certification the candidate doesn't have, even a
-closely related one. If the job wants something they lack, emphasise the nearest real experience instead.
+## THE ONE RULE: NOTHING THAT ISN'T IN THE ORIGINAL RESUME
+Every title, employer, date, tool, skill, number, qualification and achievement must come from the
+ORIGINAL RESUME (or the extra skills listed below). Tailoring changes order, emphasis and wording, never
+facts. Code checks every one of these against the original and rejects the resume if anything is new.
+
+## SKILLS
+List only skills named in the original resume, plus these extra skills the candidate listed: {skills_block}
+Never add a tool, language, framework, platform, standard or certification the candidate doesn't name,
+even a closely related or easy-to-learn one. If the job wants something they lack, leave it out and put
+their nearest real experience first.
 
 ## TAILORING RULES
-TITLE: Use the target job's title when it honestly describes the candidate's work (e.g. "Software
-Engineer" -> "Backend Engineer" for backend work). Keep their seniority. Never change discipline.
-Drop company names and team names from the title.
+TITLE: Copy one of the candidate's real job titles from the resume exactly, normally the most recent
+({title_now}). NEVER use the target job's title unless the candidate has held that exact title.
+FOCUS (optional): up to 6 words after the title that point at what this job needs, using only the
+candidate's real areas, e.g. "Production ML & LLM Systems". Not another job title, no new tools.
 
-SUMMARY: Rewrite for this job. Lead with the 1-2 things that matter most for THIS role, with a real
-number or scale if the resume has one. Sound like someone who already does this job.
+SUMMARY: Rewrite for this job, leading with the 1-2 things that matter most for THIS role, with a real
+number or scale from the resume. Describe the candidate by what they have done, never with a job title
+they haven't held (not "AI engineer with 7 years..." for a data scientist).
 
 SKILLS: Group into categories that suit the candidate (e.g. Languages, Frameworks, Cloud & DevOps,
 Databases, Tools; or for non-software engineering: Design Software, Standards & Codes, Methods).
@@ -105,7 +106,10 @@ Put the job's must-haves first in each category. Drop skills irrelevant to this 
 
 BULLETS: Reorder so the job's must-haves come first. Reword a bullet when the job uses different
 terms for the same work (e.g. "web services" -> "REST APIs") or when its impact is buried; keep it as
-is when it already fits. Shape: strong verb + what was built/designed/delivered + scale or result.
+is when it already fits. Each bullet must be traceable to one original bullet in the same role. Don't
+move achievements between roles or projects, and don't join separate facts into a new cause and
+effect (if one bullet says costs fell 50% and another says 10 million customers, don't write "cut costs
+50% while serving 10 million customers"). Shape: strong verb + what was built/designed/delivered + scale or result.
 Vary verbs (Built, Designed, Led, Shipped, Migrated, Automated, Reduced, Scaled). Up to 5 bullets for
 recent roles, 2-3 for older ones.
 
@@ -127,8 +131,9 @@ LENGTH: Australian resumes are normally 2 pages. Keep it tight: no filler bullet
 - {AU_STYLE}
 
 ## HARD RULES
-- Do NOT invent work, companies, roles, degrees, certifications or skills
-- Do NOT invent or change numbers. Real numbers: {metrics_str}
+- Do NOT invent work, companies, job titles, degrees, certifications, tools or skills
+- Job titles, employers and dates in EXPERIENCE stay exactly as in the original resume
+- Do NOT invent, round or change numbers. Real numbers: {metrics_str}
 - Preserved companies: {companies_str} -- names stay as-is
 - Preserved projects: {projects_str}
 - Preserved school: {school}"""
@@ -139,7 +144,8 @@ def _resume_shape(profile: dict) -> str:
     school = profile.get("resume_facts", {}).get("preserved_school", "")
     education_level = profile.get("experience", {}).get("education_level", "")
     return (
-        '{"title":"Role Title","summary":"2-3 tailored sentences.","skills":{"Languages":"...",'
+        '{"title":"A real job title from the resume","focus":"optional, up to 6 words",'
+        '"summary":"2-3 tailored sentences.","skills":{"Languages":"...",'
         '"Frameworks":"...","DevOps & Infra":"...","Databases":"...","Tools":"..."},'
         '"experience":[{"header":"Title at Company","subtitle":"Mar 2021 - Present | Python, AWS",'
         '"bullets":["bullet 1","bullet 2","bullet 3","bullet 4"]}],'
@@ -195,8 +201,7 @@ Answer with ONLY a JSON object: {{"verdict": "PASS" or "FAIL", "issues": "<probl
 If a cover letter is included, apply the same rules to it: it may only claim work, tools and numbers from the original resume.
 
 ## CONTEXT -- what the tailoring engine was instructed to do (all of this is ALLOWED):
-- Change the title to match the target role
-- Rewrite the summary from scratch for the target job
+- Rewrite the summary for the target job (using only real facts)
 - Reorder bullets and projects to put the most relevant first
 - Reframe bullets to use the job's language
 - Drop low-relevance bullets and replace with more relevant ones from other sections
@@ -210,6 +215,11 @@ If a cover letter is included, apply the same rules to it: it may only claim wor
 3. Inventing work that has no basis in any original bullet (completely new achievements).
 4. Adding companies, roles, or degrees that don't exist.
 5. Changing real numbers (inflating 80% to 95%, 500 nodes to 1000 nodes).
+6. Giving the candidate a job title they haven't held, anywhere: the headline, the summary ("AI engineer
+   with 7 years"), or the cover letter ("as a machine learning engineer"). The title they held is a fact.
+7. Joining separate facts into a new claim (a cost saving from one project credited to another, or
+   "cut costs while serving 10 million customers" when those are two unrelated facts).
+8. Claiming experience with something the job wants that the original never shows.
 
 ## WHAT IS NOT FABRICATION (do NOT fail for these):
 - Rewording any bullet, even heavily, as long as the underlying work is real
@@ -218,14 +228,15 @@ If a cover letter is included, apply the same rules to it: it may only claim wor
 - Describing the same work with different emphasis
 - Dropping bullets entirely
 - Reordering anything
-- Changing the title or summary completely
+- Rewriting the summary, as long as every claim in it is in the original
 
 ## JUDGEMENT
 - Wording, emphasis and structure are free: never fail for style, tone, reordering or regrouping.
 - A tool, language, framework, certification or number that isn't in the original resume or the allowed
   skills list is fabrication, even if it's closely related or easy to learn: an interviewer will ask about it.
 - Using the job's term for the same real work ("REST APIs" for "web services") is fine.
-- When in doubt about a reworded bullet, PASS if the same underlying work appears in the original."""
+- When in doubt, FAIL: a resume that claims too little costs nothing; one that claims too much costs
+  the candidate's credibility in the interview."""
 
 
 # ── JSON Extraction ───────────────────────────────────────────────────────
@@ -293,7 +304,7 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
 
     # Header -- always code-injected from profile
     lines.append(personal.get("full_name", ""))
-    lines.append(sanitize_text(data.get("title", "Software Engineer")))
+    lines.append(sanitize_text(data.get("title") or current_title(profile)))
 
     # Location and work rights: Australian recruiters screen on both first
     details = [d for d in (location_line(profile), work_rights(profile)) if d]
@@ -405,31 +416,77 @@ def _generated_text(resume: dict, letter: str) -> str:
     return "\n".join(parts)
 
 
-def judge_reasons(resume_text: str, resume: dict, letter: str, mode: str) -> list[str]:
-    """Why the LLM fact-check should run; empty = the free checks found nothing.
+def judge_reasons(mode: str) -> list[str]:
+    """Why the AI fact-check runs: always, except in lenient mode.
 
-    strict always runs it and lenient never does. In normal mode it runs only
-    when code spots a likely fabrication anywhere in the resume or letter:
-    numbers that aren't in the original resume (invented metrics), or tools
-    from the fabrication watchlist that the original never mentions. Banned
-    buzzwords are a style problem and don't need the judge.
+    Code (facts.py) catches invented titles, tools, skills, numbers and
+    employers; the fact-check is for what code can't see, such as invented
+    work or two facts joined into a new claim.
     """
-    if mode == "lenient":
-        return []
-    if mode == "strict":
-        return ["strict mode"]
-    generated = _generated_text(resume, letter)
-    reasons = []
-    invented = new_numbers(resume_text, generated)
-    if invented:
-        reasons.append(f"numbers not in your resume: {', '.join(invented[:5])}")
-    original_lower, generated_lower = resume_text.lower(), generated.lower()
-    tools = sorted(t for t in FABRICATION_WATCHLIST if len(t) > 2
-                   and re.search(rf"(?<!\w){re.escape(t)}(?!\w)", generated_lower)
-                   and not re.search(rf"(?<!\w){re.escape(t)}(?!\w)", original_lower))
+    return [] if mode == "lenient" else [f"{mode} mode"]
+
+
+def check_facts(resume: dict, letter: str, resume_text: str, profile: dict) -> dict:
+    """Check the AI's resume and letter against the original resume. Fixes what code can fix.
+
+    Returns {"resume": fixed resume, "errors": [...] (resume needs another
+    attempt), "letter_errors": [...] (letter needs another attempt),
+    "dropped_skills": [...], "title_replaced": str | None}.
+    """
+    source = facts.source_for(resume_text, profile)
+    fixed = dict(resume)
+    errors: list[str] = []
+
+    # Headline: a real title, plus an optional honest focus
+    wanted = str(fixed.get("title") or "").strip()
+    title = facts.real_title(wanted, source, current_title(profile))
+    replaced = wanted if title != wanted else None
+    focus = str(fixed.pop("focus", "") or "").strip()
+    if focus and not facts.focus_problems(focus, source) and len(focus.split()) <= 8:
+        title = f"{title} · {focus}"
+    fixed["title"] = title
+
+    skills, dropped = facts.filter_skills(fixed.get("skills") or {}, source)
+    fixed["skills"] = skills
+
+    claims = facts.role_claims(str(fixed.get("summary", "")), source)
+    if claims:
+        errors.append(f"Summary calls the candidate a {', '.join(claims)}: not a title in their resume. "
+                      "Describe what they've done instead.")
+    prose = _generated_text({**fixed, "skills": {}, "title": ""}, "")
+    tools = facts.new_tools(prose, source)
     if tools:
-        reasons.append(f"tools not in your resume: {', '.join(tools[:5])}")
-    return reasons
+        errors.append(f"Mentions {', '.join(tools)}, which the resume never does. Remove them.")
+    for entry in fixed.get("experience") or []:
+        if isinstance(entry, dict):
+            for problem in facts.header_problems(str(entry.get("header", "")), source):
+                errors.append(f"Experience header has {problem}, which isn't in the resume. Copy it exactly.")
+    invented = new_numbers(resume_text, prose)
+    if invented:
+        errors.append(f"Numbers not in the resume: {', '.join(invented[:5])}. Use only the resume's numbers.")
+    education = str(fixed.get("education", ""))
+    if education and not source.covers(re.sub(r"[|,]", " ", education)):
+        errors.append("Education doesn't match the resume. Copy it exactly.")
+
+    return {"resume": fixed, "errors": errors, "letter_errors": letter_problems(letter, source, resume_text),
+            "dropped_skills": dropped, "title_replaced": replaced}
+
+
+def letter_problems(letter: str, source: "facts.Source", resume_text: str) -> list[str]:
+    """Facts in a cover letter that aren't in the resume."""
+    if not letter:
+        return []
+    problems = []
+    claims = facts.letter_role_claims(letter, source)
+    if claims:
+        problems.append(f"Calls the candidate a {', '.join(claims)}: not a title in their resume.")
+    tools = facts.new_tools(letter, source)
+    if tools:
+        problems.append(f"Mentions {', '.join(tools)}, which the resume never does.")
+    invented = new_numbers(resume_text, letter)
+    if invented:
+        problems.append(f"Numbers not in the resume: {', '.join(invented[:5])}.")
+    return problems
 
 
 # ── Core Tailoring ───────────────────────────────────────────────────────
@@ -440,9 +497,11 @@ def tailor_application(
 ) -> tuple[str, str, dict]:
     """Tailored resume AND cover letter for one job, usually in one LLM request.
 
-    - One JSON request returns both; code checks validate each.
-    - The LLM judge only runs when judge_reasons() finds something (or in
-      strict mode), instead of after every attempt.
+    - One JSON request returns both; code checks validate each, including
+      the fact checks (check_facts): anything not in the original resume is
+      removed or sent back.
+    - The AI fact-check (judge) then reads it, except in lenient mode. A
+      resume it still rejects after the last attempt isn't used.
     - A bad resume regenerates both; a bad cover letter alone gets a
       letter-only retry (generate_cover_letter).
     - Each retry is a fresh conversation with the previous issues listed.
@@ -450,12 +509,12 @@ def tailor_application(
     Returns:
         (tailored_text, cover_letter, report). report["requests"] counts
         LLM requests used; report["status"] is "approved",
-        "approved_with_judge_warning", "failed_validation" or
-        "exhausted_retries".
+        "failed_validation", "failed_judge" or "exhausted_retries".
     """
     report: dict = {
         "attempts": 0, "requests": 0, "validator": None, "cover_validator": None,
         "judge": None, "judge_reasons": [], "status": "pending", "validation_mode": validation_mode,
+        "dropped_skills": [], "title_replaced": None,
     }
     client = get_client()
     base_prompt = _build_application_prompt(profile)
@@ -486,16 +545,29 @@ def tailor_application(
             avoid_notes.append('Return a JSON object with "resume" and "cover_letter" keys.')
             continue
 
-        # Cover letter: keep the best one seen (a valid one wins)
         raw_letter = data.get("cover_letter")
-        if isinstance(raw_letter, str) and raw_letter.strip() and not letter_ok:
-            candidate = clean_letter(raw_letter)
-            cover_check = validate_cover_letter(candidate, mode=validation_mode)
-            report["cover_validator"] = cover_check
-            letter, letter_ok = candidate, cover_check["passed"]
+        candidate = clean_letter(raw_letter) if isinstance(raw_letter, str) and raw_letter.strip() else ""
 
         validation = validate_json_fields(resume, profile, mode=validation_mode)
+        checked = check_facts(resume, candidate, resume_text, profile)
+        resume = checked["resume"]
+        validation["errors"] += checked["errors"]
+        validation["passed"] = not validation["errors"]
         report["validator"] = validation
+        report["dropped_skills"], report["title_replaced"] = checked["dropped_skills"], checked["title_replaced"]
+        if checked["dropped_skills"]:
+            log.info("Removed skills not in your resume: %s", ", ".join(checked["dropped_skills"]))
+
+        # Cover letter: keep the best one seen (a valid one wins)
+        if candidate and not letter_ok:
+            cover_check = validate_cover_letter(candidate, mode=validation_mode)
+            cover_check["errors"] += checked["letter_errors"]
+            cover_check["passed"] = not cover_check["errors"]
+            report["cover_validator"] = cover_check
+            letter, letter_ok = candidate, cover_check["passed"]
+            if not letter_ok:
+                avoid_notes.extend(f"Cover letter: {e}" for e in checked["letter_errors"])
+
         if not validation["passed"]:
             avoid_notes.extend(validation["errors"])
             if attempt < max_retries:
@@ -505,7 +577,7 @@ def tailor_application(
             return tailored, letter, report
 
         tailored = assemble_resume_text(resume, profile)
-        reasons = judge_reasons(resume_text, resume, letter, validation_mode)
+        reasons = judge_reasons(validation_mode)
         report["judge_reasons"] = reasons
         if not reasons:
             report["judge"] = {"verdict": "SKIPPED", "passed": True, "issues": "code checks clean"}
@@ -522,8 +594,8 @@ def tailor_application(
         letter_ok = False  # the judge saw the letter too; regenerate it with the resume
         if attempt < max_retries:
             continue
-        report["status"] = "approved_with_judge_warning"
-        break
+        report["status"] = "failed_judge"  # never use a resume the fact-check rejects
+        return tailored, letter, report
     else:
         report["status"] = "exhausted_retries"
         return tailored, letter, report

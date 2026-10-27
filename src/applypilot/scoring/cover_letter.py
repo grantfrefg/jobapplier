@@ -15,7 +15,7 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import COVER_LETTER_DIR, RESUME_PATH, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
-from applypilot.scoring.context import AU_STYLE, target_role, years
+from applypilot.scoring.context import AU_STYLE, current_title, years
 from applypilot.scoring.validator import (
     BANNED_WORDS,
     LLM_LEAK_PHRASES,
@@ -42,18 +42,15 @@ def cover_letter_rules(profile: dict) -> str:
     Shared by the standalone prompt below and the combined resume + cover
     letter request in tailor.py.
     """
-    boundary = profile.get("skills_boundary", {})
+    from applypilot.scoring.facts import profile_skills
     resume_facts = profile.get("resume_facts", {})
     name = sign_off_name(profile)
     yrs = years(profile)
-    role_line = f"a {target_role(profile)}" + (f" with {yrs} years of experience" if yrs else "")
-
-    # Flatten all allowed skills
-    all_skills: list[str] = []
-    for items in boundary.values():
-        if isinstance(items, list):
-            all_skills.extend(items)
-    skills_str = ", ".join(all_skills) if all_skills else "the tools listed in the resume"
+    now = current_title(profile)
+    # Their real title: the letter must never present them as the target role
+    role_line = (f"currently a {now}" if now else "the candidate") + (f", {yrs} years of experience" if yrs else "")
+    extra = profile_skills(profile)
+    skills_str = "the tools named in the resume" + (f", plus {', '.join(extra)}" if extra else "")
 
     # Real metrics from resume_facts
     real_metrics = resume_facts.get("real_metrics", [])
@@ -106,11 +103,13 @@ VOICE:
 - NEVER hedge. BAD: "might address some of your challenges." GOOD: "solves the same problem."
 - {AU_STYLE}
 
-FABRICATION = INSTANT REJECTION:
-The candidate's real tools are ONLY: {skills_str}.
-Do NOT mention ANY tool not in this list. If the job asks for tools not listed, talk about the
-closest real work, not the tool.
-Do NOT use any number that isn't in the resume.
+FABRICATION = INSTANT REJECTION (code checks every one of these against the resume):
+- The candidate's real tools are ONLY {skills_str}. Do NOT mention any other tool, even one the job
+  asks for: talk about the closest real work instead.
+- Do NOT use any number that isn't in the resume.
+- Never call the candidate by a job title they haven't held ("as an AI engineer" for a data
+  scientist). Name the job you're applying for only as the role ("the AI Engineer role").
+- Don't join separate facts into a new claim, and don't claim experience the resume doesn't show.
 
 Start with "Dear <name>," if the job ad names the contact person, otherwise "Dear Hiring Manager,".
 Sign off with just "{name}"."""
@@ -162,6 +161,12 @@ def _strip_preamble(text: str) -> str:
 
 # ── Core Generation ──────────────────────────────────────────────────────
 
+def _fact_errors(letter: str, resume_text: str, profile: dict) -> list[str]:
+    from applypilot.scoring import facts
+    from applypilot.scoring.tailor import letter_problems
+    return letter_problems(letter, facts.source_for(resume_text, profile), resume_text)
+
+
 def generate_cover_letter(
     resume_text: str, job: dict, profile: dict,
     max_retries: int = 3, validation_mode: str = "normal",
@@ -187,6 +192,7 @@ def generate_cover_letter(
 
     avoid_notes: list[str] = []
     letter = ""
+    fact_errors: list[str] = []
     client = get_client()
     cl_prompt_base = _build_cover_letter_prompt(profile)
 
@@ -212,7 +218,9 @@ def generate_cover_letter(
         letter = clean_letter(client.chat(messages, max_tokens=1024, temperature=0.7))
 
         validation = validate_cover_letter(letter, mode=validation_mode)
-        if validation["passed"]:
+        fact_errors = _fact_errors(letter, resume_text, profile)
+        validation["errors"] += fact_errors
+        if not validation["errors"]:
             return letter
 
         avoid_notes.extend(validation["errors"])
@@ -222,7 +230,10 @@ def generate_cover_letter(
             attempt + 1, max_retries + 1, validation["errors"],
         )
 
-    return letter  # last attempt even if failed
+    if fact_errors:
+        log.warning("No cover letter: every attempt claimed things the resume doesn't (%s)", fact_errors[0])
+        return ""  # better no letter than one that claims what the resume doesn't
+    return letter  # last attempt, even if it failed a style check
 
 
 # ── Batch Entry Point ────────────────────────────────────────────────────
