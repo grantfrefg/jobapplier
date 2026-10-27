@@ -39,6 +39,13 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **Australian resume layout:** A4 PDFs, location and work rights in the header, title/employer/dates on one
   line, clickable links, empty sections left out; cover letter PDFs get a proper letter layout (they were rendered
   with the resume template and lost lines). Existing PDFs are re-rendered once.
+- **Where each job applies:** "Check where to apply" (or `applypilot locate`) follows each ad to the employer's
+  application system and labels it (e.g. Greenhouse, no account; Workday, account needed), with a view of the jobs
+  that need no employer account. Sign-in and create-account pages get your email filled in (never a password)
+  and a clear prompt, with no AI request.
+- **Log in to sites:** opens the engine's browser profile as a normal (non-automated) window so you can sign in
+  to Google, LinkedIn, SEEK or an employer site where sign-in is blocked in the automated window
+  (`applypilot login`, or a job's Log in button).
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed

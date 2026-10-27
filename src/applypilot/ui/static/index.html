@@ -157,7 +157,16 @@
         <button class="btn secondary" id="install-browser">Install browser (about 150 MB)</button>
       </div>
       <pre class="log" id="install-log" style="display:none;height:160px"></pre>
-    </div>
+      <h3 style="margin:16px 0 4px;font-size:14px">Logins</h3>
+      <p class="sub">Google and some sites block sign-in while ApplyPilot controls the browser. Log in here instead,
+        in a normal window of the same browser, then close that window. ApplyPilot then stays logged in to Google,
+        LinkedIn, SEEK and any employer site you sign in to.</p>
+      <div class="row" style="margin-top:4px">
+        <button class="btn secondary" id="login-open">Log in to sites</button>
+        <button class="btn secondary" id="login-close" style="display:none"
+          title="Closes the window for you. Logins from the last 30 seconds may not be saved.">Force close</button>
+        <span class="muted" id="login-state"></span>
+      </div>
 
     <div class="card">
       <h2>Your resume</h2>
@@ -252,9 +261,11 @@
     <div class="row" style="margin-top:0">
       <h2 style="margin:0">Jobs</h2>
       <select id="job-view" style="width:auto">
-        <option value="ready">Ready to apply</option><option value="applied">Applied</option>
+        <option value="ready">Ready to apply</option><option value="quick">Ready: no employer account</option>
+        <option value="applied">Applied</option>
         <option value="all">All jobs</option></select>
       <button class="btn secondary" id="refresh-jobs">Refresh</button>
+      <button class="btn secondary" id="locate-jobs" title="Open each ready job in the browser and note where its application is (Greenhouse, Workday, SEEK...) and whether it needs an account. No AI requests.">Check where to apply</button>
       <button class="btn secondary" id="redo-all" title="Rewrite every resume and cover letter not yet sent, with the current prompts and site preference (LinkedIn > Indeed > Jora)">Redo all documents</button>
     </div>
     <div class="table-wrap">
@@ -506,8 +517,16 @@ async function pollPipeline() {
 }
 
 // ---------- apply ----------
+const ACCOUNT_LABEL = { no: "no account", board: "job board login", yes: "account needed", unknown: "not sure" };
+const ACCOUNT_HELP = {
+  no: "Fill in and submit, no sign-in.",
+  board: "Uses your login on that job board, which the app's browser remembers.",
+  yes: "Create an account (or sign in) on the employer's site first, once per employer.",
+};
 async function loadJobs() {
-  let jobs; try { jobs = await api("/api/jobs?view=" + $("#job-view").value); } catch (e) { return toast(e.message, true); }
+  const view = $("#job-view").value;
+  const query = view === "quick" ? "ready&quick=true" : view;
+  let jobs; try { jobs = await api("/api/jobs?view=" + query); } catch (e) { return toast(e.message, true); }
   const busy = applyState && applyState.busy;
   $("#jobs").replaceChildren(...jobs.map((j) => {
     const link = j.link;
@@ -522,6 +541,11 @@ async function loadJobs() {
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
     }
+    if (j.apply_account === "yes" && !j.applied_at && j.apply_site_url) {
+      actions.push(" ", el("button", { class: "btn secondary", title: "Open this employer's site in a normal window " +
+        "to create an account or sign in (e.g. with Google) before applying", onclick: () => openLogin(j.apply_site_url) },
+        "Log in"));
+    }
     if ((j.tailored || j.has_cover) && !j.applied_at) {
       actions.push(" ", el("button", { class: "btn secondary", title: "Write this job's resume and cover letter again",
         onclick: () => redo(j.url) }, "Redo"));
@@ -534,13 +558,17 @@ async function loadJobs() {
       el("td", { class: "score" }, j.fit_score ?? "–"),
       el("td", {}, el("a", { href: link, target: "_blank", rel: "noopener" }, j.title || link),
         el("div", { class: "muted" }, [j.company, j.site, j.location].filter(Boolean).join(" · ")),
+        j.apply_site_name ? el("div", { class: "muted", title: ACCOUNT_HELP[j.apply_account] || "" },
+          "Applies on " + j.apply_site_name + " · " + (ACCOUNT_LABEL[j.apply_account] || j.apply_account)) : "",
         j.also_on ? el("div", { class: "muted" }, "Also on: " + j.also_on) : ""),
       el("td", { class: "muted" }, statusText),
       el("td", {}, docs.length ? docs : el("span", { class: "muted" }, "–")),
       el("td", { style: "white-space:nowrap" }, actions));
   }));
   $("#jobs-empty").textContent = jobs.length ? "" :
-    $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first." : "Nothing here yet.";
+    $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first."
+    : $("#job-view").value === "quick" ? "None found yet. Press \"Check where to apply\" to look up where each job applies."
+    : "Nothing here yet.";
 }
 $("#job-view").addEventListener("change", loadJobs);
 
@@ -557,6 +585,11 @@ async function redo(url) {
   });
 }
 $("#redo-all").addEventListener("click", () => redo(null));
+$("#locate-jobs").addEventListener("click", () => guarded(async () => {
+  await post("/api/jobs/locate", { min_score: Number($("#min-score").value || 7) });
+  toast("Checking each job in the browser window. Follow along on the Find jobs tab.");
+  showTab("find"); pollPipeline();
+}));
 $("#refresh-jobs").addEventListener("click", loadJobs);
 
 async function startApply(url) {
@@ -628,8 +661,25 @@ async function refreshBrowser() {
   log.style.display = inst ? "block" : "none";
   $("#install-browser").disabled = !!(inst && inst.running);
   if (inst) { log.textContent = inst.log.join("\n"); log.scrollTop = log.scrollHeight; }
+  $("#login-open").style.display = b.login_open ? "none" : "";
+  $("#login-close").style.display = b.login_open ? "" : "none";
+  $("#login-state").textContent = b.login_open
+    ? "Login window open. Sign in, then close the window (its X) to save the logins." : "";
   return inst && inst.running;
 }
+async function openLogin(url) {
+  await guarded(async () => {
+    await post("/api/browser/login", url ? { url } : {});
+    await refreshBrowser();
+    toast("A normal browser window opened. Sign in there, then close it to save the logins.");
+  });
+}
+$("#login-open").addEventListener("click", () => openLogin());
+$("#login-close").addEventListener("click", () => guarded(async () => {
+  await post("/api/browser/login/close"); await refreshBrowser();
+}, "Login window closed"));
+setInterval(() => { if ($("#login-close").style.display !== "none") refreshBrowser(); }, 3000);
+
 $("#install-browser").addEventListener("click", () => guarded(async () => {
   await post("/api/browser/install");
   const t = setInterval(async () => { if (!(await refreshBrowser())) { clearInterval(t); refreshStatus(); } }, 1500);
