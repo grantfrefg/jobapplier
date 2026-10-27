@@ -247,3 +247,31 @@ def test_redo_interrupted_by_budget_stays_marked(tailoring_db, use):
     tailor.run_tailoring(redo_only=True, limit=0)
     row = conn.execute("SELECT tailored_resume_path, redo_requested FROM jobs").fetchone()
     assert tuple(row) == ("/old/resume.txt", 1)  # picked up again on the next run
+
+
+def test_rejected_job_records_why_and_the_log_explains_it(tailoring_db, use, caplog):
+    conn, add = tailoring_db
+    add("https://ex.com/stretch", "Senior Data Scientist", "Big Co", 9)
+    use(FakeLLM(combined=[combined()] * 4, judge=[{"verdict": "FAIL", "issues": "claims a senior title"}] * 4))
+    with caplog.at_level("INFO", logger=tailor.log.name):
+        result = tailor.run_tailoring(min_score=7)
+    assert result["failed"] == 1
+    row = conn.execute("SELECT tailored_resume_path, tailor_status, tailor_issues, tailor_attempts "
+                       "FROM jobs").fetchone()
+    assert tuple(row) == (None, "failed_judge", "claims a senior title", 1)
+    assert ("The fact-check rejected every draft: claims a senior title. No resume or cover letter is used for "
+            "this job; it's tried again on the next run (4 of 5 tries left).") in caplog.text
+    assert "1 job(s) got no documents this run" in caplog.text
+
+    # A later success clears the reason
+    use(FakeLLM(combined=[combined()]))
+    tailor.run_tailoring(min_score=7)
+    row = conn.execute("SELECT tailor_status, tailor_issues FROM jobs").fetchone()
+    assert tuple(row) == ("approved", None)
+
+
+def test_explain_failure_wording():
+    assert tailor.explain_failure("failed_validation", "", 5).endswith(
+        "it won't be tried again unless you press Try again on the Apply tab (All jobs).")
+    assert tailor.explain_failure("failed_judge", "x", 1, kept_old=True) == (
+        "The fact-check rejected every draft: x. The job keeps its previous resume and cover letter.")
