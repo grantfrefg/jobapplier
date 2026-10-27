@@ -277,3 +277,24 @@ def test_redo_marks_and_starts_rewriting(client, tmp_path, monkeypatch):
     assert started == [["redo", "--pending"]]  # only the marked jobs, whatever their score
     [job] = client.get("/api/jobs?view=ready").json()  # still ready: old documents kept until replaced
     assert job["redo_requested"] == 1
+
+
+def test_quick_view_and_locate(client, tmp_path, monkeypatch):
+    _seed_job(tmp_path, "https://example.com/job/1")
+    _seed_job(tmp_path, "https://example.com/job/2")
+    conn = database.get_connection()
+    conn.execute("UPDATE jobs SET apply_site = 'greenhouse', apply_site_name = 'Greenhouse', apply_account = 'no' "
+                 "WHERE url LIKE '%/1'")
+    conn.execute("UPDATE jobs SET apply_site = 'workday', apply_site_name = 'Workday', apply_account = 'yes' "
+                 "WHERE url LIKE '%/2'")
+    conn.commit()
+    quick = client.get("/api/jobs?view=ready&quick=true").json()
+    assert [j["url"] for j in quick] == ["https://example.com/job/1"]
+    assert quick[0]["apply_site_name"] == "Greenhouse" and quick[0]["apply_account"] == "no"
+    assert len(client.get("/api/jobs?view=ready").json()) == 2
+
+    started = []
+    from applypilot.ui import server
+    monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, **kw: started.append((label, args)))
+    assert client.post("/api/jobs/locate", json={"min_score": 8}).status_code == 200
+    assert started == [("Check where to apply", ["locate", "--min-score", "8"])]

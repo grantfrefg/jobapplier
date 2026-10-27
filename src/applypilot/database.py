@@ -231,6 +231,13 @@ _ALL_COLUMNS: dict[str, str] = {
     "duplicate_of": "TEXT",
     # Redo: write the resume and cover letter again (old ones kept until then)
     "redo_requested": "INTEGER DEFAULT 0",
+    # Where the application really happens (apply/sites.py): key, display
+    # name, account needed (no / board / yes / unknown) and the page found
+    "apply_site": "TEXT",
+    "apply_site_name": "TEXT",
+    "apply_account": "TEXT",
+    "apply_site_url": "TEXT",
+    "apply_site_checked_at": "TEXT",
 }
 
 
