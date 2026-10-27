@@ -14,6 +14,7 @@ always win over the AI's.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 import sqlite3
 from datetime import datetime, timezone
 
@@ -130,6 +131,53 @@ def _standard_value(field: dict, local_values: dict[str, str], profile: dict) ->
     return (real, real) if real else None
 
 
+_COVER_RE = re.compile(r"cover")
+_RESUME_RE = re.compile(r"r[eé]sum[eé]|\bcv\b|curriculum")
+
+
+def _upload_kind(text: str) -> str | None:
+    cover, resume = bool(_COVER_RE.search(text)), bool(_RESUME_RE.search(text))
+    return "cover" if cover and not resume else "resume" if resume and not cover else None
+
+
+def _upload_actions(boxes: list[dict], file_values: dict[str, str]) -> dict[str, str | None]:
+    """Which document goes in each upload box: {field id: token, or None to leave it}.
+
+    Boxes missing from the result are left for the AI. The box's own label
+    decides; failing that, the text of its row or section ("context"). A box
+    whose row already shows one of our files was uploaded already. The resume
+    never goes in two boxes: with two boxes and one clearly the resume, the
+    other gets the cover letter.
+    """
+    names = {token: Path(path).name.lower() for token, path in file_values.items()}
+    result: dict[str, str | None] = {}
+    undecided: list[dict] = []
+    for f in boxes:
+        context = (f.get("context") or "").lower()
+        if f.get("has_file") or any(name and name in context for name in names.values()):
+            result[f["id"]] = None  # already holds a file
+            continue
+        label = " ".join([_field_text(f), *_field_keys(f)])
+        kind = (("cover" if _COVER_RE.search(label) else "resume" if _RESUME_RE.search(label) else None)
+                or _upload_kind(context))
+        if kind == "cover" and "{{COVER_LETTER_PDF}}" in file_values:
+            result[f["id"]] = "{{COVER_LETTER_PDF}}"
+        elif kind == "resume" and "{{RESUME_PDF}}" in file_values:
+            result[f["id"]] = "{{RESUME_PDF}}"
+        elif kind == "cover":
+            result[f["id"]] = None  # no cover letter PDF: the AI can't help either
+        else:
+            undecided.append(f)
+    resumes = [i for i, t in result.items() if t == "{{RESUME_PDF}}"]
+    for extra in resumes[1:]:  # never the resume twice: keep the first, leave the rest to the AI
+        result.pop(extra)
+    resumes = resumes[:1]
+    has_cover = "{{COVER_LETTER_PDF}}" in result.values()
+    if len(boxes) == 2 and len(undecided) == 1 and resumes and not has_cover and "{{COVER_LETTER_PDF}}" in file_values:
+        result[undecided[0]["id"]] = "{{COVER_LETTER_PDF}}"
+    return result
+
+
 def standard_actions(fields: list[dict], local_values: dict[str, str], file_values: dict[str, str],
                      profile: dict) -> tuple[list[dict], list[dict]]:
     """Actions for standard fields, and the fields still needing an answer.
@@ -141,16 +189,13 @@ def standard_actions(fields: list[dict], local_values: dict[str, str], file_valu
     remaining: list[dict] = []
     answered_groups = {question_key(f.get("group")) for f in fields
                        if f.get("type") == "radio" and f.get("checked")}
+    uploads = _upload_actions([f for f in fields if f.get("type") == "file"], file_values)
     for f in fields:
         ftype = f.get("type")
         if ftype == "file":
-            if f.get("has_file"):
-                continue
-            label = " ".join([_field_text(f), *_field_keys(f)])
-            if re.search(r"cover", label) and "{{COVER_LETTER_PDF}}" in file_values:
-                actions.append({"id": f["id"], "action": "upload", "value": "{{COVER_LETTER_PDF}}"})
-            elif re.search(r"resume|\bcv\b|curriculum", label):
-                actions.append({"id": f["id"], "action": "upload", "value": "{{RESUME_PDF}}"})
+            if f["id"] in uploads:
+                if uploads[f["id"]]:
+                    actions.append({"id": f["id"], "action": "upload", "value": uploads[f["id"]]})
             else:
                 remaining.append(f)
             continue

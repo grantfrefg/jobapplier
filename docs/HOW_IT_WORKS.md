@@ -107,6 +107,8 @@ Cover letters are written together with the tailored resume (above). The separat
 4. Asks Gemini only about the fields still unanswered (none left means no request). The prompt includes hints for SEEK (e.g. right-to-work questions), Greenhouse, Lever and Workday.
 5. Clicks only **Next / Continue / Save and continue / Review** to move through multi-page forms.
 
+**Uploads.** Each upload box gets the resume or the cover letter from its label, or, when it only says "Upload" or "Attach", from its row or section (PageUp, for example). The resume never goes in two boxes, and a box already showing one of the files isn't filled again. The current job's two PDFs are in a visible folder, `~/ApplyPilot uploads` (set `APPLYPILOT_UPLOAD_DIR` to move it), which holds only that job's files. The "Your turn" panel lists them with their full paths, for uploading by hand.
+
 ### Job ads and employer sites
 Most jobs found on Jora, Indeed and LinkedIn are applied for on the employer's own application system. The engine opens the ad, follows its Apply link (navigation only) and fills the form there.
 

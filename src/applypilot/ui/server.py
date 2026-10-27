@@ -225,8 +225,12 @@ class ApplySession:
         self._decisions.put(decision)
 
     def snapshot(self) -> dict:
+        from applypilot.apply.local_engine import staged_uploads
+        files = [{"kind": "cover" if p.name.endswith("_Cover_Letter.pdf") else "resume", "name": p.name,
+                  "path": str(p)} for p in staged_uploads()] if self.state == "waiting" else []
         return {"state": self.state, "busy": self.busy, "job": self.job, "needs_attention": self.needs,
-                "result": self.result, "message": self.message}
+                "result": self.result, "message": self.message, "files": files,
+                "upload_dir": str(config.UPLOAD_DIR)}
 
 
 # ---------------------------------------------------------------------------

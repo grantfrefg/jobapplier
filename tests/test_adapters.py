@@ -307,3 +307,72 @@ def test_choose_never_presses_enter(tmp_path, monkeypatch):
     le.run_job(job, gate=gate)
     assert seen["submitted"] is False
     assert any("Current location" in n for n in seen["needs"])
+
+
+# ---------------------------------------------------------------------------
+# Upload boxes labelled only "Upload" (PageUp and similar)
+# ---------------------------------------------------------------------------
+
+FILES = {"{{RESUME_PDF}}": "/u/Jane_Doe_Resume.pdf", "{{COVER_LETTER_PDF}}": "/u/Jane_Doe_Cover_Letter.pdf"}
+
+
+def _box(i, label="Upload", context=""):
+    return {"id": i, "type": "file", "label": label, "context": context}
+
+
+@pytest.mark.parametrize("boxes, expected", [
+    # The row says what each box is for
+    ([_box("a", context="Resume * Upload (max 5MB)"), _box("b", context="Cover letter Upload (max 5MB)")],
+     {"a": "{{RESUME_PDF}}", "b": "{{COVER_LETTER_PDF}}"}),
+    # One labelled Resume, one unlabelled: the other is the cover letter
+    ([_box("a", "Resume/CV"), _box("b", "Attach")], {"a": "{{RESUME_PDF}}", "b": "{{COVER_LETTER_PDF}}"}),
+    # A row already showing our file was uploaded: leave it
+    ([_box("a", context="Resume Jane_Doe_Resume.pdf Remove")], {"a": None}),
+    # Never the resume twice
+    ([_box("a", "Resume"), _box("b", "Resume upload")], {"a": "{{RESUME_PDF}}"}),
+    # Instructions mentioning both: ask the AI
+    ([_box("a", context="Please attach your resume and cover letter")], {}),
+])
+def test_upload_targets(boxes, expected):
+    from applypilot.apply.answers import _upload_actions
+    assert _upload_actions(boxes, FILES) == expected
+
+
+PAGEUP = """<!doctype html><html><body><form onsubmit="window.submitted = true; return false;">
+<table>
+ <tr id="r1"><td><b>Resume</b> *</td>
+   <td><label for="f1">Upload</label><input type="file" id="f1"></td><td class="done"></td></tr>
+ <tr id="r2"><td><b>Cover letter</b></td>
+   <td><label for="f2">Upload</label><input type="file" id="f2"></td><td class="done"></td></tr>
+</table>
+<button type="submit">Submit application</button></form>
+<script>
+window.uploads = [];
+for (const id of ['f1', 'f2']) {
+  const input = document.getElementById(id);
+  input.addEventListener('change', () => {
+    // Like PageUp: upload straight away, show the file name, empty the box
+    window.uploads.push(id + ':' + input.files[0].name);
+    input.closest('tr').querySelector('.done').textContent = input.files[0].name;
+    input.value = '';
+  });
+}
+</script></body></html>"""
+
+
+@headed
+def test_pageup_style_uploads_go_in_the_right_boxes_once(tmp_path, monkeypatch):
+    pytest.importorskip("playwright")
+    job = _setup(tmp_path, monkeypatch, PAGEUP, "pageup")
+    monkeypatch.setattr(le, "_call_gemini", Gemini())
+    seen = []
+
+    def gate(page, needs, dry_run):
+        seen.append(page.evaluate("() => window.uploads.slice()"))
+        return "rescan" if len(seen) == 1 else "manual"   # 'Fill this page again' once
+
+    assert le.run_job(job, gate=gate)[0] == "manual"
+    assert seen[0] == ["f1:Jane_Doe_Resume.pdf", "f2:Jane_Doe_Cover_Letter.pdf"]
+    assert seen[1] == seen[0]  # nothing uploaded again
+    # Only this job's documents are in the visible upload folder
+    assert sorted(p.name for p in le.staged_uploads()) == ["Jane_Doe_Cover_Letter.pdf", "Jane_Doe_Resume.pdf"]
