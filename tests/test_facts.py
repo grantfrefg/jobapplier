@@ -134,3 +134,13 @@ def test_confirmed_skills_list_counts_template_examples_as_real():
     assert facts.profile_skills(profile) == ["MLOps"] and facts.template_skills_left(profile) == ["Git", "CI/CD"]
     confirmed = {**profile, "skills_confirmed": True}
     assert facts.profile_skills(confirmed) == ["Git", "CI/CD", "MLOps"] and facts.template_skills_left(confirmed) == []
+
+
+@pytest.mark.parametrize("text, claims", [
+    ("Experienced engineer building cloud services.", []),
+    ("A pragmatic, results-driven engineer who ships.", []),
+    ("Machine learning engineer with four years in production.", ["machine learning engineer"]),
+])
+def test_describing_words_are_not_job_titles(text, claims):
+    source = facts.Source("Software Engineer at Acme\n- Built backend services in Python", [])
+    assert facts.role_claims(text, source) == claims

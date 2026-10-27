@@ -106,3 +106,62 @@ def invalid_choices(profile: dict) -> list[str]:
         if value is not None and normalise(path, value) not in options:
             bad.append(path)
     return bad
+
+
+# Example values from the profile template. Left in place, they'd end up on a
+# resume ("Your City, NSW") or typed into application forms. Defaults that
+# can be someone's real answer (NSW, Australia, 2000) aren't counted.
+_PLACEHOLDER_KEYS = {
+    "personal": ("full_name", "preferred_name", "email", "password", "phone", "address", "city",
+                 "linkedin_url", "github_url"),
+    "resume_facts": ("preserved_companies", "preserved_projects", "preserved_school", "real_metrics"),
+}
+_PLACEHOLDER_SECTIONS = tuple(_PLACEHOLDER_KEYS)
+
+
+def _template_examples() -> frozenset[str]:
+    import json
+    from pathlib import Path
+    try:
+        template = json.loads((Path(__file__).parent / "ui" / "profile_template.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return frozenset()
+    values = set()
+    for section, keys in _PLACEHOLDER_KEYS.items():
+        for key in keys:
+            v = (template.get(section) or {}).get(key)
+            values.update(str(x).strip().lower() for x in (v if isinstance(v, list) else [v]) if str(x or "").strip())
+    return frozenset(values)
+
+
+_EXAMPLES = _template_examples()
+
+
+def is_placeholder(value) -> bool:
+    return isinstance(value, str) and value.strip().lower() in _EXAMPLES
+
+
+def placeholder_fields(profile: dict) -> list[str]:
+    """'section.key' for every field still holding a template example value."""
+    found = []
+    for section, keys in _PLACEHOLDER_KEYS.items():
+        for key, value in (profile.get(section) or {}).items():
+            if key not in keys:
+                continue
+            values = value if isinstance(value, list) else [value]
+            if any(is_placeholder(v) for v in values):
+                found.append(f"{section}.{key}")
+    return found
+
+
+def without_placeholders(profile: dict) -> dict:
+    """The profile with template example values blanked, so they're never used as facts."""
+    out = dict(profile)
+    for section in _PLACEHOLDER_SECTIONS:
+        fields = profile.get(section)
+        if not isinstance(fields, dict):
+            continue
+        keys = _PLACEHOLDER_KEYS[section]
+        out[section] = {k: v if k not in keys else [x for x in v if not is_placeholder(x)] if isinstance(v, list)
+                        else ("" if is_placeholder(v) else v) for k, v in fields.items()}
+    return out
