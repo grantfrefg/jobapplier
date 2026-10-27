@@ -168,17 +168,21 @@ def _template_skills() -> frozenset[str]:
 
 
 def profile_skills(profile: dict) -> list[str]:
-    """Skills listed in the profile, minus any still left from the template's examples."""
+    """Skills listed in the profile. Ones that are also the template's examples only count
+    once the user has confirmed the list ("My skills list is accurate" in Setup)."""
+    confirmed = bool(profile.get("skills_confirmed"))
     out = []
     for items in (profile.get("skills_boundary") or {}).values():
         if isinstance(items, list):
             out += [str(s).strip() for s in items if str(s).strip()
-                    and str(s).strip().lower() not in _template_skills()]
+                    and (confirmed or str(s).strip().lower() not in _template_skills())]
     return out
 
 
 def template_skills_left(profile: dict) -> list[str]:
-    """Example skills from the template still in the profile (the UI warns about these)."""
+    """Example skills from the template still in an unconfirmed profile (the UI warns about these)."""
+    if profile.get("skills_confirmed"):
+        return []
     found = []
     for items in (profile.get("skills_boundary") or {}).values():
         if isinstance(items, list):
@@ -216,12 +220,14 @@ def filter_skills(skills: dict, source: Source) -> tuple[dict, list[str]]:
         for item in _split_items(value if isinstance(value, str) else ", ".join(map(str, value or []))):
             base, _, inner = item.partition("(")
             parts = _split_items(inner.rstrip(")")) if inner else []
-            if not source.covers(base):
-                dropped.append(item)
-                continue
             real_parts = [p for p in parts if source.covers(p)]
             dropped += [p for p in parts if p not in real_parts]
-            good.append(base.strip() + (f" ({', '.join(real_parts)})" if real_parts else ""))
+            if source.covers(base):
+                good.append(base.strip() + (f" ({', '.join(real_parts)})" if real_parts else ""))
+            else:
+                # Keep the real tools in brackets even when the name in front isn't real
+                dropped.append(base.strip())
+                good += real_parts
         if good:
             kept[category] = ", ".join(good)
     return kept, dropped

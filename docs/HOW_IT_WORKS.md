@@ -79,7 +79,7 @@ If the resume fails, both documents are regenerated. If only the letter fails, j
 - **Australian spelling.**
 It uses no AI requests. It's a guide, not a prediction of any one vendor's ranking.
 
-**Your skills list matters.** `skills_boundary` in your profile adds skills that aren't spelled out in your resume. The template's example values (JavaScript, Docker, AWS, MongoDB...) are ignored, and Setup warns while any are still there: replace them with what you actually use.
+**Your skills list matters.** `skills_boundary` in your profile adds skills that aren't spelled out in your resume. Skills in your resume are always kept, including short or long forms (GCP / Google Cloud Platform) and US spellings of them. The template's example values (JavaScript, Docker, AWS, CI/CD, MongoDB, Git, Linux) are ignored until you tick **My skills list is accurate** under the profile in Setup: remove the ones you don't use and add any you do (e.g. MLOps), then tick it. Hover a job's ATS badge to see any skills removed from its resume.
 
 **Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job).
 - Only the jobs you redo are rewritten, whatever their score; nothing else in the queue is tailored.

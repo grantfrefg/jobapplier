@@ -484,8 +484,9 @@ def create_app() -> FastAPI:
         profile = po.normalise_profile(_deep_merge(template, saved or {}))
         options = {path: [{"value": v, "label": v or po.EMPTY_LABELS.get(path, "Not set")} for v in values]
                    for path, values in po.OPTIONS.items()}
+        confirmed = bool(profile.pop("skills_confirmed", False))
         return {"exists": saved is not None, "profile": profile, "template": template,
-                "options": options, "numbers": sorted(po.NUMBERS)}
+                "options": options, "numbers": sorted(po.NUMBERS), "skills_confirmed": confirmed}
 
     @app.post("/api/profile")
     def save_profile(body: dict) -> dict:
@@ -494,7 +495,9 @@ def create_app() -> FastAPI:
         if missing:
             raise HTTPException(400, f"Required: {', '.join(missing)}")
         from applypilot import profile_options as po
+        confirmed = bool(body.pop("skills_confirmed", False))
         body = po.normalise_profile(body)
+        body["skills_confirmed"] = confirmed
         bad = po.invalid_choices(body)
         if bad:
             raise HTTPException(400, "Pick one of the listed options for: "
