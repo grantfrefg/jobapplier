@@ -18,7 +18,7 @@ from pathlib import Path
 
 from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
-from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
+from applypilot.database import finish_redo, get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
 from applypilot.scoring.context import AU_STYLE
 from applypilot.scoring.cover_letter import (
@@ -536,7 +536,7 @@ def tailor_application(
 # ── Batch Entry Point ────────────────────────────────────────────────────
 
 def run_tailoring(min_score: int = 7, limit: int = 20,
-                  validation_mode: str = "normal") -> dict:
+                  validation_mode: str = "normal", redo_only: bool = False) -> dict:
     """Generate tailored resumes and cover letters for high-scoring jobs.
 
     Each job's resume and cover letter come from one LLM request (see
@@ -547,6 +547,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
         min_score:       Minimum fit_score to tailor for.
         limit:           Maximum jobs to process.
         validation_mode: "strict", "normal", or "lenient".
+        redo_only:       Only rewrite jobs marked for Redo (database.redo_documents).
+
+    Jobs marked for Redo go first, whatever their score. Their old documents
+    are replaced only when the new ones pass the checks.
 
     Returns:
         {"approved": int, "failed": int, "errors": int, "cover_letters": int,
@@ -557,7 +561,11 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
     conn = get_connection()
     mark_duplicates(conn)  # skip roles already found on another site
 
-    jobs = get_jobs_by_stage(conn=conn, stage="pending_tailor", min_score=min_score, limit=limit)
+    jobs = get_jobs_by_stage(conn=conn, stage="pending_redo")
+    redo_urls = {j["url"] for j in jobs}
+    if not redo_only:
+        jobs += [j for j in get_jobs_by_stage(conn=conn, stage="pending_tailor", min_score=min_score, limit=limit)
+                 if j["url"] not in redo_urls]
 
     if not jobs:
         log.info("No untailored jobs with score >= %d.", min_score)
@@ -584,8 +592,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             safe_site = re.sub(r"[^\w\s-]", "", job.get("company") or job["site"])[:20].strip().replace(" ", "_")
             prefix = f"{safe_site}_{safe_title}"
 
-            # Save tailored resume text
-            txt_path = TAILORED_DIR / f"{prefix}.txt"
+            # Save tailored resume text. A draft that failed the checks is kept
+            # aside, so it never overwrites the documents a Redo is replacing.
+            passed = report["status"] in ("approved", "approved_with_judge_warning")
+            txt_path = TAILORED_DIR / (f"{prefix}.txt" if passed else f"{prefix}_REJECTED.txt")
             txt_path.write_text(tailored, encoding="utf-8")
 
             # Save job description for traceability
@@ -666,6 +676,8 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
     now = datetime.now(timezone.utc).isoformat()
     _success_statuses = {"approved", "approved_with_judge_warning"}
     for r in results:
+        if r["url"] in redo_urls:
+            finish_redo(conn, r["url"])
         if r["status"] in _success_statuses:
             conn.execute(
                 "UPDATE jobs SET tailored_resume_path=?, tailored_at=?, "
