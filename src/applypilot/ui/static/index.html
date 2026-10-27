@@ -248,6 +248,7 @@
     <h2 id="apply-title">Pick a job below and press Apply</h2>
     <p class="sub" id="apply-sub"></p>
     <ul id="needs" class="muted"></ul>
+    <div id="upload-files"></div>
     <div class="row" id="gate-buttons" style="display:none">
       <button class="btn ok" data-decision="applied">I submitted it</button>
       <button class="btn secondary" data-decision="manual">Not yet: save for later</button>
@@ -623,6 +624,25 @@ const RESULT_TEXT = {
   "failed:user_declined": ["Won't show this job again", ""],
 };
 let applyState = null, wasBusy = false;
+let uploadsShown = "";
+function renderUploads(s) {
+  const key = JSON.stringify(s.files || []);
+  if (key === uploadsShown) return;  // don't redraw (and lose focus) every poll
+  uploadsShown = key;
+  const box = $("#upload-files");
+  if (!s.files || !s.files.length) return box.replaceChildren();
+  const copy = (text) => guarded(() => navigator.clipboard.writeText(text), "Path copied");
+  const link = (f) => "/api/jobs/file?kind=" + f.kind + "&url=" + encodeURIComponent(s.job.url);
+  box.replaceChildren(
+    el("p", { class: "sub", style: "margin:12px 0 4px" },
+      "Uploading by hand? In the browser's file picker, open the folder ",
+      el("b", {}, s.upload_dir), " (in your home folder). It holds just this job's files:"),
+    el("ul", { style: "margin:0" }, ...s.files.map((f) => el("li", {},
+      el("b", {}, f.kind === "cover" ? "Cover letter: " : "Resume: "), f.name, " ",
+      el("a", { href: link(f), target: "_blank" }, "open"), " · ",
+      el("a", { href: "#", onclick: (e) => { e.preventDefault(); copy(f.path); } }, "copy full path")))));
+}
+
 async function pollApply() {
   try { applyState = await api("/api/apply"); } catch { return; }
   const s = applyState, job = s.job;
@@ -644,6 +664,7 @@ async function pollApply() {
   $("#apply-panel").classList.toggle("gate", s.state === "waiting");
   $("#gate-buttons").style.display = s.state === "waiting" ? "flex" : "none";
   $("#needs").replaceChildren(...(s.state === "waiting" ? s.needs_attention : []).map((n) => el("li", {}, n)));
+  renderUploads(s);
   if (wasBusy && !s.busy) { loadJobs(); refreshStatus(); }
   if (wasBusy !== s.busy) { wasBusy = s.busy; loadJobs(); }
 }

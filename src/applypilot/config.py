@@ -263,6 +263,10 @@ LOCAL_ENGINE_DEFAULT_MODEL = DEFAULT_GEMINI_MODEL
 
 # Persistent browser profile for the local engine (keeps SEEK/Workday logins)
 LOCAL_BROWSER_PROFILE_DIR = APP_DIR / "local-playwright-profile"
+# The current application's resume and cover letter, in a visible folder so
+# they're easy to pick in the browser's file picker (~/.applypilot is hidden).
+# Holds only the job being applied to.
+UPLOAD_DIR = Path(os.environ.get("APPLYPILOT_UPLOAD_DIR", Path.home() / "ApplyPilot uploads"))
 
 
 def get_execution_engine() -> str:

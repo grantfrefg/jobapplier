@@ -35,6 +35,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -391,6 +392,16 @@ _EXTRACT_JS = r"""
     } else if (type === 'file') {
       f.accept = el.accept || '';
       f.has_file = el.files && el.files.length > 0;
+      // Upload boxes are often labelled just "Upload" or "Attach"; what they
+      // are for ("Cover letter", "Resume / CV") is in their row or section:
+      // the largest container around the box that holds no other upload box.
+      let box = el.parentElement, around = '';
+      for (let i = 0; i < 6 && box && box !== document.body; i++, box = box.parentElement) {
+        if (box.querySelectorAll('input[type=file]').length > 1) break;
+        const t = clean(box.innerText);
+        if (t) around = t;
+      }
+      if (around) f.context = around.slice(0, 160);
     } else if (el.getAttribute('role') === 'combobox' && tag !== 'input') {
       f.type = 'combobox';
       f.value = clean(el.innerText);
@@ -749,6 +760,13 @@ def _remember_ai_answers(conn, fields: list[dict], done: list[dict], pii_values:
             answers.save_answer(conn, f.get("label", ""), value, "ai")
 
 
+def _upload_key(page, fields: list[dict], action: dict) -> tuple:
+    """An upload box across re-scans and 'Fill this page again' (some sites empty it after uploading)."""
+    f = next((f for f in fields if f["id"] == action["id"]), {})
+    return (urlsplit(page.url).path, f.get("label"), f.get("name"), f.get("html_id"),
+            (f.get("context") or "")[:60], action.get("value"))
+
+
 def _signature(fields: list[dict], action: dict) -> tuple:
     """Identify a field across re-scans (data-ap-ids are renumbered each scan)."""
     f = next((f for f in fields if f["id"] == action["id"]), {})
@@ -790,13 +808,16 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
     remaining = fields
     # Choices can reveal more fields (SEEK's "Upload a resume" shows the file
     # input, Greenhouse follow-up questions), so look again after each round.
+    uploaded = ctx.setdefault("uploaded", set())  # upload boxes already filled in this application
     for _ in range(3):
         known, remaining = _known_actions(fields, frame_by_id, ats, ctx, lf)
-        known = [a for a in known if _signature(fields, a) not in tried]
+        known = [a for a in known if _signature(fields, a) not in tried
+                 and not (a["action"] == "upload" and _upload_key(page, fields, a) in uploaded)]
         if not known:
             break
         tried |= {_signature(fields, a) for a in known}
         done = _run_actions(known, frame_by_id, ctx, lf)
+        uploaded |= {_upload_key(page, fields, a) for a in done if a["action"] == "upload"}
         filled += len(done)
         by_id = {f["id"]: f for f in fields}
         unpicked += [by_id[a["id"]].get("label") or "a drop-down" for a in known
@@ -813,6 +834,8 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
         lf.write("  nothing left for Gemini on this page\n")
         return controls, frame_by_id, notes
 
+    remaining = [{**f, "context": redact(f["context"], ctx["local_values"])} if f.get("context") else f
+                 for f in remaining]  # the text around an upload box can show your name in a file name
     prompt = _build_user_prompt(
         job, remaining, ctx["safe_profile"], ctx["safe_resume"],
         has_cover_pdf="{{COVER_LETTER_PDF}}" in ctx["file_values"],
@@ -1053,6 +1076,10 @@ def _approval_gate(page, needs_attention: list[str], dry_run: bool) -> str:
         for note in needs_attention[:15]:
             print(f"    - {note}")
     print("  Review / edit the form, then click Submit in the browser yourself.")
+    if staged_uploads():
+        print("  To upload by hand, pick these in the browser's file picker:")
+        for path in staged_uploads():
+            print(f"    {path}")
     print(bar)
 
     if not sys.stdin or not sys.stdin.isatty():
@@ -1128,8 +1155,10 @@ def _load_documents(job: dict, profile: dict) -> tuple[dict[str, str], dict[str,
     file_values: dict[str, str] = {}
 
     name_slug = (profile.get("personal", {}).get("full_name") or "Applicant").replace(" ", "_")
-    dest_dir = config.APPLY_WORKER_DIR / "local"
+    dest_dir = config.UPLOAD_DIR
     dest_dir.mkdir(parents=True, exist_ok=True)
+    for old in staged_uploads():  # only this job's documents, so the wrong one can't be picked
+        old.unlink(missing_ok=True)
 
     resume_path = job.get("tailored_resume_path")
     if resume_path:
@@ -1158,6 +1187,15 @@ def _load_documents(job: dict, profile: dict) -> tuple[dict[str, str], dict[str,
             file_values["{{COVER_LETTER_PDF}}"] = str(upload)
 
     return text_values, file_values
+
+
+def staged_uploads() -> list[Path]:
+    """The resume and cover letter PDFs ready for the current application (see config.UPLOAD_DIR)."""
+    folder = config.UPLOAD_DIR
+    if not folder.is_dir():
+        return []
+    return sorted(p for p in folder.iterdir()
+                  if p.is_file() and p.name.endswith(("_Resume.pdf", "_Cover_Letter.pdf")))
 
 
 def _call_gate(gate, page, needs: list[str], dry_run: bool, snapshot) -> str:
@@ -1225,7 +1263,8 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
 
     worker_log = config.LOG_DIR / f"local-worker-{worker_id}.log"
     status = "manual"
-    with open(worker_log, "a", encoding="utf-8") as lf, sync_playwright() as p:
+    # Line-buffered, so the log shows a run while it's still waiting for the user
+    with open(worker_log, "a", encoding="utf-8", buffering=1) as lf, sync_playwright() as p:
         lf.write(f"\n{'=' * 60}\n[{datetime.now():%Y-%m-%d %H:%M:%S}] {job['title']}\n"
                  f"URL: {target}\nModel: {ctx['model']}\n{'=' * 60}\n")
         context = launch_browser(p)

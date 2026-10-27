@@ -151,6 +151,9 @@ def test_apply_through_web_gate(client, tmp_path, monkeypatch):
 
     s = wait_for("waiting")
     assert s["job"]["title"] == "Engineer"
+    # The files to upload by hand, in a visible folder holding only this job's documents
+    assert [f["name"] for f in s["files"]] == ["Jane_Quinn_Doe_Resume.pdf"]
+    assert s["files"][0]["path"].startswith(s["upload_dir"])
     assert client.post("/api/apply", json={"url": url}).status_code == 409  # one at a time
 
     # Re-scan goes back to filling, then waits again
