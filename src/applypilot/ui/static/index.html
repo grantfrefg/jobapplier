@@ -341,6 +341,62 @@
       <button class="btn secondary" id="locate-jobs" title="Open each ready job in the browser and note where its application is (Greenhouse, Workday, SEEK...) and whether it needs an account. No AI requests.">Check where to apply</button>
       <button class="btn secondary" id="redo-all" title="Rewrite every resume and cover letter not yet sent, with the current prompts and site preference (LinkedIn > Indeed > Jora)">Redo all documents</button>
     </div>
+    <details class="log-help"><summary>How to use this tab</summary>
+      <dl>
+        <dt>The list</dt>
+        <dd><b>Score</b> is how well the job fits you (1–10). Click the job title to open the ad. <b>Resume</b> and
+          <b>Cover letter</b> open the PDFs written for that job; <b>ATS</b> is the resume check (below). The views:
+          <i>Ready to apply</i> (has documents, not applied yet), <i>Ready: no employer account</i> (quick ones),
+          <i>Applied</i>, and <i>All jobs</i> (including ones that got no documents, with the reason).</dd>
+        <dt>Applying with the app</dt>
+        <dd>1. Optional: press <b>Check where to apply</b> to see which jobs need an employer account (no AI).<br>
+          2. Press <b>Apply</b> on a job. A browser opens the ad, follows its Apply link, fills in your details and
+          saved answers, uploads the resume and cover letter, and moves through Next pages. The AI is asked only
+          about questions it hasn't seen before.<br>
+          3. When it stops, the panel at the top says what's left (a field it couldn't answer, a sign-in, a button
+          only you can press). Do it in the browser, then <b>Fill this page again</b> if a new page appeared.<br>
+          4. Check everything in the browser and press the site's <b>Submit</b> yourself. The app never submits.<br>
+          5. Back here, press <b>I submitted it</b> so the job moves to <i>Applied</i>. <b>Not yet: save for
+          later</b> keeps it ready; <b>Never apply to this job</b> removes it from the list.</dd>
+        <dt>Accounts and logins</dt>
+        <dd>Workday, PageUp, iCIMS and similar sites need an account with each employer: the app types your email,
+          never a password. Sign in or create the account in the browser, then <b>Fill this page again</b>. For
+          Google sign-in, use <b>Log in</b> on the job (or Setup → Log in to sites) first.</dd>
+        <dt>Applying yourself instead</dt>
+        <dd>You don't have to use the Apply button. Click the job title to open the ad in your usual browser,
+          download the <b>Resume</b> and <b>Cover letter</b> from this list (or copy text from them), and apply and
+          submit everything yourself. Then press <b>Mark applied</b> so the job moves to <i>Applied</i> and isn't
+          offered again. The same PDFs for the job you're applying to are also in the <code>ApplyPilot uploads</code>
+          folder in your home folder.</dd>
+        <dt>Redo and Try again</dt>
+        <dd><b>Redo</b> rewrites a job's resume and cover letter (for example after you update your resume or
+          profile); the old ones stay until the new ones pass the checks. <b>Redo all documents</b> does it for
+          every job you haven't applied to. Each costs about 2 Gemini requests per job.</dd>
+      </dl>
+    </details>
+    <details class="log-help"><summary>What the ATS score means</summary>
+      <p>Most employers put applications through an applicant tracking system (ATS): Workday, SuccessFactors,
+        PageUp, JobAdder, Greenhouse and others. It reads your resume into fields, and recruiters then search and
+        filter on keywords, location and work rights. The ATS badge (out of 100) estimates how well this resume
+        survives that. It uses no AI and isn't any one vendor's ranking: it's a guide.</p>
+      <dl>
+        <dt>What's checked</dt>
+        <dd><b>Keywords (most of the score):</b> of the tools and must-haves in the ad that you really have, how many
+          appear in the resume in the ad's own words.<br>
+          <b>Readability:</b> standard headings (Summary, Skills, Experience, Education), email and phone at the
+          top, a readable date range for every job, 1–3 pages.<br>
+          <b>Filters Australian employers use:</b> work rights (e.g. "Australian Citizen") and city/state shown; no
+          date of birth or photo.<br>
+          <b>Australian spelling.</b></dd>
+        <dt>Reading it</dt>
+        <dd><span class="badge ok">ATS 80+</span> is good. Lower usually means keywords you have are missing, or
+          something like work rights isn't on the resume. Hover the badge to see exactly what to look at.</dd>
+        <dt>Skills you don't have</dt>
+        <dd>Hover also lists what the ad asks for that isn't in your resume. These don't lower the score and are
+          never added: putting them in would be untrue. If you do have one, add it to your resume or your profile's
+          skills list, then <b>Redo</b>.</dd>
+      </dl>
+    </details>
     <div class="table-wrap">
       <table><thead><tr><th>Score</th><th>Job</th><th>Status</th><th>Documents</th><th></th></tr></thead>
         <tbody id="jobs"></tbody></table>
@@ -672,6 +728,13 @@ async function loadJobs() {
     const actions = [];
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
+    }
+    if (j.tailored && !j.applied_at && !j.duplicate_of) {
+      actions.push(" ", el("button", { class: "btn secondary", disabled: busy && applyState.job && applyState.job.url === j.url,
+        title: "You applied to this one yourself (outside the app's browser): move it to Applied",
+        onclick: () => confirm("Mark \"" + (j.title || "this job") + "\" as applied?") && guarded(async () => {
+          await post("/api/jobs/mark-applied", { url: j.url }); loadJobs(); refreshStatus();
+        }, "Marked as applied") }, "Mark applied"));
     }
     if (j.apply_account === "yes" && !j.applied_at && j.apply_site_url) {
       actions.push(" ", el("button", { class: "btn secondary", title: "Open this employer's site in a normal window " +
