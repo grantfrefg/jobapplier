@@ -20,7 +20,7 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import finish_redo, get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
-from applypilot.scoring.context import AU_STYLE
+from applypilot.scoring.context import AU_STYLE, location_line, work_rights
 from applypilot.scoring.cover_letter import (
     COVER_LETTER_DIR,
     clean_letter,
@@ -111,6 +111,9 @@ recent roles, 2-3 for older ones.
 
 PROJECTS: Most relevant first. Drop projects that don't help for this job.
 
+EXPERIENCE ENTRIES: header "Job Title at Employer"; subtitle "Mon YYYY - Mon YYYY (or Present) | main tech".
+EDUCATION: "Institution | Degree | graduation year" (the year only if the original resume shows it).
+
 LENGTH: Australian resumes are normally 2 pages. Keep it tight: no filler bullets.
 
 ## VOICE
@@ -138,9 +141,9 @@ def _resume_shape(profile: dict) -> str:
     return (
         '{"title":"Role Title","summary":"2-3 tailored sentences.","skills":{"Languages":"...",'
         '"Frameworks":"...","DevOps & Infra":"...","Databases":"...","Tools":"..."},'
-        '"experience":[{"header":"Title at Company","subtitle":"Tech | Dates",'
+        '"experience":[{"header":"Title at Company","subtitle":"Mar 2021 - Present | Python, AWS",'
         '"bullets":["bullet 1","bullet 2","bullet 3","bullet 4"]}],'
-        '"projects":[{"header":"Project Name - Description","subtitle":"Tech | Dates",'
+        '"projects":[{"header":"Project Name - Description","subtitle":"2022 | Tech",'
         '"bullets":["bullet 1","bullet 2"]}],'
         f'"education":"{school} | {education_level}"}}'
     )
@@ -292,9 +295,10 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
     lines.append(personal.get("full_name", ""))
     lines.append(sanitize_text(data.get("title", "Software Engineer")))
 
-    # Location from search config or profile -- leave blank if not available
-    # The location line is optional; the original used a hardcoded city.
-    # We omit it here; the LLM prompt can include it if the user sets it.
+    # Location and work rights: Australian recruiters screen on both first
+    details = [d for d in (location_line(profile), work_rights(profile)) if d]
+    if details:
+        lines.append(" | ".join(details))
 
     # Contact line
     contact_parts: list[str] = []

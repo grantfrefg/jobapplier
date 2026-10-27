@@ -82,7 +82,12 @@ If the resume fails, both documents are regenerated. If only the letter fails, j
 
 ## Cover letter and PDF
 
-Cover letters are written together with the tailored resume (above). The separate cover-letter stage only writes letters for jobs tailored before that change. Both documents are rendered to PDF for uploading.
+Cover letters are written together with the tailored resume (above). The separate cover-letter stage only writes letters for jobs tailored before that change. Both documents are rendered to PDF for uploading, laid out for Australian applicant tracking systems (Workday, SuccessFactors, PageUp, JobAdder, Taleo) and recruiters:
+- **A4**, one column, real selectable text, no tables, images or icons; standard headings (Summary, Skills, Experience, Projects, Education); empty sections left out.
+- **Header:** name, target title, city and state with your work rights (e.g. "Sydney, NSW | Australian Citizen", from `work_authorization`), then email, phone and profile links (clickable).
+- **Each job:** "Title, Employer" with the dates on the same line ("Mar 2021 – Present"), the tech stack underneath, then bullets: the order ATS parsers read employment history in.
+- **Cover letter:** a plain business letter with your name and contact details, the date ("27 October 2026"), every paragraph and your sign-off.
+- When the layout changes, existing PDFs are rendered again from their text on the next PDF stage.
 
 ## Apply
 
