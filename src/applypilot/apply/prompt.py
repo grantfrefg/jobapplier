@@ -9,7 +9,6 @@ import logging
 import os
 import shutil
 from datetime import datetime
-from pathlib import Path
 
 from applypilot import config
 
@@ -441,41 +440,32 @@ def build_prompt(job: dict, tailored_resume: str,
     personal = profile["personal"]
 
     # --- Resolve resume PDF path ---
-    resume_path = job.get("tailored_resume_path")
-    if not resume_path:
-        raise ValueError(f"No tailored resume for job: {job.get('title', 'unknown')}")
-
-    src_pdf = Path(resume_path).with_suffix(".pdf").resolve()
-    if not src_pdf.exists():
-        raise ValueError(f"Resume PDF not found: {src_pdf}")
+    # Your own resume / cover letter for this job when you gave one, else the generated ones
+    from applypilot.own_docs import documents
+    docs = documents(job)
+    if not docs["resume"]["file"]:
+        raise ValueError(f"No resume file for job: {job.get('title', 'unknown')} (run the pdf stage)")
+    src_pdf = docs["resume"]["file"].resolve()
 
     # Copy to a clean filename for upload (recruiters see the filename)
     full_name = personal["full_name"]
     name_slug = full_name.replace(" ", "_")
     dest_dir = config.APPLY_WORKER_DIR / "current"
     dest_dir.mkdir(parents=True, exist_ok=True)
-    upload_pdf = dest_dir / f"{name_slug}_Resume.pdf"
+    upload_pdf = dest_dir / f"{name_slug}_Resume{src_pdf.suffix.lower()}"
     shutil.copy(str(src_pdf), str(upload_pdf))
     pdf_path = str(upload_pdf)
 
     # --- Cover letter handling ---
     cover_letter_text = cover_letter or ""
     cl_upload_path = ""
-    cl_path = job.get("cover_letter_path")
-    if cl_path and Path(cl_path).exists():
-        cl_src = Path(cl_path)
-        # Read text from .txt sibling (PDF is binary)
-        cl_txt = cl_src.with_suffix(".txt")
-        if cl_txt.exists():
-            cover_letter_text = cl_txt.read_text(encoding="utf-8")
-        elif cl_src.suffix == ".txt":
-            cover_letter_text = cl_src.read_text(encoding="utf-8")
-        # Upload must be PDF
-        cl_pdf_src = cl_src.with_suffix(".pdf")
-        if cl_pdf_src.exists():
-            cl_upload = dest_dir / f"{name_slug}_Cover_Letter.pdf"
-            shutil.copy(str(cl_pdf_src), str(cl_upload))
-            cl_upload_path = str(cl_upload)
+    cover = docs["cover"]
+    if cover["text"]:
+        cover_letter_text = cover["text"]
+    if cover["file"]:
+        cl_upload = dest_dir / f"{name_slug}_Cover_Letter{cover['file'].suffix.lower()}"
+        shutil.copy(str(cover["file"]), str(cl_upload))
+        cl_upload_path = str(cl_upload)
 
     # --- Build all prompt sections ---
     profile_summary = _build_profile_summary(profile)

@@ -58,9 +58,12 @@ jobs:
           ruff check --select E,F,W
           src/applypilot/ui src/applypilot/desktop.py src/applypilot/__main__.py
           src/applypilot/apply/local_engine.py src/applypilot/apply/answers.py src/applypilot/apply/adapters.py src/applypilot/apply/sites.py src/applypilot/apply/login_browser.py src/applypilot/database.py
-          src/applypilot/budget.py src/applypilot/scoring/ats.py src/applypilot/scoring/facts.py src/applypilot/profile_options.py src/applypilot/llm_anthropic.py
+          src/applypilot/budget.py src/applypilot/scoring/ats.py src/applypilot/scoring/facts.py src/applypilot/profile_options.py src/applypilot/own_docs.py src/applypilot/llm_anthropic.py
           packaging tests
 
       - name: Test
-        # xvfb provides a display so the visible-browser tests run instead of skipping
-        run: xvfb-run -a pytest tests -v
+        # xvfb provides a display so the visible-browser tests run instead of skipping.
+        # A stuck test fails the step (keeping its log) instead of the job being
+        # cancelled, and faulthandler prints where every thread is after 3 minutes.
+        timeout-minutes: 10
+        run: xvfb-run -a pytest tests -v -o faulthandler_timeout=180

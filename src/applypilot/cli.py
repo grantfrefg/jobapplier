@@ -201,7 +201,8 @@ def apply(
     if not (gen and url):
         conn = get_connection()
         ready = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE tailored_resume_path IS NOT NULL AND applied_at IS NULL"
+            "SELECT COUNT(*) FROM jobs WHERE (tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL) "
+            "AND applied_at IS NULL"
         ).fetchone()[0]
         if ready == 0:
             console.print(
@@ -344,7 +345,10 @@ def ats(
     for row in rows:
         job = dict(row)
         try:
-            report = ats_mod.check(Path(job["tailored_resume_path"]).read_text(encoding="utf-8"), job, original)
+            path = Path(job["tailored_resume_path"])
+            pdf = path.with_suffix(".pdf")
+            report = ats_mod.check(path.read_text(encoding="utf-8"), job, original,
+                                   pdf_path=pdf if pdf.exists() else None)
         except OSError:
             continue
         console.print(f"\n[bold]{report['score']:>3}/100[/bold]  {job['title']} ({job.get('company') or job['site']})"

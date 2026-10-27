@@ -26,6 +26,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
     "pandas>=2.0",
+    "pypdf>=4.0",  # reading the text of your own resume PDFs (ATS check)
     "anthropic>=2.0",  # Claude, when you choose it as the AI provider (your own API key)
     "tzdata; sys_platform == 'win32'",  # Pacific time for the daily Gemini budget
     ]
