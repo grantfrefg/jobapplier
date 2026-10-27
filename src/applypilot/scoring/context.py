@@ -47,3 +47,26 @@ def candidate_brief(profile: dict) -> str:
     if comp.get("salary_range_min"):
         lines.append(f"Minimum salary: {comp['salary_range_min']} {comp.get('salary_currency') or 'AUD'}")
     return "\n".join(lines)
+
+
+def work_rights(profile: dict) -> str:
+    """Short work-rights line for a resume header ("Australian Citizen", "Full working rights")."""
+    auth = profile.get("work_authorization", {})
+    permit = str(auth.get("work_permit_type") or "").strip()
+    if permit:
+        low = permit.lower()
+        if "citizen" in low:
+            return "Australian Citizen" if "australia" in low or low == "citizen" else permit
+        if "permanent" in low:
+            return "Permanent Resident"
+        return permit
+    yes = lambda v: str(v).strip().lower() in ("yes", "true", "y")  # noqa: E731
+    if yes(auth.get("legally_authorized_to_work")) and not yes(auth.get("require_sponsorship")):
+        return "Full working rights"
+    return ""
+
+
+def location_line(profile: dict) -> str:
+    """City and state for a resume header ("Sydney, NSW")."""
+    p = profile.get("personal", {})
+    return ", ".join(str(x).strip() for x in (p.get("city"), p.get("province_state")) if str(x or "").strip())
