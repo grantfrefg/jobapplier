@@ -50,8 +50,16 @@ def candidate_brief(profile: dict) -> str:
         ) if x),
         f"Security clearance held: {auth.get('security_clearance') or 'none'}",
     ]
+    wants = {kind: str(avail.get(key) or "").strip().lower()
+             for kind, key in (("full-time", "available_for_full_time"), ("contract", "available_for_contract"))}
+    yes = [k for k, v in wants.items() if v in ("yes", "true", "y")]
+    no = [k for k, v in wants.items() if v in ("no", "false", "n")]
+    if yes or no:
+        lines.append("Work type: " + "; ".join(([f"wants {' or '.join(yes)}"] if yes else [])
+                                               + ([f"not {' or '.join(no)}"] if no else [])))
     if comp.get("salary_range_min"):
-        lines.append(f"Minimum salary: {comp['salary_range_min']} {comp.get('salary_currency') or 'AUD'}")
+        lines.append(f"Minimum salary: {comp['salary_range_min']} {comp.get('salary_currency') or 'AUD'} "
+                     "base, excluding super")
     return "\n".join(lines)
 
 
