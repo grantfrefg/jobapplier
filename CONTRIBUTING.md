@@ -47,14 +47,22 @@ Changes to `desktop.py`, `ui/`, `packaging/` or anything imported at startup can
 src/applypilot/
   cli.py              # `applypilot` commands
   config.py           # paths, .env, engine/model settings, location filter, browser detection
-  database.py         # SQLite schema, migrations, stats, cross-site de-duplication
+  database.py         # SQLite schema, migrations, stats, cross-site de-duplication, Redo marks
   llm.py              # LLM client (Gemini / OpenAI / local), JSON mode, readable errors
+  budget.py           # daily Gemini request budget
+  browser.py          # starting a background Chromium (falls back when the headless shell is missing)
+  profile_options.py  # fixed answers for profile drop-downs (and mapping of old wording)
   pipeline.py         # runs stages in order or streaming
   desktop.py          # double-click app launcher (friend mode)
   discovery/          # jobspy.py (Indeed/LinkedIn), smartextract.py (Jora etc.), workday.py
   enrichment/         # detail.py: full descriptions and application links
-  scoring/            # scorer.py, tailor.py, cover_letter.py, validator.py, pdf.py
+  scoring/            # scorer.py, tailor.py, cover_letter.py, pdf.py
+                      # facts.py: generated text vs the real resume (titles, skills, tools...)
+                      # validator.py: banned words, AI phrasing, Australian spelling, structure
+                      # ats.py: ATS check; context.py: candidate facts and house style
   apply/              # launcher.py (queue + engine switch), local_engine.py (free engine),
+                      # answers.py (standard fields, answer bank), adapters.py (SEEK, Lever),
+                      # sites.py (where a job applies), login_browser.py (normal login window),
                       # chrome.py/prompt.py/dashboard.py (Claude Code engine)
   ui/                 # server.py (FastAPI) + static/index.html (the web UI)
   wizard/             # `applypilot init`, shared search-config builder
@@ -70,7 +78,9 @@ tests/
 - **Match the code around you:** type hints and docstrings on public functions, a 120-character line limit, and comments that say *why*.
 - **Settings:** user settings go in `~/.applypilot/` (`.env`, `searches.yaml`, `profile.json`). Defaults live in `config.py`.
 - **Privacy:** never send personal identifiers to an AI provider. Use the placeholder approach in `local_engine.py`.
-- **Safety:** never let automation click a final Submit / Apply / Send.
+- **Safety:** never let automation click a final Submit / Apply / Send, and never type a password.
+- **Honesty:** generated resumes, letters and form answers may only claim what's in the user's resume (or their confirmed skills list). Enforce it in code (`scoring/facts.py`), not only in prompts, and test it with a made-up claim.
+- **Australia first:** Australian English, A4, DD/MM/YYYY, AUD, and Australian screening questions (work rights, clearance, selection criteria).
 - **AI requests:** AI calls cost the user's daily free requests. Prefer batching, structured (JSON) output and free checks before an AI call. See [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md).
 - **Changelog:** update `CHANGELOG.md` under `[Unreleased]`.
 

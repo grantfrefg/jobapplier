@@ -11,7 +11,10 @@ What's different from the original:
 - **Private.** Your name, contact details, address and ID numbers are sent to Gemini only as placeholders and filled in locally.
 - **Australian job sources.** Indeed Australia, LinkedIn and Jora, filtered to your city and state. Jora ads open the employer's own application form.
 - **One application per role.** The same job on several boards is detected, and you apply once.
-- **Written for engineers in Australia.** Scoring knows your deal-breakers (work rights, security clearance, location, seniority). Resumes and cover letters use Australian English, never add tools you don't have, and come out as ATS-friendly A4 PDFs with your location and work rights at the top.
+- **Written for engineers in Australia.** Scoring knows your deal-breakers (work rights, security clearance, location, seniority). Resumes and cover letters use Australian English and come out as ATS-friendly A4 PDFs with your location and work rights at the top.
+- **Honest documents.** Every title, skill, tool, number, employer and qualification in a tailored resume or cover letter is checked against your real resume in code, and an AI fact-check reads every one. Nothing you haven't done gets in, including the job's own title.
+- **ATS check.** Every tailored resume gets a score for how Australian employers' systems (Workday, SuccessFactors, PageUp, JobAdder...) will parse and search it, with what to fix.
+- **Knows where each job applies.** Jobs are labelled with the employer's application system and whether it needs an account, so you can do the quick ones first. Sign-in pages and Google sign-in are handled.
 - **Fewer AI requests.** Contact details, uploads and questions you've answered before are filled in without the AI; Greenhouse, Lever and SEEK forms are handled specially; a daily budget keeps you inside the free tier.
 - **No terminal needed.** A web UI covers setup, finding jobs and applying, and there's a double-click desktop app for Windows and Mac.
 
@@ -54,9 +57,9 @@ The web UI has three tabs.
 - Paste your free [Gemini API key](https://aistudio.google.com/apikey) and press **Test key**.
 - Paste your resume as plain text, and optionally upload the PDF.
 - Choose your country, city and job titles, plus any title words to skip (e.g. *intern, graduate*).
-- Fill in your profile: contact details, work rights, security clearance, notice period, relocation, salary and the other answers used on application forms. Questions with a few sensible answers (state, work rights, Yes/No, notice period) are drop-downs. Replace the example values: the profile won't save while any are left.
-- Check the **skills list**, remove anything you don't use, and tick **My skills list is accurate**. Resumes and letters only mention skills from your resume or this list.
-- **Log in to sites** opens the app's browser as a normal window, for sign-ins that refuse an automated browser (Google). Close it when you're done and the app reuses those logins.
+- Fill in your profile: contact details, work rights, security clearance, notice period, relocation, salary and the other answers used on application forms. Questions with a fixed set of answers are drop-downs. Replace the example values ("Your City", "Company A"...): the profile won't save while any are left.
+- Check the **Skills boundary** list: remove the example skills you don't use, add ones you do that your resume doesn't name, and tick **My skills list is accurate**. Resumes only ever mention skills from your resume or this list.
+- **Log in to sites** (under Browser) opens the app's browser as a normal window so you can sign in to Google, LinkedIn and SEEK. Google blocks sign-in in the automated window; close this one when you're done and the app stays logged in.
 - **Saved answers** lists the screening answers the app has remembered (yours win over the AI's); delete any you don't want reused.
 - **Daily request limit** (under the Gemini key) sets the free-tier limit and how many requests to keep for applying. The header shows how many are left today.
 
@@ -64,18 +67,17 @@ The web UI has three tabs.
 - Press **Run**. It searches the job boards, scores each job against your resume, and writes a tailored resume and cover letter for the good matches, with a live log.
 
 **3. Apply**
-- **Check where to apply** opens each ready job and notes where its application really is (Greenhouse, Workday, SEEK...) and whether it needs an account; **Ready: no employer account** lists the quick ones. No AI requests.
-- Each job shows an **ATS** score: how well an applicant tracking system will parse its tailored resume and match the ad's keywords (hover for the details).
-- Press **Apply** next to a job. A browser opens, and the app fills the form, uploads your documents and moves through "Next" pages. On a job-board ad (Jora, SEEK, Indeed) it follows the ad's Apply link to the real form first.
+- Each job shows its **ATS** score (hover for what to fix, missing keywords and any skills that were removed).
+- **Check where to apply** opens each job in the browser and labels where it applies, e.g. "Greenhouse · no account" or "Workday · account needed". The **Ready: no employer account** view lists the quick ones. Jobs needing an account get a **Log in** button.
+- Press **Apply** next to a job. A browser opens, and the app fills the form, uploads your documents and moves through "Next" pages. On a job-board ad (Jora, SEEK, Indeed, LinkedIn) it follows the ad's Apply link to the real form first; for LinkedIn **Easy Apply**, click Easy Apply yourself, then **Fill this page again**.
+- On a sign-in or create-account page it fills in your email (never a password) and tells you what to do.
 - Fields it already knows (name, contact details, location, uploads, answers you've given before) are filled without the AI; Gemini is only asked about the rest. Any answer you type or change before submitting is remembered for next time.
-- On a sign-in or create-account page it fills in your email only (never a password) and asks you to finish. LinkedIn Easy Apply is filled once you open the dialog.
-- The current job's resume and cover letter PDFs are also in a visible folder, `~/ApplyPilot uploads`, for picking by hand in a file dialog.
-- It stops at **"Your turn: review and submit"**. Check the form, fix anything, click Submit in the browser, then tell the app what you did:
+- It stops at **"Your turn: review and submit"**. Check the form, fix anything, click Submit in the browser, then tell the app what you did. To upload a file by hand, the panel lists this job's resume and cover letter, which are in the `ApplyPilot uploads` folder in your home folder:
   - **I submitted it**
   - **Save for later**
   - **Fill this page again** (e.g. after you log in to SEEK)
   - **Never apply to this job**
-- **Redo** on a job (or **Redo all documents**) rewrites its resume and cover letter, e.g. after you update your resume or profile. The old documents stay until the new ones pass the checks.
+- **Redo** on a job (or **Redo all documents**) rewrites its resume and cover letter, e.g. after you update your resume, profile or skills list. The old documents stay until the new ones pass the checks.
 
 Everything is stored on your computer in `~/.applypilot/`.
 
@@ -89,11 +91,12 @@ Everything is stored on your computer in `~/.applypilot/`.
 | **De-duplicate** | Links repeat listings of the same role (same company and title, same employer link, or near-identical text). Keeps one, preferring LinkedIn, then Indeed, then Jora | None |
 | **Enrich** | Fetches each job's full description and application link | Only for unusual pages |
 | **Score** | Skips titles on your skip list for free, then rates the rest 1–10 against your resume, 10 jobs per request, like an engineering recruiter. Jobs you can't take (citizenship or a clearance you don't hold, onsite elsewhere, far too senior or junior) score 3 or lower | ~1 per 10 jobs |
-| **Tailor + cover letter** | For each good match (score ≥ 7), rewrites your resume and writes a short, specific cover letter in one request, in Australian English. Code checks every claim against your real resume (titles, employers, tools, numbers) and the AI fact-check reads the result; anything invented is sent back or removed | Usually 2 per job |
+| **Tailor + cover letter** | For each good match (score ≥ 7), rewrites your resume and writes a short, specific cover letter in one request, in Australian English, using the ad's own words for skills you have. Code checks every title, skill, tool, number, employer and qualification against your real resume (fixing or rejecting what doesn't match), then an AI fact-check reads it | Usually 2 per job |
 | **PDF** | A4, one-column, ATS-friendly resume (location and work rights in the header, title, employer and dates on one line) and a plain business-letter cover letter | None |
+| **ATS check** | Scores each tailored resume for parsing, Australian knockout facts (work rights, location), the ad's keywords and spelling | None |
 | **Apply** | Fills the form in a visible browser and waits for you to submit. Known fields and saved answers need no AI; Greenhouse, Lever and SEEK forms get site-specific handling | 0–1 per form page |
 
-Free-tier limits are per **request per day**: `gemini-3.5-flash-lite` allows about 500. A typical day of about 200 jobs found, about 20 good matches (about 40 requests to write and fact-check) and about 10 applications fits within that. Every request is counted (by US Pacific day, when Google resets the quota): finding and preparing jobs stops cleanly when only the apply reserve (50 by default) is left, and picks up where it left off the next day. [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) lists what's been done to cut usage.
+Free-tier limits are per **request per day**: `gemini-3.5-flash-lite` allows about 500. A typical day of about 200 jobs found, about 20 good matches and about 10 applications uses roughly 80–100. Every request is counted (by US Pacific day, when Google resets the quota): finding and preparing jobs stops cleanly when only the apply reserve (50 by default) is left, and picks up where it left off the next day. [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) lists what's been done to cut usage.
 
 More detail on each stage, privacy and the safety gate: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
 
@@ -109,8 +112,9 @@ Everything can be set in the web UI, and it's all saved as files in `~/.applypil
 | `searches.yaml` | Country, location, job titles, title skip list, which job sources to use |
 | `profile.json` | Your details and form answers, including work rights, security clearance, notice period, relocation and driver's licence |
 | `resume.txt` / `resume.pdf` | Your master resume |
-| `applypilot.db` | Jobs, saved screening answers and today's Gemini request count |
+| `applypilot.db` | Jobs (with where each applies and its ATS check), saved screening answers and today's Gemini request count |
 | `site_plans/` | How each smart-extract site (Jora) is read; delete a file to make it re-learn |
+| `~/ApplyPilot uploads/` | The current application's resume and cover letter PDFs, for uploading by hand (outside `~/.applypilot`, so file pickers show it) |
 
 Every setting is listed in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
@@ -131,9 +135,9 @@ applypilot apply --url URL         # fill one application
 applypilot apply --limit 5         # the next 5 best-scoring jobs
 applypilot apply --reset-failed    # bring back skipped / saved-for-later jobs
 applypilot redo [--url URL]        # rewrite resumes and cover letters (all, or one job)
-applypilot ats [--url URL]         # ATS check of the tailored resumes
-applypilot locate                  # where each ready job applies, and whether it needs an account
-applypilot login                   # log in to Google, LinkedIn, SEEK... in the app's browser
+applypilot ats [--url URL]         # ATS check of each tailored resume
+applypilot locate                  # find where each ready job applies (opens the browser)
+applypilot login [--url URL]       # normal browser window to sign in (Google, LinkedIn, SEEK...)
 applypilot status                  # counts per stage
 applypilot dashboard               # HTML report of all jobs
 ```
@@ -142,6 +146,18 @@ With the free engine, `applypilot apply` stops before each Submit and waits in t
 - **Enter:** done; you're then asked whether you submitted.
 - **r:** fill the page again.
 - **x:** never apply to this job.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| Find jobs only finds Jora jobs | The log shows `JobSpy crawl failed: No module named 'curl_cffi'`: run `pip install curl_cffi`, then run Find jobs again. LinkedIn sometimes answers `429 (blocked)` for a few hours; the app skips it until then |
+| "This browser or app may not be secure" (Google sign-in) | Use Setup → **Log in to sites**, sign in there and close the window |
+| A job's resume doesn't change after **Redo** | Its new version failed the fact checks, so the old one was kept. The reasons are in `~/.applypilot/tailored_resumes/<job>_REPORT.json` (`validator` and `judge`) |
+| A resume lists a skill you don't have, or drops one you do | Update **Skills boundary** in your profile, tick **My skills list is accurate**, then **Redo** |
+| The page at localhost:8000 won't load (dev container) | Run `python -m applypilot ui` in VS Code's terminal |
 
 ---
 

@@ -16,7 +16,7 @@ estimates from the code paths, not measurements.
 | Stage | How it works now | Requests (typical day) |
 |---|---|---|
 | Scoring | One request per job; the whole resume is resent each time | ~200 |
-| Tailoring | Write, then a separate AI fact-check; up to 4 attempts | ~40–160 for 20 jobs |
+| Tailoring | Write, then a separate AI fact-check; up to 4 attempts | ~40–160 for 20 jobs (now ~40: see B and F) |
 | Cover letters | Separate request per job; retried on banned words | ~20–80 |
 | Smart extract (Jora) | The AI works out how to read the page on every run | ~2 per job title per run |
 | Applying | One request per form page; every field goes through the AI | ~10–60 |
@@ -33,6 +33,17 @@ estimates from the code paths, not measurements.
 | D | Daily request budget | Medium | Spends requests on the best jobs | **Done** (#13) |
 | E1 | Standard fields in code + answer bank | Medium | ~1 per page → 0 on known pages | **Done** (#11) |
 | E2 | Site adapters (SEEK, Greenhouse, Lever) | Large | Fewer wrong answers on those sites | **Done** (#15) |
+
+Since the plan, the priority shifted from fewer requests to **better documents**: tailored resumes were
+claiming job titles and skills the user doesn't have. The fact checks below cost one extra request per
+tailored job (the AI fact-check now always runs), about 20 a day; they're worth it.
+
+| # | Improvement | Requests | Status |
+|---|---|---|---|
+| F | Fact checks in code: titles, skills, tools, numbers, employers, education vs the real resume | +1 per tailored job (fact-check) | **Done** |
+| G | Prompts for Australia, ATS and a human voice; Australian spelling and AI-phrasing checks in code | None | **Done** |
+| H | ATS check of every tailored resume | None | **Done** |
+| I | Where each job applies, sign-in pages, normal login window | None | **Done** (#20) |
 
 ---
 
