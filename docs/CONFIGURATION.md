@@ -12,6 +12,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `applypilot.db` | The job database (SQLite), including saved screening answers |
 | `tailored_resumes/`, `cover_letters/` | Generated documents |
 | `site_plans/` | How smart extract reads each site (delete a file to make that site re-learn) |
+| `~/ApplyPilot uploads/` | Outside `~/.applypilot`: the current application's resume and cover letter, for picking in a file dialog. Set `APPLYPILOT_UPLOAD_DIR` to move it |
 | `local-playwright-profile/` | The local engine's browser profile (keeps job-site logins) |
 | `logs/` | Run logs; `desktop.log` for the desktop app |
 
@@ -94,13 +95,14 @@ Sections, each a set of fields shown as a form on the Setup page. Fields with on
 | Section | Used for |
 |---|---|
 | `personal` | Name, email, phone, address, LinkedIn/GitHub/portfolio URLs, job-site password. **Required:** `full_name`, `email`, `phone` |
-| `work_authorization` | Right to work, sponsorship, visa/permit type, `security_clearance` (e.g. Baseline, NV1; blank = none). Add fields such as `tax_file_number` if forms ask; ID-like values are never sent to Gemini |
+| `work_authorization` | Right to work, sponsorship, `work_permit_type` (e.g. Australian citizen, Permanent resident: shown in the resume header), `security_clearance` (Baseline, NV1, NV2, PV; blank = none). Add fields such as `tax_file_number` if forms ask; ID-like values are never sent to Gemini |
 | `availability` | Start date, notice period, full-time/contract, `willing_to_relocate`, `drivers_licence` |
 | `compensation` | Salary expectation, currency and range |
 | `experience` | Years, education, current title/company, target role (the prompts write for this role and seniority) |
-| `skills_boundary` | Skills the tailor may mention. Nothing outside this list and your resume is ever added |
+| `skills_boundary` | Extra skills the tailor may mention when your resume doesn't name them. Template example values are ignored until `skills_confirmed` is true (Setup: **My skills list is accurate**). Skills in your resume are always allowed, in any common short or long form |
 | `resume_facts` | Employers, projects, school and real metrics the tailor must keep exactly |
 | `eeo_voluntary` | Answers to voluntary diversity questions, including Aboriginal or Torres Strait Islander status (default "Prefer not to say") |
+| `skills_confirmed` | `true` once you've confirmed your skills list (a single value, not a section) |
 
 What Gemini sees: everything except the password. Identifiers (name, email, phone, street address, postcode, URLs, ID numbers) are replaced by placeholders and filled in locally. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md#privacy).
 
