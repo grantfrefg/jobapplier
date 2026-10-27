@@ -542,6 +542,8 @@ function atsBadge(a) {
   const tone = a.score >= 80 ? "ok" : "warn";
   const lines = ["ATS check: " + a.score + "/100 (keyword match " + a.keyword_match + "%)"];
   if (a.issues && a.issues.length) lines.push("", "To look at:", ...a.issues.map((i) => "- " + i));
+  if (a.removed_skills && a.removed_skills.length)
+    lines.push("", "Removed from the skills (not in your resume or profile skills): " + a.removed_skills.join(", "));
   if (a.missing_gap && a.missing_gap.length)
     lines.push("", "The ad asks for (not in your resume, left out honestly): " + a.missing_gap.slice(0, 10).join(", "));
   return el("span", { class: "badge " + tone, title: lines.join("\n"), style: "cursor:help" }, "ATS " + a.score);
