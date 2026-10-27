@@ -909,6 +909,87 @@ def _form_open_over_page(page) -> bool:
     return False
 
 
+_AUTH_PAGE_JS = r"""() => {
+  const vis = el => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
+                      return r.width > 0 && r.height > 0 && s.visibility !== 'hidden'; };
+  const pw = [...document.querySelectorAll('input[type=password]')].filter(vis);
+  if (!pw.length) return null;
+  // Sign-in pages often link to "Create account", so only the page's title,
+  // headings and buttons (not its links) say which kind it is.
+  const heads = [...document.querySelectorAll('h1, h2, h3, button, input[type=submit], [role=button]')].filter(vis)
+    .map(e => e.innerText || e.value || '').join(' ');
+  const text = (document.title + ' ' + heads).toLowerCase();
+  const signUp = pw.length > 1 || (/create (an |your )?account|sign ?up|register/.test(text) &&
+                                   !/\bsign ?in\b|\blog ?in\b/.test(text));
+  return signUp ? 'create_account' : 'sign_in';
+}"""
+# More fields than a sign-in/sign-up box has: a real form with an optional
+# "create a password" field, which is filled as usual.
+_MAX_AUTH_FIELDS = 6
+_LOGIN_ID_RE = re.compile(r"e-?mail|user ?name|user ?id|login|sign.?in", re.IGNORECASE)
+
+
+def _auth_page(page) -> str | None:
+    """'sign_in' / 'create_account' when the page is a login or sign-up wall, else None."""
+    kind = None
+    for frame in page.frames:
+        try:
+            kind = frame.evaluate(_AUTH_PAGE_JS)
+        except Exception:
+            continue
+        if kind:
+            break
+    if not kind:
+        return None
+    fields, _, _ = _scan(page)  # password inputs are never scanned
+    return kind if len(fields) <= _MAX_AUTH_FIELDS else None
+
+
+def _fill_login_email(page, ctx: dict, lf) -> None:
+    """Type the user's email into an empty email/username box. Never the password."""
+    fields, _, frame_by_id = _scan(page)
+    for f in fields:
+        text = " ".join(str(f.get(k) or "") for k in ("label", "name", "html_id"))
+        if f.get("type") in ("email", "text") and not (f.get("value") or "").strip() and (
+                f.get("type") == "email" or _LOGIN_ID_RE.search(text)):
+            try:
+                _apply_action({"id": f["id"], "action": "fill", "value": "{{EMAIL}}"}, frame_by_id,
+                              ctx["local_values"], ctx["file_values"])
+                lf.write(f"  sign-in page: filled {f['id']} with your email\n")
+            except Exception as e:
+                lf.write(f"  sign-in page: couldn't fill {f['id']}: {str(e)[:80]}\n")
+
+
+def _auth_note(kind: str, page) -> str:
+    from applypilot.apply.sites import classify
+    site = classify(page.url)["name"]
+    if kind == "create_account":
+        return (f"{site} wants you to create an account before applying. Your email is filled in: choose a "
+                "password and finish signing up (check your email if it asks you to verify), then choose "
+                "'Fill this page again'. This browser remembers the account for this employer.")
+    return (f"Sign in to {site} to continue (your email is filled in; type your password), then choose "
+            "'Fill this page again'. No account yet? Use its 'Create account' link. If it only offers "
+            "'Sign in with Google' and Google blocks it here: choose 'Not yet: save for later', sign in "
+            "with Setup → Log in to sites (or the job's Log in button), close that window, and apply again.")
+
+
+def _record_apply_site(job: dict, page, ctx: dict, password: bool = False) -> None:
+    """Remember where this job's application really is, for the Apply tab's labels."""
+    conn = ctx.get("conn")
+    if conn is None or _is_job_listing(page.url) or not str(page.url).startswith("http"):
+        return
+    from applypilot.apply.sites import classify
+    found = classify(page.url, password_field=password)
+    try:
+        conn.execute("UPDATE jobs SET apply_site = ?, apply_site_name = ?, apply_account = ?, apply_site_url = ?, "
+                      "apply_site_checked_at = ? WHERE url = ? AND (apply_site IS NULL OR apply_account != 'yes' "
+                      "OR ? = 'yes')", (found["site"], found["name"], found["account"], page.url,
+                                        datetime.now().isoformat(), job["url"], found["account"]))
+        conn.commit()
+    except Exception as e:
+        logger.debug("Couldn't record the apply site: %s", e)
+
+
 def _newest_tab(page):
     """The most recently opened tab: an Apply button may open the employer's form in a new tab."""
     tabs = [t for t in page.context.pages if not t.is_closed()]
@@ -1174,6 +1255,20 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
                     except Exception:
                         pass
                 listing_note = _leave_listing(page, lf)
+                auth = None if listing_note else _auth_page(page)
+                if auth:
+                    # A sign-in / sign-up wall: fill the email only, never the
+                    # password, don't ask the AI and don't click anything.
+                    lf.write(f"  {auth.replace('_', ' ')} page @ {page.url}\n")
+                    _record_apply_site(job, page, ctx, password=True)
+                    _fill_login_email(page, ctx, lf)
+                    decision = gate(page, [_auth_note(auth, page)], dry_run)
+                    if decision == "rescan":
+                        continue
+                    status = {"applied": "applied", "declined": "failed:user_declined"}.get(decision, "manual")
+                    break
+                if not listing_note:
+                    _record_apply_site(job, page, ctx)
                 if listing_note:
                     # Don't type into the job board's search boxes
                     _, controls, frame_by_id = _scan(page)

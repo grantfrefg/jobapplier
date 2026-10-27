@@ -57,7 +57,7 @@ jobs:
         run: >
           ruff check --select E,F,W
           src/applypilot/ui src/applypilot/desktop.py src/applypilot/__main__.py
-          src/applypilot/apply/local_engine.py src/applypilot/apply/answers.py src/applypilot/apply/adapters.py src/applypilot/database.py
+          src/applypilot/apply/local_engine.py src/applypilot/apply/answers.py src/applypilot/apply/adapters.py src/applypilot/apply/sites.py src/applypilot/apply/login_browser.py src/applypilot/database.py
           src/applypilot/budget.py
           packaging tests
 
