@@ -358,6 +358,9 @@ async function refreshStatus() {
     ["Resume text", c.resume_txt],
     ["Resume PDF", c.resume_pdf],
     ["Profile", c.profile],
+    [status.example_skills && status.example_skills.length
+       ? "Skills list: replace the examples (" + status.example_skills.join(", ") + ")" : "Skills list",
+     c.profile && !(status.example_skills || []).length],
     ["Job search", c.searches],
     local ? ["Browser ready", c.playwright && c.browser] : ["Claude Code CLI found", c.claude_cli],
   ];
@@ -576,7 +579,7 @@ $("#job-view").addEventListener("change", loadJobs);
 async function redo(url) {
   const all = !url;
   if (all && !confirm("Rewrite the resume and cover letter for every job you haven't applied to? " +
-                      "This uses about one Gemini request per job.")) return;
+                      "This uses about two Gemini requests per job (writing and fact-checking).")) return;
   await guarded(async () => {
     const r = await post("/api/jobs/redo", { url });
     if (!r.marked) return toast("Nothing to rewrite.");

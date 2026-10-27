@@ -58,27 +58,31 @@ The prompts are written for engineers (software first, other disciplines too) ap
 For jobs scoring at or above `--min-score` (default 7), the AI rewrites your resume for the role:
 - it reorders, and rewords bullets where the job uses different terms for the same work;
 - it leads with the must-haves the scorer found in your resume;
-- it never adds a tool, skill or number that isn't in your resume or `skills_boundary`.
+- it changes order, emphasis and wording, **never facts**: every title, employer, date, tool, skill, number, qualification and achievement must be in your original resume.
 
 The tailored resume and a short, specific cover letter come from **one AI request**.
 
-Two checks guard every result:
-- **Code checks, always:** banned buzzwords, required sections, and no missing or invented employers, projects or skills (`resume_facts` and `skills_boundary` in your profile list what must be kept). The letter must also have the right format.
-- **An AI fact-check ("judge"), only when needed:** it runs when code spots a likely invention anywhere in the resume or letter: a number that isn't in your original resume, or a tool from the watchlist you never mention.
+Every result is checked against your original resume:
+- **Fixed by code:** the line under your name is always a title you've held (normally your current one, from your profile), optionally followed by a short focus such as "Production ML & LLM Systems". A target-job title like "Forward Deployed AI Engineer" is replaced. Any skill that isn't in your resume (or in your profile's skills list) is removed.
+- **Sent back by code** (the AI tries again; after the last try the document isn't used): the summary or letter calling you by a job title you haven't held; a tool, platform or certification you never mention; a number that isn't in your resume; an employer or job title in Experience that doesn't match; education that doesn't match. Plus banned buzzwords, required sections and format.
+- **AI fact-check ("judge"):** reads every resume and letter (except with `--validation lenient`) for what code can't see, such as invented work or two separate facts joined into a new claim ("cut costs 50% while serving 10 million customers"). If it still rejects the last attempt, the resume isn't used.
+- A cover letter that keeps claiming things your resume doesn't is dropped rather than saved.
 
 If the resume fails, both documents are regenerated. If only the letter fails, just the letter is retried.
+
+**Your skills list matters.** `skills_boundary` in your profile adds skills that aren't spelled out in your resume. The template's example values (JavaScript, Docker, AWS, MongoDB...) are ignored, and Setup warns while any are still there: replace them with what you actually use.
 
 **Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job).
 - Only the jobs you redo are rewritten, whatever their score; nothing else in the queue is tailored.
 - Nothing is deleted first: a job keeps its old resume and cover letter (and stays ready to apply) until the new ones pass the checks. If a rewrite doesn't pass, the old documents stay. If the day's Gemini budget runs out, the rest are rewritten on the next run.
 - Jobs you've applied to keep theirs, as does a job open in the browser at that moment; jobs stuck "in progress" from an apply run that never finished are put back in the queue.
 - Redo also re-picks which listing to use when a role is on several sites, by `site_priority` (LinkedIn, then Indeed, then Jora), so a role first found on Jora is rewritten for its LinkedIn or Indeed listing. If that rewrite fails, the Jora listing and its documents are used again.
-- Each job costs about one Gemini request.
+- Each job costs about two Gemini requests (writing plus the fact-check).
 
 `--validation` controls how strict this is:
-- `strict`: banned words are errors, and the AI fact-check always runs.
-- `normal` (default): banned words are warnings, and the fact-check runs only when needed.
-- `lenient`: never runs the AI fact-check.
+- `strict`: banned words are errors.
+- `normal` (default): banned words are warnings.
+- `lenient`: banned words are ignored and the AI fact-check is skipped. The code fact checks always run.
 
 ## Cover letter and PDF
 
@@ -154,7 +158,7 @@ Google's free tier limits **requests per day** per model. Everything uses `gemin
 | Stage | Requests |
 |---|---|
 | Score | ~1 per 10 jobs (skipped titles are free) |
-| Tailor + cover letter | usually 1 per good match; 2 when the fact-check runs or the letter is retried |
+| Tailor + cover letter | usually 2 per good match (writing + fact-check); more when an attempt is sent back |
 | Jora | ~2 once, to learn the page; then 0 (re-learns only if the saved plan stops finding jobs) |
 | Apply | ~1 per form page; 0 for pages where every field is a standard field or a saved answer |
 

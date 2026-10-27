@@ -518,7 +518,8 @@ Screening questions (the applicant is an engineer applying in Australia):
   anything legal the profile doesn't answer: DON'T answer. Add a needs_attention note instead.
 - Free-text questions ("Why this role?", "Describe a project where..."): 2-4 sentences (or the
   stated word limit), specific to this job, drawn from real resume work with a concrete detail.
-  Plain and direct, no clichés. Australian English spelling.
+  Plain and direct, no clichés. Australian English spelling. Never give the applicant a job
+  title they haven't held, or tools, numbers or achievements that aren't in the resume.
 - Dates: DD/MM/YYYY unless the field's placeholder shows another format.
 - Pick option text EXACTLY as it appears in "options".
 - Output ONLY the JSON object."""

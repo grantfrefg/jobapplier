@@ -19,6 +19,12 @@ def target_role(profile: dict) -> str:
     return (exp.get("target_role") or exp.get("current_job_title") or "engineer").strip()
 
 
+def current_title(profile: dict) -> str:
+    """The job title the candidate actually holds (never the one they're applying for)."""
+    exp = profile.get("experience", {})
+    return str(exp.get("current_job_title") or exp.get("current_title") or "").strip()
+
+
 def years(profile: dict) -> str:
     return str(profile.get("experience", {}).get("years_of_experience_total") or "").strip()
 

@@ -51,8 +51,12 @@ def test_tailoring_never_invites_new_tools():
 
 
 def test_cover_letter_rules_are_role_aware_and_honest_about_the_company():
-    rules = cover_letter.cover_letter_rules(PROFILE)
-    assert "a Backend Engineer with 4 years of experience" in rules
+    profile = {**PROFILE, "experience": {**PROFILE["experience"], "current_job_title": "Software Engineer"}}
+    rules = cover_letter.cover_letter_rules(profile)
+    # The letter knows their real title, never the target role as if it were theirs
+    assert "currently a Software Engineer, 4 years of experience" in rules
+    assert "a Backend Engineer" not in rules
+    assert "Never call the candidate by a job title they haven't held" in rules
     assert "Never invent facts about the company" in rules
     assert "Australian English" in rules
 

@@ -1,4 +1,4 @@
-"""Tailored resume + cover letter in one request, judge only when needed."""
+"""Tailored resume + cover letter in one request, checked against the real resume."""
 
 import copy
 import json
@@ -50,7 +50,7 @@ class FakeLLM:
     def chat_json(self, messages, temperature=0.0, max_tokens=4096):
         if "resume quality judge" in messages[0]["content"]:
             self.calls.append("judge")
-            return self.judge.pop(0)
+            return self.judge.pop(0) if self.judge else {"verdict": "PASS", "issues": "none"}
         self.calls.append("combined")
         reply = self.combined.pop(0)
         if isinstance(reply, Exception):
@@ -75,56 +75,58 @@ def use(monkeypatch):
     return install
 
 
-def test_clean_output_costs_one_request(use):
+def test_clean_output_is_written_then_fact_checked(use):
     fake = use(FakeLLM(combined=[combined()]))
     resume, letter, report = tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined"]
-    assert report["status"] == "approved" and report["requests"] == 1
-    assert report["judge"]["verdict"] == "SKIPPED"
+    assert fake.calls == ["combined", "judge"]  # the AI fact-check always reads it (except lenient)
+    assert report["status"] == "approved" and report["requests"] == 2
     assert resume.startswith("Jane Doe\nData Analyst\njane@example.com")  # header injected by code
     assert letter.startswith("Dear Hiring Manager,") and letter.endswith("Jane")
 
 
-def test_invented_metric_triggers_judge(use):
+def test_invented_metric_is_sent_back(use):
     padded = copy.deepcopy(GOOD_RESUME)
     padded["experience"][0]["bullets"].append("Grew dashboard adoption by 37%")
-    fake = use(FakeLLM(combined=[combined(padded)], judge=[{"verdict": "PASS", "issues": "none"}]))
+    fake = use(FakeLLM(combined=[combined(padded), combined()]))
     _, _, report = tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined", "judge"]
-    assert report["status"] == "approved" and report["requests"] == 2
-    assert "numbers not in your resume: 37" in report["judge_reasons"][0]
+    assert fake.calls == ["combined", "combined", "judge"]  # code caught it; no judge needed for that
+    assert report["status"] == "approved"
 
 
 def test_judge_failure_regenerates_both(use):
-    padded = copy.deepcopy(GOOD_RESUME)
-    padded["summary"] = "Built services in Golang."
-    fake = use(FakeLLM(combined=[combined(padded), combined()],
-                       judge=[{"verdict": "FAIL", "issues": "invented Golang"}]))
+    fake = use(FakeLLM(combined=[combined(), combined()],
+                       judge=[{"verdict": "FAIL", "issues": "joined two facts"}, {"verdict": "PASS"}]))
     _, letter, report = tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined", "judge", "combined"]
-    assert report["status"] == "approved" and report["requests"] == 3
+    assert fake.calls == ["combined", "judge", "combined", "judge"]
+    assert report["status"] == "approved" and report["requests"] == 4
     assert letter == GOOD_LETTER
+
+
+def test_judge_rejection_after_last_attempt_is_not_used(use):
+    use(FakeLLM(combined=[combined()] * 4, judge=[{"verdict": "FAIL", "issues": "invented work"}] * 4))
+    _, _, report = tailor.tailor_application(RESUME, JOB, PROFILE)
+    assert report["status"] == "failed_judge"
 
 
 def test_invented_numbers_in_cover_letter_are_caught(use):
     letter = GOOD_LETTER.replace("10 hours to 2", "40 hours to 2")
-    fake = use(FakeLLM(combined=[combined(letter=letter)], judge=[{"verdict": "PASS", "issues": "none"}]))
-    tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined", "judge"]
+    fake = use(FakeLLM(combined=[combined(letter=letter)], letters=[GOOD_LETTER]))
+    _, final, _ = tailor.tailor_application(RESUME, JOB, PROFILE)
+    assert fake.calls == ["combined", "judge", "letter"] and final == GOOD_LETTER
 
 
 def test_bad_letter_alone_gets_letter_only_retry(use):
     fake = use(FakeLLM(combined=[combined(letter="Here is my cover letter: hi")], letters=[GOOD_LETTER]))
     resume, letter, report = tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined", "letter"]
-    assert report["status"] == "approved" and report["requests"] == 2
+    assert fake.calls == ["combined", "judge", "letter"]
+    assert report["status"] == "approved" and report["requests"] == 3
     assert letter == GOOD_LETTER
 
 
 def test_missing_letter_gets_letter_only_retry(use):
     fake = use(FakeLLM(combined=[{"resume": copy.deepcopy(GOOD_RESUME)}], letters=[GOOD_LETTER]))
     _, letter, _ = tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined", "letter"] and letter == GOOD_LETTER
+    assert fake.calls == ["combined", "judge", "letter"] and letter == GOOD_LETTER
 
 
 def test_resume_validation_failure_retries_with_notes(use):
@@ -132,21 +134,18 @@ def test_resume_validation_failure_retries_with_notes(use):
     no_company["experience"][0]["header"] = "Data Analyst at Somewhere"
     fake = use(FakeLLM(combined=[combined(no_company), combined()]))
     _, _, report = tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined", "combined"] and report["status"] == "approved"
+    assert fake.calls == ["combined", "combined", "judge"] and report["status"] == "approved"
 
 
 def test_unreadable_json_retries(use):
     fake = use(FakeLLM(combined=[ValueError("not json"), combined()]))
     _, _, report = tailor.tailor_application(RESUME, JOB, PROFILE)
-    assert fake.calls == ["combined", "combined"] and report["requests"] == 2
+    assert fake.calls == ["combined", "combined", "judge"] and report["requests"] == 3
 
 
 @pytest.mark.parametrize("mode, calls", [("strict", ["combined", "judge"]), ("lenient", ["combined"])])
 def test_validation_modes(use, mode, calls):
-    padded = copy.deepcopy(GOOD_RESUME)
-    padded["summary"] += " Grew adoption 37%."
-    fake = use(FakeLLM(combined=[combined(padded if mode == "lenient" else None)],
-                       judge=[{"verdict": "PASS", "issues": "none"}]))
+    fake = use(FakeLLM(combined=[combined()]))
     tailor.tailor_application(RESUME, JOB, PROFILE, validation_mode=mode)
     assert fake.calls == calls
 
@@ -174,16 +173,16 @@ def test_run_tailoring_saves_resume_and_cover_letter(tmp_path, monkeypatch, use)
     fake = use(FakeLLM(combined=[combined()]))
 
     result = tailor.run_tailoring(min_score=7)
-    assert result["approved"] == 1 and result["cover_letters"] == 1 and result["requests"] == 1
+    assert result["approved"] == 1 and result["cover_letters"] == 1 and result["requests"] == 2
     row = conn.execute("SELECT tailored_resume_path, cover_letter_path FROM jobs").fetchone()
     assert row[0].endswith("Sydney_Health_Data_Analyst.txt")
     assert open(row[1]).read() == GOOD_LETTER
     # The separate cover-letter stage now has nothing to do for this job
     assert cl_mod.run_cover_letters(min_score=7)["generated"] == 0
-    assert fake.calls == ["combined"]
+    assert fake.calls == ["combined", "judge"]
     database.close_connection(db)
     report = json.loads((tmp_path / "tailored" / "Sydney_Health_Data_Analyst_REPORT.json").read_text())
-    assert report["requests"] == 1
+    assert report["requests"] == 2
 
 
 @pytest.fixture
@@ -218,7 +217,7 @@ def test_redo_rewrites_exactly_the_marked_job_whatever_its_score(tailoring_db, u
     assert database.redo_documents(conn, url="https://ex.com/old") == 1
     fake = use(FakeLLM(combined=[combined()]))
     result = tailor.run_tailoring(min_score=8, limit=0, redo_only=True)
-    assert result["approved"] == 1 and fake.calls == ["combined"]  # the other job wasn't touched
+    assert result["approved"] == 1 and fake.calls == ["combined", "judge"]  # the other job wasn't touched
     row = conn.execute("SELECT tailored_resume_path, cover_letter_path, redo_requested FROM jobs "
                        "WHERE url = 'https://ex.com/old'").fetchone()
     assert row[0].endswith("Sydney_Health_Data_Analyst.txt") and row[1].endswith("_CL.txt") and row[2] == 0
