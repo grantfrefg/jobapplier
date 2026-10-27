@@ -168,7 +168,9 @@ def _absolute_link(page_url: str, link) -> str | None:
     link = link.strip()
     if link.startswith(("http://", "https://")):
         return link
-    if link.startswith("/") and not link.startswith("//") and str(page_url or "").startswith(("http://", "https://")):
+    if link.startswith("//"):
+        return "https:" + link  # protocol-relative
+    if link.startswith("/") and str(page_url or "").startswith(("http://", "https://")):
         return urljoin(page_url, link)
     return None
 
@@ -222,6 +224,8 @@ _ALL_COLUMNS: dict[str, str] = {
     # Cross-site de-duplication
     "company": "TEXT",
     "duplicate_of": "TEXT",
+    # Redo: write the resume and cover letter again (old ones kept until then)
+    "redo_requested": "INTEGER DEFAULT 0",
 }
 
 
@@ -351,7 +355,8 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
     or have the same title and the same company, or (company unknown or
     different) the same title and near-identical descriptions.
 
-    The canonical row is the one furthest along (applied, then tailored),
+    The canonical row is the one furthest along (applied, then tailored;
+    a listing waiting for Redo doesn't count as tailored),
     then the preferred site (`site_priority`, default LinkedIn > Indeed >
     Jora), then highest fit score, then first discovered. Idempotent;
     returns the number of rows whose duplicate_of changed.
@@ -360,7 +365,7 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
         conn = get_connection()
     rows = [dict(r) for r in conn.execute(
         "SELECT rowid, url, title, company, site, application_url, description, full_description, "
-        "applied_at, tailored_resume_path, fit_score, duplicate_of FROM jobs"
+        "applied_at, tailored_resume_path, fit_score, duplicate_of, redo_requested FROM jobs"
     ).fetchall()]
     priority = _site_priority()
 
@@ -368,7 +373,8 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
         site = (site or "").lower()
         return priority.index(site) if site in priority else len(priority)
 
-    rows.sort(key=lambda r: (r["applied_at"] is None, r["tailored_resume_path"] is None,
+    rows.sort(key=lambda r: (r["applied_at"] is None,
+                             r["tailored_resume_path"] is None or bool(r["redo_requested"]),
                              site_rank(r["site"]),
                              -(r["fit_score"] if r["fit_score"] is not None else -1), r["rowid"]))
 
@@ -400,16 +406,20 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
 
 def redo_documents(conn: sqlite3.Connection | None = None, url: str | None = None,
                    applying_now: str | None = None) -> int:
-    """Clear tailored resumes and cover letters so the next tailor run writes them again.
+    """Mark jobs to have their resume and cover letter written again.
 
     For one job (`url`, together with the other listings of the same role)
-    or, with no url, every job. Jobs already applied to keep theirs, and so
-    does `applying_now` (the job open in the browser at this moment). Jobs
-    left "in_progress" by a run that never finished are included and put
-    back in the apply queue. A tailored listing counts as the canonical copy of its role,
-    so clearing them also lets duplicates be re-picked by `site_priority`
-    (LinkedIn > Indeed > Jora by default): the preferred site's listing is
-    the one tailored next. Returns the number of jobs cleared.
+    or, with no url, every job that has documents. Nothing is deleted: the
+    old documents stay (and the job stays ready to apply) until the new ones
+    pass the checks, so a failed or interrupted rewrite loses nothing. Jobs
+    already applied to are left alone, and so is `applying_now` (the job open
+    in the browser at this moment). Jobs left "in_progress" by a run that
+    never finished are put back in the apply queue.
+
+    A listing waiting for Redo doesn't count as tailored when picking the
+    canonical copy of a role, so the preferred site (`site_priority`,
+    LinkedIn > Indeed > Jora by default) is the one rewritten; the mark
+    moves to it. Returns the number of roles marked.
     """
     if conn is None:
         conn = get_connection()
@@ -421,18 +431,28 @@ def redo_documents(conn: sqlite3.Connection | None = None, url: str | None = Non
             return 0
         where += " AND (url = ? OR duplicate_of = ?)"
         params += [group[0], group[0]]
+    else:
+        where += (" AND (tailored_resume_path IS NOT NULL OR cover_letter_path IS NOT NULL "
+                  "OR COALESCE(tailor_attempts, 0) > 0)")
     # Stale apply locks: nothing is applying to these any more
     conn.execute("UPDATE jobs SET apply_status = NULL, agent_id = NULL "
                  f"WHERE {where} AND apply_status = 'in_progress'", params)
-    cleared = conn.execute(
-        "UPDATE jobs SET tailored_resume_path = NULL, tailored_at = NULL, tailor_attempts = 0, "
-        "cover_letter_path = NULL, cover_letter_at = NULL, cover_attempts = 0 "
-        f"WHERE {where} AND (tailored_resume_path IS NOT NULL OR cover_letter_path IS NOT NULL "
-        "OR COALESCE(tailor_attempts, 0) > 0)", params,
-    ).rowcount
+    conn.execute(f"UPDATE jobs SET redo_requested = 1, tailor_attempts = 0 WHERE {where}", params)
     conn.commit()
     mark_duplicates(conn)
-    return cleared
+    # Only the canonical listing of a role is tailored: move the mark there
+    conn.execute(
+        "UPDATE jobs SET redo_requested = 1, tailor_attempts = 0 WHERE applied_at IS NULL AND (? IS NULL OR url != ?) "
+        "AND url IN (SELECT duplicate_of FROM jobs WHERE redo_requested = 1 AND duplicate_of IS NOT NULL)",
+        [applying_now, applying_now])
+    conn.execute("UPDATE jobs SET redo_requested = 0 WHERE duplicate_of IS NOT NULL")
+    conn.commit()
+    return conn.execute("SELECT COUNT(*) FROM jobs WHERE redo_requested = 1").fetchone()[0]
+
+
+def finish_redo(conn: sqlite3.Connection, url: str) -> None:
+    """A rewrite finished (passed or not): clear the mark on every listing of the role."""
+    conn.execute("UPDATE jobs SET redo_requested = 0 WHERE url = ? OR duplicate_of = ?", (url, url))
 
 
 def get_stats(conn: sqlite3.Connection | None = None) -> dict:
@@ -605,6 +625,10 @@ def get_jobs_by_stage(conn: sqlite3.Connection | None = None,
         "enriched": "full_description IS NOT NULL",
         "pending_score": "full_description IS NOT NULL AND fit_score IS NULL AND duplicate_of IS NULL",
         "scored": "fit_score IS NOT NULL",
+        "pending_redo": (
+            "redo_requested = 1 AND full_description IS NOT NULL AND duplicate_of IS NULL "
+            "AND applied_at IS NULL"
+        ),
         "pending_tailor": (
             "fit_score >= ? AND full_description IS NOT NULL AND duplicate_of IS NULL "
             "AND tailored_resume_path IS NULL AND COALESCE(tailor_attempts, 0) < 5"

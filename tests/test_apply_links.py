@@ -105,3 +105,28 @@ def test_init_db_keeps_relative_links_as_absolute(tmp_path):
 def test_is_job_listing(url, listing):
     from applypilot.apply.local_engine import _is_job_listing
     assert _is_job_listing(url) is listing
+
+
+def test_protocol_relative_link_is_kept():
+    assert database._absolute_link("https://au.jora.com/job/1", "//employer.com/apply") == "https://employer.com/apply"
+
+
+def _link(text, href):
+    return {"tag": "a", "text": text, "href": href}
+
+
+@pytest.mark.parametrize("controls, expected", [
+    # A similar job's "Quick apply" and a help link come before the ad's own button
+    ([_link("How to apply", "https://au.jora.com/help"),
+      _link("Quick apply", "https://au.jora.com/job/Other-Role-abc"),
+      _link("Apply on employer site", "https://au.jora.com/job/rd/xyz")], "https://au.jora.com/job/rd/xyz"),
+    ([_link("Apply", "https://www.seek.com.au/job/123/apply"),
+      _link("Apply", "https://www.seek.com.au/job/999/apply")], "https://www.seek.com.au/job/123/apply"),
+    # No board link: the first link whose text starts with Apply
+    ([_link("How to apply", "https://x.com/help"), _link("Apply now", "https://employer.com/careers/1")],
+     "https://employer.com/careers/1"),
+    ([_link("How to apply", "https://x.com/help"), _link("Applying tips", "https://x.com/tips")], None),
+])
+def test_find_apply_link_prefers_the_ads_own_button(controls, expected):
+    from applypilot.apply import local_engine as le
+    assert le._find_apply_link(controls) == expected

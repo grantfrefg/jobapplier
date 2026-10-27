@@ -289,25 +289,30 @@ def ui(
 @app.command()
 def redo(
     url: Optional[str] = typer.Option(None, "--url", help="Only this job (and its listings on other sites)."),
-    min_score: int = typer.Option(7, "--min-score", help="Minimum fit score to tailor."),
     validation: str = typer.Option("normal", "--validation", help="strict, normal or lenient."),
+    pending: bool = typer.Option(False, "--pending", help="Only write the jobs already marked for Redo."),
 ) -> None:
-    """Regenerate tailored resumes and cover letters for jobs not yet applied to.
+    """Rewrite tailored resumes and cover letters for jobs not yet applied to.
 
-    Jobs stuck "in progress" from an unfinished apply run are included and
-    put back in the apply queue, so don't run this while applying. Also re-picks the listing to use when a role is on several sites
-    (site_priority: LinkedIn > Indeed > Jora by default).
+    Old documents stay until the new ones pass the checks. Jobs stuck "in
+    progress" from an unfinished apply run are put back in the apply queue,
+    so don't run this while applying. Also re-picks the listing to use when a
+    role is on several sites (site_priority: LinkedIn > Indeed > Jora).
     """
     _bootstrap()
 
     from applypilot.config import check_tier
     from applypilot.database import get_connection, redo_documents
-    from applypilot.pipeline import run_pipeline
+    from applypilot.scoring.pdf import batch_convert
+    from applypilot.scoring.tailor import run_tailoring
 
     check_tier(2, "AI tailoring")
-    cleared = redo_documents(get_connection(), url)
-    console.print(f"Cleared documents for {cleared} job(s); writing them again...")
-    run_pipeline(stages=["tailor", "cover", "pdf"], min_score=min_score, validation_mode=validation)
+    if not pending:
+        marked = redo_documents(get_connection(), url)
+        console.print(f"Rewriting documents for {marked} job(s)...")
+    result = run_tailoring(limit=0, validation_mode=validation, redo_only=True)
+    batch_convert()
+    console.print(f"Done: {result['approved']} rewritten. Jobs whose new version didn't pass keep their old documents.")
 
 
 @app.command()

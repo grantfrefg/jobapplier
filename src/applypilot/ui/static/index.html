@@ -514,7 +514,8 @@ async function loadJobs() {
     const docs = [];
     if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank" }, "Resume"));
     if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank" }, "Cover letter"));
-    const statusText = j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
+    const statusText = j.redo_requested ? "Rewriting documents…"
+      : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
       : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ? "Ready" : "Not tailored");
     const actions = [];
@@ -548,8 +549,10 @@ async function redo(url) {
   if (all && !confirm("Rewrite the resume and cover letter for every job you haven't applied to? " +
                       "This uses about one Gemini request per job.")) return;
   await guarded(async () => {
-    const r = await post("/api/jobs/redo", { url, min_score: Number($("#min-score").value || 7) });
-    toast("Rewriting " + (all ? r.cleared + " job(s)" : "this job") + ". Follow along on the Find jobs tab.");
+    const r = await post("/api/jobs/redo", { url });
+    if (!r.marked) return toast("Nothing to rewrite.");
+    toast("Rewriting " + (all ? r.marked + " job(s)" : "this job") +
+          ". The old documents stay until the new ones are ready. Follow along on the Find jobs tab.");
     showTab("find"); pollPipeline(); loadJobs();
   });
 }
