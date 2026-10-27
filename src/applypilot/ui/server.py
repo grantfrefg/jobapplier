@@ -670,7 +670,10 @@ def create_app() -> FastAPI:
             raise HTTPException(409, "You're applying to this job right now; finish that first")
         marked = redo_documents(get_connection(), body.get("url") or None, applying_now=applying_now)
         if marked:
-            task.start("Redo resumes and cover letters", ["redo", "--pending"])
+            args = ["redo", "--pending"]
+            if body.get("validation") in ("strict", "normal", "lenient"):
+                args += ["--validation", body["validation"]]  # the Strictness picked on Find jobs
+            task.start("Redo resumes and cover letters", args)
         return {"cleared": marked, "marked": marked, **task.snapshot()}
 
     @app.get("/api/jobs/file")
