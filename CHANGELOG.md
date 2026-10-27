@@ -9,6 +9,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **Your own paid AI keys:** choose the AI that scores jobs, writes resumes and cover letters and answers forms:
+  Google Gemini (free), OpenAI (`OPENAI_API_KEY`, default `gpt-5-mini`) or Anthropic Claude (`ANTHROPIC_API_KEY`,
+  default `claude-opus-5-5`, through the official `anthropic` SDK). Setup has a provider picker with a key field
+  and **Test key** for each; the free browser engine fills forms with whichever is chosen. OpenAI's newer models get
+  the request fields they need (`max_completion_tokens`, no temperature).
+- **Codex engine** (`EXECUTION_ENGINE=codex`): OpenAI's Codex CLI applies like the Claude Code engine (same
+  instructions, same Chrome through Playwright MCP, submits automatically), with its command runner in a read-only
+  sandbox. `applypilot doctor` checks for it; a Codex that isn't signed in is reported as such.
 - **Why a job got no documents:** when every draft is rejected (`FAILED_JUDGE`, `FAILED_VALIDATION`), the log now
   says why and what happens next, the Apply tab's **All jobs** view shows the reason (hover) with a **Try again**
   button, and **Find jobs** has a "What the log means" guide to the log lines (searches, blocked boards, tailoring

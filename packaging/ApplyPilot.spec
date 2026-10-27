@@ -8,8 +8,9 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 datas, binaries, hiddenimports = [], [], []
 
 # Our package (YAML registries, UI page, profile template), the job-board
-# scraper and its native curl library, and uvicorn's dynamically imported bits
-for pkg in ("applypilot", "jobspy", "curl_cffi", "uvicorn"):
+# scraper and its native curl library, uvicorn's dynamically imported bits, and
+# the Claude SDK (used only when Claude is the chosen AI provider)
+for pkg in ("applypilot", "jobspy", "curl_cffi", "uvicorn", "anthropic"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b

@@ -257,11 +257,68 @@ def load_env():
 
 ENGINE_CLAUDE_CODE = "claude_code"
 ENGINE_LOCAL_PLAYWRIGHT = "local_playwright"
-EXECUTION_ENGINES = (ENGINE_CLAUDE_CODE, ENGINE_LOCAL_PLAYWRIGHT)
+ENGINE_CODEX = "codex"  # OpenAI's Codex CLI drives the browser, like Claude Code
+EXECUTION_ENGINES = (ENGINE_CLAUDE_CODE, ENGINE_LOCAL_PLAYWRIGHT, ENGINE_CODEX)
+AGENT_ENGINES = {ENGINE_CLAUDE_CODE: "claude", ENGINE_CODEX: "codex"}  # engine -> its CLI
 
 # Default Gemini model, for every stage, when LLM_MODEL isn't set
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 LOCAL_ENGINE_DEFAULT_MODEL = DEFAULT_GEMINI_MODEL
+
+# ---------------------------------------------------------------------------
+# AI provider: which model writes resumes, scores jobs and fills forms
+# ---------------------------------------------------------------------------
+
+PROVIDER_GEMINI = "gemini"
+PROVIDER_OPENAI = "openai"
+PROVIDER_ANTHROPIC = "anthropic"
+PROVIDER_LOCAL = "local"
+# provider -> (env var holding its key or URL, default model, display name)
+PROVIDERS = {
+    PROVIDER_GEMINI: ("GEMINI_API_KEY", DEFAULT_GEMINI_MODEL, "Google Gemini"),
+    PROVIDER_OPENAI: ("OPENAI_API_KEY", "gpt-5-mini", "OpenAI (ChatGPT)"),
+    PROVIDER_ANTHROPIC: ("ANTHROPIC_API_KEY", "claude-opus-5-5", "Anthropic (Claude)"),
+    PROVIDER_LOCAL: ("LLM_URL", "local-model", "Local model server"),
+}
+_AUTO_ORDER = (PROVIDER_LOCAL, PROVIDER_GEMINI, PROVIDER_OPENAI, PROVIDER_ANTHROPIC)
+
+
+def get_llm_provider() -> str | None:
+    """The provider to use: LLM_PROVIDER when it's set and has its key, else the
+    first one with a key (a local server URL, then Gemini, OpenAI, Anthropic)."""
+    chosen = os.environ.get("LLM_PROVIDER", "").strip().lower()
+    if chosen in PROVIDERS and os.environ.get(PROVIDERS[chosen][0], "").strip():
+        return chosen
+    for provider in _AUTO_ORDER:
+        if os.environ.get(PROVIDERS[provider][0], "").strip():
+            return provider
+    return None
+
+
+def provider_key(provider: str | None) -> str:
+    """The provider's API key (or, for a local server, its URL)."""
+    return os.environ.get(PROVIDERS[provider][0], "").strip() if provider in PROVIDERS else ""
+
+
+def _model_fits(provider: str, model: str) -> bool:
+    m = model.lower()
+    if provider == PROVIDER_GEMINI:
+        return m.startswith("gemini")
+    if provider == PROVIDER_ANTHROPIC:
+        return m.startswith("claude")
+    if provider == PROVIDER_OPENAI:
+        return not m.startswith(("gemini", "claude"))
+    return True
+
+
+def get_llm_model(provider: str | None = None) -> str:
+    """LLM_MODEL when it names a model of this provider, else the provider's default
+    (so switching provider never sends a Gemini model name to OpenAI)."""
+    provider = provider or get_llm_provider() or PROVIDER_GEMINI
+    model = os.environ.get("LLM_MODEL", "").strip()
+    if model and _model_fits(provider, model):
+        return model
+    return PROVIDERS.get(provider, PROVIDERS[PROVIDER_GEMINI])[1]
 
 # Persistent browser profile for the local engine (keeps SEEK/Workday logins)
 LOCAL_BROWSER_PROFILE_DIR = APP_DIR / "local-playwright-profile"
@@ -290,11 +347,8 @@ def get_execution_engine() -> str:
 
 
 def get_local_engine_model() -> str:
-    """Gemini model for the local engine: LLM_MODEL if it names a Gemini model."""
-    model = os.environ.get("LLM_MODEL", "").strip()
-    if model.lower().startswith("gemini"):
-        return model
-    return LOCAL_ENGINE_DEFAULT_MODEL
+    """Model the local engine fills forms with: the chosen provider's (see get_llm_model)."""
+    return get_llm_model()
 
 
 def has_playwright() -> bool:
@@ -387,28 +441,28 @@ def get_tier() -> int:
     Tier 1 (Discovery):            Python + pip
     Tier 2 (AI Scoring & Tailoring): + LLM API key
     Tier 3 (Full Auto-Apply):       + Claude Code CLI + Chrome
-                                    (or, with EXECUTION_ENGINE=local_playwright,
-                                     + GEMINI_API_KEY + Playwright)
+                                    (or Codex CLI with EXECUTION_ENGINE=codex;
+                                     or, with EXECUTION_ENGINE=local_playwright,
+                                     an AI key + Playwright)
     """
     load_env()
 
-    has_llm = any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL"))
-    if not has_llm:
+    if not get_llm_provider():
         return 1
 
     if get_execution_engine() == ENGINE_LOCAL_PLAYWRIGHT:
-        if os.environ.get("GEMINI_API_KEY") and has_playwright():
+        if has_playwright():
             return 3
         return 2
 
-    has_claude = shutil.which("claude") is not None
+    has_agent = shutil.which(AGENT_ENGINES.get(get_execution_engine(), "claude")) is not None
     try:
         get_chrome_path()
         has_chrome = True
     except FileNotFoundError:
         has_chrome = False
 
-    if has_claude and has_chrome:
+    if has_agent and has_chrome:
         return 3
 
     return 2
@@ -429,15 +483,16 @@ def check_tier(required: int, feature: str) -> None:
     _console = Console(stderr=True)
 
     missing: list[str] = []
-    if required >= 2 and not any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL")):
-        missing.append("LLM API key — run [bold]applypilot init[/bold] or set GEMINI_API_KEY")
+    if required >= 2 and not get_llm_provider():
+        missing.append("AI API key — run [bold]applypilot init[/bold] or set GEMINI_API_KEY, OPENAI_API_KEY "
+                       "or ANTHROPIC_API_KEY")
     if required >= 3 and get_execution_engine() == ENGINE_LOCAL_PLAYWRIGHT:
-        if not os.environ.get("GEMINI_API_KEY"):
-            missing.append("GEMINI_API_KEY — required by EXECUTION_ENGINE=local_playwright")
         if not has_playwright():
             missing.append("Playwright — run [bold]pip install playwright && playwright install chromium[/bold]")
     elif required >= 3:
-        if not shutil.which("claude"):
+        if get_execution_engine() == ENGINE_CODEX and not shutil.which("codex"):
+            missing.append("Codex CLI — run [bold]npm install -g @openai/codex[/bold], then [bold]codex login[/bold]")
+        elif get_execution_engine() == ENGINE_CLAUDE_CODE and not shutil.which("claude"):
             missing.append("Claude Code CLI — install from [bold]https://claude.ai/code[/bold]")
         try:
             get_chrome_path()

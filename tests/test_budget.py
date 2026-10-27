@@ -108,7 +108,7 @@ def test_local_engine_counts_against_full_limit(monkeypatch):
     real = httpx.Client
     monkeypatch.setattr(le.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
     for _ in range(3):
-        le._call_gemini("p", "k", MODEL)
+        le._call_ai("p", "k", MODEL)
     with pytest.raises(budget.BudgetExhausted):
-        le._call_gemini("p", "k", MODEL)
+        le._call_ai("p", "k", MODEL)
     assert budget.used(MODEL) == 10

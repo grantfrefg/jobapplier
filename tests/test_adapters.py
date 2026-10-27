@@ -214,7 +214,7 @@ def test_greenhouse_form(tmp_path, monkeypatch):
     work_rights = "Yes, I am currently legally authorized to work in the country where the job is located."
     gemini = Gemini(lambda fields: [{"id": f["id"], "action": "choose", "value": work_rights}
                                     for f in fields if f["type"] == "combobox"])
-    monkeypatch.setattr(le, "_call_gemini", gemini)
+    monkeypatch.setattr(le, "_call_ai", gemini)
     seen = {}
 
     def gate(page, needs, dry_run):
@@ -244,7 +244,7 @@ def test_lever_form(tmp_path, monkeypatch):
     job = _setup(tmp_path, monkeypatch, LEVER, "lever", cover_pdf=False)
     monkeypatch.setattr(le, "detect_ats", lambda url: "lever")  # a local file stands in for jobs.lever.co
     gemini = Gemini()
-    monkeypatch.setattr(le, "_call_gemini", gemini)
+    monkeypatch.setattr(le, "_call_ai", gemini)
     seen = {}
 
     def gate(page, needs, dry_run):
@@ -275,7 +275,7 @@ def test_seek_document_step_needs_no_ai(tmp_path, monkeypatch):
     job = _setup(tmp_path, monkeypatch, SEEK, "seek", cover_pdf=False)
     monkeypatch.setattr(le, "detect_ats", lambda url: "seek")  # a local file stands in for seek.com.au
     gemini = Gemini()
-    monkeypatch.setattr(le, "_call_gemini", gemini)
+    monkeypatch.setattr(le, "_call_ai", gemini)
     seen = {}
 
     def gate(page, needs, dry_run):
@@ -297,7 +297,7 @@ def test_choose_never_presses_enter(tmp_path, monkeypatch):
     html = LEVER.replace("for (const t of ['Sydney NSW, Australia', 'Sydney, Nova Scotia, Canada'])",
                          "for (const t of [])")
     job = _setup(tmp_path, monkeypatch, html, "lever_empty", cover_pdf=False)
-    monkeypatch.setattr(le, "_call_gemini", Gemini())
+    monkeypatch.setattr(le, "_call_ai", Gemini())
     seen = {}
 
     def gate(page, needs, dry_run):
@@ -368,7 +368,7 @@ for (const id of ['f1', 'f2']) {
 def test_pageup_style_uploads_go_in_the_right_boxes_once(tmp_path, monkeypatch):
     pytest.importorskip("playwright")
     job = _setup(tmp_path, monkeypatch, PAGEUP, "pageup")
-    monkeypatch.setattr(le, "_call_gemini", Gemini())
+    monkeypatch.setattr(le, "_call_ai", Gemini())
     seen = []
 
     def gate(page, needs, dry_run):

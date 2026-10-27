@@ -80,7 +80,7 @@ def test_sign_in_page_gets_email_only_and_no_ai(tmp_path, monkeypatch):
     server, base = _serve(site)
     resume = _engine_env(tmp_path, monkeypatch)
     prompts = []
-    monkeypatch.setattr(le, "_call_gemini", _fake_gemini(prompts))
+    monkeypatch.setattr(le, "_call_ai", _fake_gemini(prompts))
     seen = []
 
     def gate(page, needs, dry_run):
@@ -113,7 +113,7 @@ def test_create_account_page_is_explained(tmp_path, monkeypatch):
     (site / "signup.html").write_text(SIGN_UP)
     server, base = _serve(site)
     resume = _engine_env(tmp_path, monkeypatch)
-    monkeypatch.setattr(le, "_call_gemini", lambda *a: pytest.fail("sign-up pages aren't sent to the AI"))
+    monkeypatch.setattr(le, "_call_ai", lambda *a: pytest.fail("sign-up pages aren't sent to the AI"))
     seen = {}
 
     def gate(page, needs, dry_run):
