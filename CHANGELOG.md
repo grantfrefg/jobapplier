@@ -9,6 +9,15 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **ATS check reads the PDF back and knows synonyms:** each generated resume PDF's text is extracted the way a
+  parser does it and checked (name first, email and phone readable, sections in order, every job keeps its dates);
+  characters a parser may misread (ligatures, icon glyphs) are flagged. Another form of an ad's term ("AWS" for
+  "Amazon Web Services") counts half and the badge says which word to use. More short and long forms are known,
+  including other engineering disciplines (CAD, PLC, SCADA, BIM, FEA, CFD, HVAC, WHS, RPEQ, CPEng).
+- **Your own resume or cover letter for a job:** on the Apply tab, "use my own resume / cover letter" takes a PDF or
+  Word (.docx) file, and Apply uploads it instead of the generated one (you can mix). A job with your own resume
+  isn't sent for tailoring (no Gemini requests), becomes ready to apply even if its drafts were rejected, and its
+  ATS check reads your file (a scanned, unreadable PDF is flagged). "Use generated" switches back. Adds `pypdf`.
 - **Why a job got no documents:** when every draft is rejected (`FAILED_JUDGE`, `FAILED_VALIDATION`), the log now
   says why and what happens next, the Apply tab's **All jobs** view shows the reason (hover) with a **Try again**
   button, and **Find jobs** has a "What the log means" guide to the log lines (searches, blocked boards, tailoring
