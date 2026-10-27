@@ -6,9 +6,9 @@ jobapplier is a fork of [ApplyPilot](https://github.com/Pickle-Pixel/ApplyPilot)
 
 What's different from the original:
 
-- **Free.** Every AI step runs on your own Google Gemini key (`gemini-3.5-flash-lite`, free tier). Form-filling uses a local browser; there's no paid Claude Code subscription, though that engine is still available.
+- **Free.** Every AI step runs on your own Google Gemini key (`gemini-3.5-flash-lite`, free tier). Form-filling uses a local browser; there's no paid Claude Code subscription, though that engine is still available. Prefer a paid model? Use your own OpenAI or Anthropic (Claude) API key instead, and Codex can drive the browser like Claude Code.
 - **You submit.** The app fills in the form and stops. Submit/Apply buttons are outlined in red, and you review and click them yourself.
-- **Private.** Your name, contact details, address and ID numbers are sent to Gemini only as placeholders and filled in locally.
+- **Private.** Your name, contact details, address and ID numbers are sent to the AI only as placeholders and filled in locally.
 - **Australian job sources.** Indeed Australia, LinkedIn and Jora, filtered to your city and state. Jora ads open the employer's own application form.
 - **One application per role.** The same job on several boards is detected, and you apply once.
 - **Written for engineers in Australia.** Scoring knows your deal-breakers (work rights, security clearance, location, seniority). Resumes and cover letters use Australian English and come out as ATS-friendly A4 PDFs with your location and work rights at the top.
@@ -54,7 +54,7 @@ applypilot ui        # opens the web UI at http://localhost:8000
 The web UI has three tabs.
 
 **1. Setup**
-- Paste your free [Gemini API key](https://aistudio.google.com/apikey) and press **Test key**.
+- Paste your free [Gemini API key](https://aistudio.google.com/apikey) and press **Test key**. To use your own paid key instead, pick OpenAI or Anthropic (Claude) under **AI for scoring, resumes and form answers**, paste that key and press **Test key**. Paid API keys are billed per use by OpenAI or Anthropic, separately from a ChatGPT or Claude subscription.
 - Paste your resume as plain text, and optionally upload the PDF.
 - Choose your country, city and job titles, plus any title words to skip (e.g. *intern, graduate*).
 - Fill in your profile: contact details, work rights, security clearance, notice period, relocation, salary and the other answers used on application forms. Questions with a fixed set of answers are drop-downs. Replace the example values ("Your City", "Company A"...): the profile won't save while any are left.

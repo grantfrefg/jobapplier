@@ -550,7 +550,19 @@ Screening questions (the applicant is an engineer applying in Australia):
 - Output ONLY the JSON object."""
 
 
-def _call_gemini(prompt: str, api_key: str, model: str) -> dict:
+def _call_ai(prompt: str, api_key: str, model: str) -> dict:
+    """Ask the form AI (the provider chosen in Settings) and parse its JSON reply."""
+    provider = config.get_llm_provider()
+    if provider not in (None, config.PROVIDER_GEMINI):
+        from applypilot.llm import get_client
+        client = get_client()  # OpenAI, Claude or a local server: no daily budget to keep
+        text = client.chat([{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+                           temperature=0.0, max_tokens=4096, json_mode=True)
+        return parse_json_response(text)
+    return _call_gemini_api(prompt, api_key, model)
+
+
+def _call_gemini_api(prompt: str, api_key: str, model: str) -> dict:
     """POST to Gemini generateContent and parse the JSON response."""
     payload = {
         "systemInstruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
@@ -890,7 +902,7 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
         has_cover_text=bool(ctx["local_values"].get("{{COVER_LETTER_TEXT}}")),
         ats=ats,
     )
-    result = _call_gemini(prompt, ctx["api_key"], ctx["model"])
+    result = _call_ai(prompt, ctx["api_key"], ctx["model"])
     done = _run_actions(result["actions"], frame_by_id, ctx, lf)
     lf.write(f"  applied {len(done)}/{len(result['actions'])} AI actions for {len(remaining)} fields\n")
     if conn is not None:
@@ -1273,9 +1285,9 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
 
     gate = gate or _approval_gate
     start = time.time()
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    api_key = config.provider_key(config.get_llm_provider())
     if not api_key:
-        return "failed:no_gemini_api_key", 0
+        return "failed:no_ai_api_key", 0
 
     profile = config.load_profile()
     placeholders = build_placeholders(profile)

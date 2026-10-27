@@ -9,6 +9,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **Your own paid AI keys:** choose the AI that scores jobs, writes resumes and cover letters and answers forms:
+  Google Gemini (free), OpenAI (`OPENAI_API_KEY`, default `gpt-5-mini`) or Anthropic Claude (`ANTHROPIC_API_KEY`,
+  default `claude-opus-5-5`, through the official `anthropic` SDK). Setup has a provider picker with a key field
+  and **Test key** for each; the free browser engine fills forms with whichever is chosen. OpenAI's newer models get
+  the request fields they need (`max_completion_tokens`, no temperature).
+- **Codex engine** (`EXECUTION_ENGINE=codex`): OpenAI's Codex CLI applies like the Claude Code engine (same
+  instructions, same Chrome through Playwright MCP, submits automatically), with its command runner in a read-only
+  sandbox. `applypilot doctor` checks for it; a Codex that isn't signed in is reported as such.
 - **ATS check reads the PDF back and knows synonyms:** each generated resume PDF's text is extracted the way a
   parser does it and checked (name first, email and phone readable, sections in order, every job keeps its dates);
   characters a parser may misread (ligatures, icon glyphs) are flagged. Another form of an ad's term ("AWS" for

@@ -133,7 +133,7 @@ def test_apply_through_web_gate(client, tmp_path, monkeypatch):
     client.post("/api/profile", json=PROFILE)
     client.post("/api/settings", json={"EXECUTION_ENGINE": "local_playwright", "GEMINI_API_KEY": "k-12345678"})
     prompts: list[str] = []
-    monkeypatch.setattr(le, "_call_gemini", _fake_gemini(prompts))
+    monkeypatch.setattr(le, "_call_ai", _fake_gemini(prompts))
 
     # Nothing to approve yet
     assert client.post("/api/apply/decision", json={"decision": "applied"}).status_code == 409
@@ -216,26 +216,38 @@ def test_duplicate_listing_hidden_and_refused(client, tmp_path):
     assert "same role as a listing on linkedin" in s["message"]
 
 
-def test_gemini_key_check(client, monkeypatch):
+def test_ai_key_check(client, monkeypatch):
     import httpx
-    assert client.post("/api/settings/test-gemini").status_code == 400  # no key yet
+    from applypilot import llm
+    assert client.post("/api/settings/test-ai").status_code == 400  # no key yet
     client.post("/api/settings", json={"GEMINI_API_KEY": "AIza-bad-key-0000"})
-    calls = []
+    seen = []
 
-    def fake_post(url, headers, json, timeout):
-        calls.append((url, headers))
-        req = httpx.Request("POST", url)
-        if headers["x-goog-api-key"] == "AIza-good-key-111":
-            return httpx.Response(200, json={"candidates": []}, request=req)
-        return httpx.Response(400, json=[{"error": {"message": "Please pass a valid API key"}}], request=req)
+    def fake_chat(self, messages, **kw):
+        seen.append((self.base_url, self.model, self.api_key))
+        if self.api_key.endswith("bad-key-0000"):
+            req = httpx.Request("POST", self.base_url)
+            raise httpx.HTTPStatusError("400", request=req, response=httpx.Response(
+                400, json=[{"error": {"message": "Please pass a valid API key"}}], request=req))
+        return "OK"
 
-    monkeypatch.setattr(httpx, "post", fake_post)
-    r = client.post("/api/settings/test-gemini")
+    monkeypatch.setattr(llm.LLMClient, "chat", fake_chat)
+    r = client.post("/api/settings/test-ai")
     assert r.status_code == 400 and "Please pass a valid API key" in r.json()["detail"]
-    assert calls[0][0].endswith("/models/gemini-3.5-flash-lite:generateContent")  # same default as the pipeline
+    assert seen[-1][1] == "gemini-3.5-flash-lite"  # same default as the pipeline
 
     client.post("/api/settings", json={"GEMINI_API_KEY": "AIza-good-key-111", "LLM_MODEL": "gemini-3.5-flash"})
-    assert client.post("/api/settings/test-gemini").json() == {"ok": True, "model": "gemini-3.5-flash"}
+    assert client.post("/api/settings/test-gemini").json() == {  # the old route still works
+        "ok": True, "model": "gemini-3.5-flash", "provider": "gemini", "provider_name": "Google Gemini"}
+
+    # A paid key: choosing the provider switches every stage to it, with its own default model
+    client.post("/api/settings", json={"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "sk-good-1234567"})
+    r = client.post("/api/settings/test-ai").json()
+    assert (r["provider"], r["model"]) == ("openai", "gpt-5-mini")  # not the Gemini model name
+    assert seen[-1][0] == "https://api.openai.com/v1"
+    status = client.get("/api/status").json()
+    assert status["provider"] == "openai" and status["budget"] is None  # no Gemini daily budget for paid keys
+    assert client.post("/api/settings", json={"LLM_PROVIDER": "nonsense"}).status_code == 400
 
 
 def test_job_list_links_to_listing_when_no_application_link(client, tmp_path):

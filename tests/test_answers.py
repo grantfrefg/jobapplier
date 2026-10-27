@@ -154,7 +154,7 @@ def test_known_page_needs_no_ai_and_your_edits_are_learned(tmp_path, monkeypatch
         acts = [{"id": f["id"], "action": "select", "value": "Yes"} for f in fields if f["type"] == "select"]
         return {"actions": acts, "needs_attention": ["Notice period"]}
 
-    monkeypatch.setattr(le, "_call_gemini", fake_gemini)
+    monkeypatch.setattr(le, "_call_ai", fake_gemini)
 
     def gate(page, needs, dry_run, snapshot=None):
         page.fill("#np", "4 weeks")   # you answer what the AI couldn't

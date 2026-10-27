@@ -34,10 +34,10 @@ from applypilot import budget, config
 STATIC_DIR = Path(__file__).parent / "static"
 PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
 
-ENV_KEYS = ("EXECUTION_ENGINE", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY", "CAPSOLVER_API_KEY",
-            "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE")
+ENV_KEYS = ("EXECUTION_ENGINE", "LLM_PROVIDER", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE")
 NUMBER_KEYS = {"GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE"}
-SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "CAPSOLVER_API_KEY"}
+SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CAPSOLVER_API_KEY"}
 VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
 GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
 
@@ -271,8 +271,8 @@ def _example_skills_left() -> list[str]:
 
 
 def _budget_status() -> dict | None:
-    """Today's Gemini usage, when a Gemini key is what's being used."""
-    if not os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_URL"):
+    """Today's Gemini usage, when Gemini is the provider being used."""
+    if config.get_llm_provider() != config.PROVIDER_GEMINI:
         return None
     try:
         return budget.status(config.get_local_engine_model())
@@ -379,11 +379,15 @@ def create_app() -> FastAPI:
     def status() -> dict:
         tier = config.get_tier()
         stats = get_stats()
+        provider = config.get_llm_provider()
+        engine = config.get_execution_engine()
         return {
             "app": "applypilot",
             "desktop": desktop,
-            "engine": config.get_execution_engine(),
+            "engine": engine,
             "local_model": config.get_local_engine_model(),
+            "provider": provider,
+            "provider_name": config.PROVIDERS[provider][2] if provider else "",
             "tier": tier,
             "tier_label": config.TIER_LABELS.get(tier, ""),
             "checks": {
@@ -392,9 +396,10 @@ def create_app() -> FastAPI:
                 "resume_pdf": config.RESUME_PDF_PATH.exists(),
                 "searches": config.SEARCH_CONFIG_PATH.exists(),
                 "gemini_key": bool(os.environ.get("GEMINI_API_KEY")),
-                "llm_key": any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL")),
+                "llm_key": provider is not None,
                 "playwright": config.has_playwright(),
                 "claude_cli": shutil.which("claude") is not None,
+                "agent_cli": shutil.which(config.AGENT_ENGINES.get(engine, "claude")) is not None,
                 "browser": bool(config.find_system_browsers()) or config.has_playwright_chromium(),
             },
             "example_skills": _example_skills_left(),
@@ -433,35 +438,41 @@ def create_app() -> FastAPI:
                 raise HTTPException(400, f"{key} must be a whole number")
             if key == "EXECUTION_ENGINE" and value not in config.EXECUTION_ENGINES:
                 raise HTTPException(400, f"EXECUTION_ENGINE must be one of {config.EXECUTION_ENGINES}")
+            if key == "LLM_PROVIDER" and value and value not in config.PROVIDERS:
+                raise HTTPException(400, f"LLM_PROVIDER must be one of {tuple(config.PROVIDERS)}")
             updates[key] = value
         for key in body.get("clear", []):
             if key in SECRET_KEYS:
                 updates[key] = ""
         _write_env(updates)
+        from applypilot import llm
+        llm._instance = None  # the next request uses the new provider, key and model
         return get_settings()
 
-    @app.post("/api/settings/test-gemini")
-    def test_gemini() -> dict:
+    @app.post("/api/settings/test-ai")
+    @app.post("/api/settings/test-gemini")  # older pages
+    def test_ai() -> dict:
         """One tiny request with the saved key and the model the pipeline uses."""
         import httpx
-        from applypilot.llm import error_detail
-        key = os.environ.get("GEMINI_API_KEY", "")
-        if not key:
-            raise HTTPException(400, "No Gemini API key saved yet")
-        model = os.environ.get("LLM_MODEL") or config.DEFAULT_GEMINI_MODEL
+        from applypilot import llm
+        provider = config.get_llm_provider()
+        if provider is None:
+            raise HTTPException(400, "No AI key saved yet")
+        name = config.PROVIDERS[provider][2]
         try:
-            resp = httpx.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                headers={"x-goog-api-key": key},
-                json={"contents": [{"parts": [{"text": "Reply with OK"}]}]},
-                timeout=30,
-            )
+            client = llm.LLMClient(*llm._detect_provider())
+            try:
+                client.chat([{"role": "user", "content": "Reply with OK"}], max_tokens=20)
+            finally:
+                client.close()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(400, f"{name} said: {llm.error_detail(e.response) or e.response.status_code} "
+                                     f"(model: {client.model})") from e
         except httpx.HTTPError as e:
-            raise HTTPException(502, f"Couldn't reach Google: {e}") from e
-        if not resp.is_success:
-            raise HTTPException(400, f"Gemini said: {error_detail(resp) or resp.status_code} (model: {model})")
-        budget.record(model)
-        return {"ok": True, "model": model}
+            raise HTTPException(502, f"Couldn't reach {name}: {e}") from e
+        except Exception as e:  # Claude errors, budget, ...
+            raise HTTPException(400, f"{name}: {e}") from e
+        return {"ok": True, "model": client.model, "provider": provider, "provider_name": name}
 
     # -- resume ------------------------------------------------------------
 
@@ -819,17 +830,19 @@ def create_app() -> FastAPI:
             raise HTTPException(400, "Pick a job to apply to")
         if not config.PROFILE_PATH.exists():
             raise HTTPException(400, "Save your profile first (Setup tab)")
-        if config.get_execution_engine() == config.ENGINE_LOCAL_PLAYWRIGHT:
-            if not os.environ.get("GEMINI_API_KEY"):
-                raise HTTPException(400, "Add your Gemini API key first (Setup tab)")
+        engine = config.get_execution_engine()
+        if engine == config.ENGINE_LOCAL_PLAYWRIGHT:
+            if not config.get_llm_provider():
+                raise HTTPException(400, "Add an AI key first (Setup tab): Gemini is free")
             if task.running and task.label == "Check where to apply":
                 raise HTTPException(409, "Wait for 'Check where to apply' to finish (they share the browser)")
             require_profile_free()
             session.start(url, int(body.get("min_score", 0)))
             return {"mode": "local", **session.snapshot()}
-        # Claude Code engine is autonomous: run the normal CLI as a subprocess
-        task.start(f"Apply (Claude Code): {url}", ["apply", "--url", url])
-        return {"mode": "claude_code", **task.snapshot()}
+        # Claude Code and Codex are autonomous: run the normal CLI as a subprocess
+        name = "Codex" if engine == config.ENGINE_CODEX else "Claude Code"
+        task.start(f"Apply ({name}): {url}", ["apply", "--url", url])
+        return {"mode": engine, **task.snapshot()}
 
     @app.get("/api/apply")
     def apply_state() -> dict:
