@@ -598,7 +598,8 @@ def create_app() -> FastAPI:
             raise HTTPException(400, "view must be ready, applied or all")
         rows = get_connection().execute(f"""
             SELECT url, title, company, site, location, fit_score, application_url, apply_status,
-                   apply_error, applied_at, duplicate_of, redo_requested,
+                   apply_error, applied_at, duplicate_of, redo_requested, tailor_status, tailor_issues,
+                   COALESCE(tailor_attempts, 0) AS tailor_attempts,
                    apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
                    tailored_resume_path, score_reasoning, full_description,
                    tailored_resume_path IS NOT NULL AS tailored,

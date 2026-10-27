@@ -214,6 +214,8 @@ _ALL_COLUMNS: dict[str, str] = {
     "tailored_resume_path": "TEXT",
     "tailored_at": "TEXT",
     "tailor_attempts": "INTEGER DEFAULT 0",
+    "tailor_status": "TEXT",   # last result: approved, failed_judge, failed_validation, ...
+    "tailor_issues": "TEXT",   # why the last try wasn't used (shown in the UI)
     # Cover letter
     "cover_letter_path": "TEXT",
     "cover_letter_at": "TEXT",
