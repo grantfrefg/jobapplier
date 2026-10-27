@@ -627,6 +627,21 @@ def _visible_options(frame) -> list[str]:
         return []
 
 
+def _click(loc, timeout_ms: int = 3000) -> None:
+    """Click like a person would, even if the element never counts as 'stable'.
+
+    Playwright waits for an element to stop moving before clicking; on a busy
+    machine (or a widget that keeps resizing) that wait can time out although
+    the element is right there. Then click it at its current position anyway.
+    """
+    try:
+        loc.click(timeout=timeout_ms)
+    except Exception as e:
+        if "Timeout" not in type(e).__name__ and "Timeout" not in str(e):
+            raise
+        loc.click(force=True, timeout=timeout_ms)
+
+
 def _choose(frame, loc, value: str, timeout_ms: int = 4000) -> None:
     """Pick `value` in a searchable drop-down or autocomplete input.
 
@@ -635,7 +650,7 @@ def _choose(frame, loc, value: str, timeout_ms: int = 4000) -> None:
     form, which only the user may do.
     """
     for _attempt in range(2):  # a busy page can swallow the first pick: check and retry once
-        loc.click(timeout=3000)
+        _click(loc)
         if loc.evaluate("el => ['input', 'textarea'].includes(el.tagName.toLowerCase())"):
             loc.fill(value, timeout=3000)
         best = _click_option(frame, value, timeout_ms)
@@ -657,7 +672,7 @@ def _click_option(frame, value: str, timeout_ms: int) -> str | None:
         if best:
             for option in frame.locator(_OPTION_SELECTOR).all():
                 if option.inner_text().strip() == best:
-                    option.click(timeout=3000)
+                    _click(option)
                     return best
         frame.page.wait_for_timeout(250)
         waited += 250
@@ -688,7 +703,7 @@ def _collect_combobox_options(fields: list[dict], frame_by_id: dict) -> None:
         if frame is None:
             continue
         try:
-            frame.locator(f'[data-ap-id="{f["id"]}"]').click(timeout=2000)
+            _click(frame.locator(f'[data-ap-id="{f["id"]}"]'), 2000)
             frame.page.wait_for_timeout(300)
             texts = _visible_options(frame)
             frame.page.keyboard.press("Escape")  # closes the menu; never submits
@@ -751,7 +766,9 @@ def _run_actions(actions: list[dict], frame_by_id: dict, ctx: dict, lf) -> list[
             line = _apply_action(action, frame_by_id, ctx["local_values"], ctx["file_values"])
         except Exception as e:
             line = None
-            lf.write(f"  !! {action.get('action')} {action.get('id')} failed: {str(e)[:120]}\n")
+            lines = [ln.strip() for ln in str(e).strip().splitlines() if ln.strip()]
+            why = lines[0][:120] + (f" ({lines[-1][:120]})" if len(lines) > 1 else "")  # the last step says why
+            lf.write(f"  !! {action.get('action')} {action.get('id')} failed: {why}\n")
         if line:
             done.append(action)
             lf.write(f"  >> {line}\n")

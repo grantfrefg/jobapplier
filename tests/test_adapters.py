@@ -228,7 +228,8 @@ def test_greenhouse_form(tmp_path, monkeypatch):
     assert le.run_job(job, gate=gate)[0] == "manual"
     assert (seen["first"], seen["last"], seen["email"]) == ("Jane", "Doe", "jane@example.com")
     assert seen["phone"] == "+61 412 345 678"     # the country picker reads the +61
-    assert seen["chosen"] == ["Australia +61", "Sydney, New South Wales, Australia", work_rights]
+    log = "".join(f.read_text() for f in tmp_path.glob("local-worker-*.log"))
+    assert seen["chosen"] == ["Australia +61", "Sydney, New South Wales, Australia", work_rights], log
     assert seen["resume"] == 1 and seen["submitted"] is False
     # Only the screening question reached the AI, with its options read from the open menu
     assert len(gemini.sent) == 1
@@ -419,6 +420,28 @@ def test_choose_retries_when_the_pick_is_lost():
     document.addEventListener('click', e => {{
       if (!lost && e.target.getAttribute('role') === 'option') {{ lost = true; e.stopImmediatePropagation(); }}
     }}, true);
+    </script></body></html>"""
+    with sync_playwright() as p:
+        browser = launch_chromium(p)
+        page = browser.new_page()
+        page.set_content(page_html)
+        le._choose(page.main_frame, page.locator("#country"), "Australia +61")
+        chosen = page.locator(".select__single-value").inner_text()
+        browser.close()
+    assert chosen == "Australia +61"
+
+
+def test_choose_works_when_the_drop_down_never_settles():
+    """Regression (CI): clicks waited for the box to be 'stable' and timed out, so nothing was picked."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+
+    from applypilot.browser import launch_chromium
+    page_html = f"""<!doctype html><html><head><style>
+    @keyframes wobble {{ from {{ width: 200px; }} to {{ width: 202px; }} }}
+    #country, [role=option] {{ animation: wobble 0.05s infinite alternate; }}
+    </style></head><body>{_combo("country", "Country")}{COMBO_JS}<script>
+    combo('country', ['United States +1', 'Australia +61']);
     </script></body></html>"""
     with sync_playwright() as p:
         browser = launch_chromium(p)
