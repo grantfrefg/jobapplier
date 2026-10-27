@@ -10,7 +10,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qsl, urljoin, urlsplit
 
 from applypilot.config import DB_PATH
 
@@ -161,7 +161,9 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     return conn
 
 
-_AUTH_WALL_RE = re.compile(r"linkedin\.com/(signup|login|uas/login|authwall|checkpoint)", re.IGNORECASE)
+_AUTH_WALL_RE = re.compile(r"linkedin\.com/(signup|login|uas/login|authwall|checkpoint)"
+                           r"|jora\.com/users/(sign_in|sign_up)|seek\.com\.au/oauth|/(login|signin|sign_in|signup|"
+                           r"sign_up|register)(?:[/?#]|$)", re.IGNORECASE)
 
 
 def _absolute_link(page_url: str, link) -> str | None:
@@ -312,13 +314,24 @@ def normalize_title(title: str | None) -> str:
     return " ".join(_norm_words(title))
 
 
+# Query parameters that only track where a click came from; everything else
+# can identify the job (?jobId=123, PageUp's sData, Jora's return_to).
+_TRACKING_PARAM = re.compile(r"^(utm\w*|source|src|ref|referrer|trk\w*|gh_src|lever-source|iis|iisn|"
+                             r"campaign|medium|fbclid|gclid|mc_\w+|sp|sr|sq|sl|tk|sol_key|trigger_source)$",
+                             re.IGNORECASE)
+
+
 def _norm_apply_url(url: str | None) -> str:
-    """Employer apply link without query string, fragment or trailing slash."""
-    if not url or not url.startswith("http"):
+    """An employer apply link, comparable across listings: tracking parameters,
+    fragment and trailing slash removed. A board's sign-in or sign-up page isn't
+    a job's link (many jobs share it), so it gives "" and never matches."""
+    if not url or not url.startswith("http") or _AUTH_WALL_RE.search(url):
         return ""
     parts = urlsplit(url)
     host = parts.netloc.lower().removeprefix("www.")
-    return f"{host}{parts.path.rstrip('/')}"
+    query = "&".join(sorted(f"{k}={v}" for k, v in parse_qsl(parts.query, keep_blank_values=True)
+                            if not _TRACKING_PARAM.match(k)))
+    return f"{host}{parts.path.rstrip('/')}" + (f"?{query}" if query else "")
 
 
 def _shingles(text: str | None, n: int = 5) -> frozenset:

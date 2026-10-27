@@ -62,6 +62,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- Different jobs whose apply link was a job board's sign-in page (every Jora quick-apply job, LinkedIn's sign-up
+  page) or an employer link with the job ID in the query (PageUp) were treated as one role: all but one were hidden,
+  and Redo skipped them. Sign-in pages no longer match, and only tracking parameters are ignored.
 - Tailored resumes and cover letters could claim things that aren't true (a target-job title like "Forward Deployed
   AI Engineer" as the headline, skills from the profile template's examples). Code now checks every title, skill,
   tool, number, employer and qualification against the original resume, fixing or rejecting what doesn't match;
