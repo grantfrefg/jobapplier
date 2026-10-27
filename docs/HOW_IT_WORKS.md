@@ -70,6 +70,15 @@ Every result is checked against your original resume:
 
 If the resume fails, both documents are regenerated. If only the letter fails, just the letter is retried.
 
+**Australian, ATS-friendly and human.** The prompts ask for the ad's exact wording for skills you really have (ATS searches match literal words), acronyms written out once ("machine learning (ML)"), titles, employers and dates exactly as in your resume, 2 pages, and no photo or date of birth. Must-have skills you have that the AI left out are added to the skills section by code. American spellings in what the AI wrote are changed to Australian ones (never inside names from your resume). Words and phrasings that read as AI-written ("leverage", "thrilled", "not just X but Y", exclamation marks) get the summary or cover letter rewritten. Cover letters are 200-300 words, sign off "Kind regards,", and address selection criteria when the ad asks for them.
+
+**ATS check.** Every tailored resume gets a score out of 100 (the **ATS** badge on the Apply tab; hover for details, or `applypilot ats` in the terminal). Australian employers mostly use Workday or SAP SuccessFactors (banks, miners, retailers), PageUp (government, universities), JobAdder, Greenhouse, Lever and iCIMS, and SEEK applications are usually passed on into the employer's own system. None publish their rules, so the check mirrors what they all do:
+- **Parsing:** standard section headings, email and phone in the header, every job with a readable date range, 1-3 pages.
+- **Knockouts:** work rights and city/state stated (Australian employers filter on both); no date of birth or photo.
+- **Keywords:** the ad's tools and must-haves that appear in the resume, in its own words. Ones you don't have are listed but don't lower the score: they can't be added honestly.
+- **Australian spelling.**
+It uses no AI requests. It's a guide, not a prediction of any one vendor's ranking.
+
 **Your skills list matters.** `skills_boundary` in your profile adds skills that aren't spelled out in your resume. The template's example values (JavaScript, Docker, AWS, MongoDB...) are ignored, and Setup warns while any are still there: replace them with what you actually use.
 
 **Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job).

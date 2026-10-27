@@ -46,6 +46,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **Log in to sites:** opens the engine's browser profile as a normal (non-automated) window so you can sign in
   to Google, LinkedIn, SEEK or an employer site where sign-in is blocked in the automated window
   (`applypilot login`, or a job's Log in button).
+- **ATS check:** every tailored resume gets a score (Apply tab badge, `applypilot ats`) for parsing, Australian
+  knockout facts (work rights, location), the ad's keywords and spelling. No AI requests.
+- **Prompts reviewed for Australia, ATS and a human voice:** the ad's exact words for real skills (missing ones
+  added by code), Australian spelling enforced in code, AI-sounding words and phrasing rejected in summaries and
+  letters, letters sign off "Kind regards," and address selection criteria, projects no longer required.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed

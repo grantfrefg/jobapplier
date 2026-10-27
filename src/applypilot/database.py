@@ -238,6 +238,9 @@ _ALL_COLUMNS: dict[str, str] = {
     "apply_account": "TEXT",
     "apply_site_url": "TEXT",
     "apply_site_checked_at": "TEXT",
+    # ATS check of the tailored resume (scoring/ats.py): 0-100 and the details
+    "ats_score": "INTEGER",
+    "ats_report": "TEXT",
 }
 
 

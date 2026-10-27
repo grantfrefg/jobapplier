@@ -31,6 +31,7 @@ from applypilot.scoring.cover_letter import (
 )
 from applypilot.scoring.validator import (
     BANNED_WORDS,
+    australianise,
     new_numbers,
     sanitize_text,
     validate_cover_letter,
@@ -104,28 +105,44 @@ SKILLS: Group into categories that suit the candidate (e.g. Languages, Framework
 Databases, Tools; or for non-software engineering: Design Software, Standards & Codes, Methods).
 Put the job's must-haves first in each category. Drop skills irrelevant to this job if space is tight.
 
-BULLETS: Reorder so the job's must-haves come first. Reword a bullet when the job uses different
+## GETTING THROUGH THE ATS (Workday, SuccessFactors, PageUp, JobAdder, Greenhouse...)
+Recruiters search and rank applications by the ad's exact words, so:
+- For every must-have the candidate really has, use the ad's own wording at least once (in the
+  skills or a bullet): if the ad says "stakeholder management", don't only write "partnered with".
+- Write each acronym out once with the acronym: "machine learning (ML)", "Google Cloud Platform (GCP)".
+- Keep job titles, employers and dates exactly as in the resume, dates as "Mar 2021 - Present".
+- Plain words only: no tables, columns, symbols, emojis or icons in any field.
+
+BULLETS: No "I", "my" or "we". Reorder so the job's must-haves come first. Reword a bullet when the job uses different
 terms for the same work (e.g. "web services" -> "REST APIs") or when its impact is buried; keep it as
 is when it already fits. Each bullet must be traceable to one original bullet in the same role. Don't
 move achievements between roles or projects, and don't join separate facts into a new cause and
 effect (if one bullet says costs fell 50% and another says 10 million customers, don't write "cut costs
 50% while serving 10 million customers"). Shape: strong verb + what was built/designed/delivered + scale or result.
-Vary verbs (Built, Designed, Led, Shipped, Migrated, Automated, Reduced, Scaled). Up to 5 bullets for
-recent roles, 2-3 for older ones.
+Vary verbs (Built, Designed, Led, Shipped, Migrated, Automated, Reduced, Scaled) and vary the shape:
+not every bullet "verb + thing, resulting in X%". Some bullets are just what was built and for whom;
+put a number only where the resume has one. Up to 5 bullets for recent roles, 2-3 for older ones.
 
-PROJECTS: Most relevant first. Drop projects that don't help for this job.
+PROJECTS: Only projects in the original resume, most relevant first. Drop ones that don't help for
+this job. If the resume has none, return an empty list: never make one up.
 
 EXPERIENCE ENTRIES: header "Job Title at Employer"; subtitle "Mon YYYY - Mon YYYY (or Present) | main tech".
 EDUCATION: "Institution | Degree | graduation year" (the year only if the original resume shows it).
 
-LENGTH: Australian resumes are normally 2 pages. Keep it tight: no filler bullets.
+LENGTH: Australian resumes are normally 2 pages (3 at most for long careers). Keep it tight: no filler
+bullets. No photo, date of birth, marital status or "references available on request".
 
-## VOICE
-- Write like an engineer: plain, specific, technical where it helps.
+## VOICE: IT MUST NOT READ AS AI-WRITTEN
+Australian recruiters read hundreds of these and reject the ones that sound generated.
+- Write like an engineer: plain, specific, technical where it helps. Understated beats salesy.
+- Short sentences and ordinary words. No stacked adjectives, no "not just X but Y", no
+  exclamation marks, no rhetorical questions.
+- The summary is 2-3 plain sentences of facts, not a pitch: what they do, at what scale, with what.
 - GOOD: "Built a Python ingestion service on AWS Lambda for 2M events a day, cut reporting lag
   from 6 hours to 15 minutes"
 - BAD: "Leveraged cutting-edge technologies to drive transformative operational efficiencies"
-- BANNED WORDS (using ANY of these = validation failure, do not use them even once):
+- BANNED WORDS (words recruiters and AI detectors flag; using any = rejected, unless the original
+  resume itself uses the word):
   {banned_str}
 - No em dashes. Use commas, periods, or hyphens.
 - {AU_STYLE}
@@ -426,7 +443,43 @@ def judge_reasons(mode: str) -> list[str]:
     return [] if mode == "lenient" else [f"{mode} mode"]
 
 
-def check_facts(resume: dict, letter: str, resume_text: str, profile: dict) -> dict:
+def _australianise_resume(resume: dict, original: str) -> dict:
+    """Australian spelling in everything the AI wrote (not in the candidate's own names)."""
+    out = dict(resume)
+    for key in ("title", "focus", "summary"):
+        if isinstance(out.get(key), str):
+            out[key] = australianise(out[key], original)
+    for section in ("experience", "projects"):
+        entries = []
+        for entry in out.get(section) or []:
+            if isinstance(entry, dict):
+                entry = {**entry, "bullets": [australianise(str(b), original) for b in entry.get("bullets", [])]}
+            entries.append(entry)
+        out[section] = entries
+    return out
+
+
+def job_keywords(job: dict | None) -> list[str]:
+    """Must-haves the scorer found in both the job ad and the resume (first line of score_reasoning)."""
+    first = str((job or {}).get("score_reasoning") or "").split("\n", 1)[0]
+    return [k.strip() for k in first.split(",") if 1 < len(k.strip()) <= 40][:15]
+
+
+def add_missing_keywords(resume: dict, keywords: list[str], source: "facts.Source") -> list[str]:
+    """ATS filters match the ad's exact words. Real must-haves the AI left out go in the skills."""
+    written = facts.normalize(_generated_text(resume, ""))
+    missing = [k for k in keywords if source.mentions(k)
+               and not re.search(rf"(?<![a-z0-9]){re.escape(facts.normalize(k).strip())}(?![a-z0-9])", written)]
+    if missing:
+        skills = dict(resume.get("skills") or {})
+        key = next((k for k in skills if k.lower() in ("key skills", "core skills")), "Key skills")
+        current = skills.pop(key, "")
+        skills = {key: ", ".join(x for x in [current, *missing[:8]] if x), **skills}
+        resume["skills"] = skills
+    return missing[:8]
+
+
+def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job: dict | None = None) -> dict:
     """Check the AI's resume and letter against the original resume. Fixes what code can fix.
 
     Returns {"resume": fixed resume, "errors": [...] (resume needs another
@@ -448,6 +501,8 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict) -> d
 
     skills, dropped = facts.filter_skills(fixed.get("skills") or {}, source)
     fixed["skills"] = skills
+    from applypilot.scoring import ats
+    added = add_missing_keywords(fixed, list(dict.fromkeys(job_keywords(job) + ats.ad_terms(job))), source)
 
     claims = facts.role_claims(str(fixed.get("summary", "")), source)
     if claims:
@@ -469,7 +524,7 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict) -> d
         errors.append("Education doesn't match the resume. Copy it exactly.")
 
     return {"resume": fixed, "errors": errors, "letter_errors": letter_problems(letter, source, resume_text),
-            "dropped_skills": dropped, "title_replaced": replaced}
+            "dropped_skills": dropped, "title_replaced": replaced, "added_keywords": added}
 
 
 def letter_problems(letter: str, source: "facts.Source", resume_text: str) -> list[str]:
@@ -546,10 +601,12 @@ def tailor_application(
             continue
 
         raw_letter = data.get("cover_letter")
-        candidate = clean_letter(raw_letter) if isinstance(raw_letter, str) and raw_letter.strip() else ""
+        candidate = (australianise(clean_letter(raw_letter), resume_text)
+                     if isinstance(raw_letter, str) and raw_letter.strip() else "")
 
-        validation = validate_json_fields(resume, profile, mode=validation_mode)
-        checked = check_facts(resume, candidate, resume_text, profile)
+        resume = _australianise_resume(resume, resume_text)
+        validation = validate_json_fields(resume, profile, mode=validation_mode, original_text=resume_text)
+        checked = check_facts(resume, candidate, resume_text, profile, job)
         resume = checked["resume"]
         validation["errors"] += checked["errors"]
         validation["passed"] = not validation["errors"]
@@ -560,7 +617,7 @@ def tailor_application(
 
         # Cover letter: keep the best one seen (a valid one wins)
         if candidate and not letter_ok:
-            cover_check = validate_cover_letter(candidate, mode=validation_mode)
+            cover_check = validate_cover_letter(candidate, mode=validation_mode, original_text=resume_text)
             cover_check["errors"] += checked["letter_errors"]
             cover_check["passed"] = not cover_check["errors"]
             report["cover_validator"] = cover_check
@@ -686,6 +743,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             )
             job_path.write_text(job_desc, encoding="utf-8")
 
+            # ATS check (no AI): how a parser and a keyword search see this resume
+            from applypilot.scoring import ats
+            report["ats"] = ats.check(tailored, job, resume_text)
+
             # Save validation report
             report_path = TAILORED_DIR / f"{prefix}_REPORT.json"
             report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
@@ -718,6 +779,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                 "title": job["title"],
                 "site": job["site"],
                 "status": report["status"],
+                "ats": report.get("ats"),
                 "attempts": report["attempts"],
                 "requests": report["requests"],
                 "cover_letter_path": cl_path,
@@ -757,8 +819,9 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
         if r["status"] in _success_statuses:
             conn.execute(
                 "UPDATE jobs SET tailored_resume_path=?, tailored_at=?, "
-                "tailor_attempts=COALESCE(tailor_attempts,0)+1 WHERE url=?",
-                (r["path"], now, r["url"]),
+                "tailor_attempts=COALESCE(tailor_attempts,0)+1, ats_score=?, ats_report=? WHERE url=?",
+                (r["path"], now, (r.get("ats") or {}).get("score"),
+                 json.dumps(r["ats"]) if r.get("ats") else None, r["url"]),
             )
             if r.get("cover_letter_path"):
                 conn.execute(

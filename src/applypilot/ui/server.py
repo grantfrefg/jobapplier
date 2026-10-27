@@ -237,6 +237,22 @@ class ApplySession:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _fill_ats(job: dict) -> None:
+    """ATS check (no AI, a few milliseconds) for a resume tailored before the check existed.
+
+    Not saved: writing from the job list could wait on a busy database
+    (tailoring runs in another process). New resumes get theirs at tailoring.
+    """
+    from applypilot.scoring import ats
+    try:
+        text = Path(job["tailored_resume_path"]).read_text(encoding="utf-8")
+        original = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
+        report = ats.check(text, job, original)
+    except Exception:
+        return
+    job["ats_score"], job["ats_report"] = report["score"], json.dumps(report)
+
+
 def _example_skills_left() -> list[str]:
     """Example skills from the profile template that the user never replaced (and doesn't
     mention in their resume). Tailoring ignores them; Setup asks the user to fix the list."""
@@ -566,7 +582,8 @@ def create_app() -> FastAPI:
         rows = get_connection().execute(f"""
             SELECT url, title, company, site, location, fit_score, application_url, apply_status,
                    apply_error, applied_at, duplicate_of, redo_requested,
-                   apply_site, apply_site_name, apply_account, apply_site_url,
+                   apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
+                   tailored_resume_path, score_reasoning, full_description,
                    tailored_resume_path IS NOT NULL AS tailored,
                    cover_letter_path IS NOT NULL AS has_cover,
                    (SELECT site FROM jobs c WHERE c.url = jobs.duplicate_of) AS duplicate_site,
@@ -575,7 +592,18 @@ def create_app() -> FastAPI:
             ORDER BY fit_score IS NULL, fit_score DESC, discovered_at DESC
             LIMIT 500
         """).fetchall()
-        return [{**dict(r), "link": apply_link(r)} for r in rows]
+        out = []
+        for r in rows:
+            job = dict(r)
+            if job["tailored_resume_path"] and job["ats_score"] is None:
+                _fill_ats(job)  # resumes written before the ATS check existed
+            report = json.loads(job.pop("ats_report") or "null")
+            job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
+                                                                "missing_gap", "issues")}
+            for k in ("tailored_resume_path", "score_reasoning", "full_description"):
+                job.pop(k, None)
+            out.append({**job, "link": apply_link(r)})
+        return out
 
     @app.post("/api/jobs/locate")
     def locate_jobs(body: dict) -> dict:

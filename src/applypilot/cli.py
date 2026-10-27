@@ -316,6 +316,40 @@ def redo(
 
 
 @app.command()
+def ats(
+    url: Optional[str] = typer.Option(None, "--url", help="Only this job."),
+) -> None:
+    """ATS check of each tailored resume (Australian employers' systems): score, issues, missing keywords.
+
+    No AI requests. A guide to how a parser and a keyword search see the resume.
+    """
+    _bootstrap()
+    from pathlib import Path
+
+    from applypilot.config import RESUME_PATH
+    from applypilot.database import get_connection
+    from applypilot.scoring import ats as ats_mod
+
+    original = RESUME_PATH.read_text(encoding="utf-8") if RESUME_PATH.exists() else ""
+    rows = get_connection().execute(
+        "SELECT * FROM jobs WHERE tailored_resume_path IS NOT NULL AND duplicate_of IS NULL "
+        "AND applied_at IS NULL" + (" AND url = ?" if url else "") + " ORDER BY fit_score DESC",
+        (url,) if url else ()).fetchall()
+    for row in rows:
+        job = dict(row)
+        try:
+            report = ats_mod.check(Path(job["tailored_resume_path"]).read_text(encoding="utf-8"), job, original)
+        except OSError:
+            continue
+        console.print(f"\n[bold]{report['score']:>3}/100[/bold]  {job['title']} ({job.get('company') or job['site']})"
+                      f"  keywords {report['keyword_match']}%")
+        for issue in report["issues"]:
+            console.print(f"       - {issue}")
+    if not rows:
+        console.print("No tailored resumes yet.")
+
+
+@app.command()
 def login(
     url: Optional[str] = typer.Option(None, "--url", help="Page to open (default: Google, LinkedIn and SEEK)."),
 ) -> None:

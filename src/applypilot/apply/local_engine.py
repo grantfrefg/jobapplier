@@ -518,6 +518,12 @@ Screening questions (the applicant is an engineer applying in Australia):
   anything legal the profile doesn't answer: DON'T answer. Add a needs_attention note instead.
 - Free-text questions ("Why this role?", "Describe a project where..."): 2-4 sentences (or the
   stated word limit), specific to this job, drawn from real resume work with a concrete detail.
+- Selection criteria / "address the following" (Australian government, university and council
+  forms): one answer per criterion in STAR order (situation, task, action, result) from a real
+  resume example, within the stated word limit (otherwise about 150-250 words), first person.
+- Every free-text answer must read like the applicant wrote it: plain Australian English, no
+  "I am thrilled", no "not just X but Y", no exclamation marks, no buzzwords (leverage, passionate,
+  dynamic, synergy, spearheaded).
   Plain and direct, no clichés. Australian English spelling. Never give the applicant a job
   title they haven't held, or tools, numbers or achievements that aren't in the resume.
 - Dates: DD/MM/YYYY unless the field's placeholder shows another format.

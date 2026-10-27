@@ -38,7 +38,86 @@ BANNED_WORDS: list[str] = [
     # Cover-letter-specific additions
     "this demonstrates", "this reflects", "i have experience with",
     "furthermore", "additionally", "moreover",
+    # Words that mark text as AI-written to recruiters and AI detectors
+    "leverage", "leveraged", "leveraging", "delve", "delved", "foster", "fostered", "fostering",
+    "navigate", "navigating", "landscape", "tapestry", "realm", "pivotal", "meticulous", "meticulously",
+    "dynamic", "fast-paced", "results-driven", "game-changer", "game-changing", "unlock", "unlocking",
+    "empower", "empowering", "elevate", "elevating", "testament", "underscore", "underscores", "showcase",
+    "showcasing", "honed", "resonate", "resonates", "thrilled", "excited to", "keen eye", "ever-evolving",
+    "in today's", "impactful", "drive impact", "driving impact", "unwavering", "invaluable", "embark",
+    "journey", "deep dive", "stakeholder buy-in", "value-add", "world-class", "next-level",
 ]
+
+# Phrasings that read as AI-written, checked in the parts recruiters read most
+# closely (the summary and the cover letter).
+AI_PATTERNS: list[tuple[str, str]] = [
+    (r"\bnot (?:just|only|merely)\b[^.]{0,80}\bbut\b", "'not just X but Y'"),
+    (r"!", "exclamation marks"),
+    (r"\?", "questions"),
+    (r"\bi am writing to\b|\bi'm writing to\b", "'I am writing to'"),
+    (r"\b(?:i am|i'm) (?:thrilled|delighted|excited|eager)\b", "gushing ('I'm thrilled')"),
+    (r"\bwhether (?:it's|it is)\b", "'whether it's'"),
+    (r"\bin (?:today's|the ever)", "'in today's ...'"),
+    (r"\bnot only\b", "'not only'"),
+    (r"\bi would be (?:a great|an excellent|the perfect) (?:fit|addition)\b", "'I would be a great fit'"),
+]
+
+
+def ai_phrasing(text: str) -> list[str]:
+    """AI-sounding constructions in the text (see AI_PATTERNS)."""
+    low = (text or "").lower()
+    return sorted({name for pattern, name in AI_PATTERNS if re.search(pattern, low)})
+
+
+def banned_in(text: str, allowed_text: str = "") -> list[str]:
+    """Banned words in the text, except ones the candidate uses in their own resume."""
+    low, own = (text or "").lower(), (allowed_text or "").lower()
+    return [w for w in BANNED_WORDS
+            if re.search(r"\b" + re.escape(w) + r"\b", low) and not re.search(r"\b" + re.escape(w) + r"\b", own)]
+
+
+# American spellings an AI tends to use, with the Australian form. Only whole
+# words, and never words the candidate's own resume spells that way (names).
+_AU_SPELLING: dict[str, str] = {
+    "optimize": "optimise", "optimized": "optimised", "optimizing": "optimising", "optimization": "optimisation",
+    "optimizations": "optimisations", "organize": "organise", "organized": "organised", "organizing": "organising",
+    "organization": "organisation", "organizations": "organisations", "organizational": "organisational",
+    "analyze": "analyse", "analyzed": "analysed", "analyzing": "analysing", "modeling": "modelling",
+    "modeled": "modelled", "behavior": "behaviour", "behaviors": "behaviours", "behavioral": "behavioural",
+    "center": "centre", "centers": "centres", "color": "colour", "colors": "colours", "favor": "favour",
+    "favorite": "favourite", "prioritize": "prioritise", "prioritized": "prioritised",
+    "prioritizing": "prioritising",
+    "standardize": "standardise", "standardized": "standardised", "summarize": "summarise", "summarized": "summarised",
+    "utilization": "utilisation", "visualize": "visualise", "visualized": "visualised",
+    "visualization": "visualisation",
+    "visualizations": "visualisations", "personalize": "personalise", "personalized": "personalised",
+    "personalization": "personalisation", "recognize": "recognise", "recognized": "recognised",
+    "minimize": "minimise", "minimized": "minimised", "maximize": "maximise", "maximized": "maximised",
+    "customize": "customise", "customized": "customised", "categorize": "categorise", "categorized": "categorised",
+    "specialize": "specialise", "specialized": "specialised", "specializing": "specialising",
+    "catalog": "catalogue", "catalogs": "catalogues", "labeled": "labelled", "labeling": "labelling",
+    "traveled": "travelled", "canceled": "cancelled", "fulfill": "fulfil", "enrollment": "enrolment",
+    "defense": "defence", "license": "licence", "program manager": "programme manager",
+}
+
+
+def australianise(text: str, original: str = "") -> str:
+    """American to Australian spelling for AI-written text, keeping the candidate's own words."""
+    if not text:
+        return text
+    own = (original or "").lower()
+
+    def swap(m: re.Match) -> str:
+        word = m.group(0)
+        if re.search(r"\b" + re.escape(word.lower()) + r"\b", own):
+            return word  # the candidate wrote it this way (a name, a product): keep it
+        au = _AU_SPELLING[word.lower()]
+        if word.isupper():
+            return au.upper()
+        return au[0].upper() + au[1:] if word[0].isupper() else au
+
+    pattern = r"\b(" + "|".join(sorted(map(re.escape, _AU_SPELLING), key=len, reverse=True)) + r")\b"
+    return re.sub(pattern, swap, text, flags=re.IGNORECASE)
 
 LLM_LEAK_PHRASES: list[str] = [
     "i am sorry", "i apologize", "i will try", "let me try",
@@ -96,7 +175,7 @@ def sanitize_text(text: str) -> str:
 
 # ── JSON Field Validation ─────────────────────────────────────────────────
 
-def validate_json_fields(data: dict, profile: dict, mode: str = "normal") -> dict:
+def validate_json_fields(data: dict, profile: dict, mode: str = "normal", original_text: str = "") -> dict:
     """Validate individual JSON fields from an LLM-generated tailored resume.
 
     Args:
@@ -114,7 +193,8 @@ def validate_json_fields(data: dict, profile: dict, mode: str = "normal") -> dic
     warnings: list[str] = []
 
     # Required keys — always checked regardless of mode
-    for key in ("title", "summary", "skills", "experience", "projects", "education"):
+    # Projects are optional: requiring them pushes the AI to invent some
+    for key in ("title", "summary", "skills", "experience", "education"):
         if key not in data or not data[key]:
             errors.append(f"Missing required field: {key}")
     if errors:
@@ -149,7 +229,7 @@ def validate_json_fields(data: dict, profile: dict, mode: str = "normal") -> dic
                 all_text_parts.append(b)
 
     # Projects: collect bullets
-    if isinstance(data["projects"], list):
+    if isinstance(data.get("projects"), list):
         for entry in data["projects"]:
             for b in entry.get("bullets", []):
                 all_text_parts.append(b)
@@ -169,15 +249,21 @@ def validate_json_fields(data: dict, profile: dict, mode: str = "normal") -> dic
     if found_leaks:
         errors.append(f"LLM self-talk: '{found_leaks[0]}'")
 
-    # Banned filler words — severity depends on mode
+    # Banned filler words — severity depends on mode. The summary is read
+    # most closely, so there they're errors in normal mode too.
     if mode != "lenient":
-        found_banned = [w for w in BANNED_WORDS if re.search(r"\b" + re.escape(w) + r"\b", all_text)]
+        found_banned = banned_in(all_text, original_text)
+        in_summary = banned_in(str(data["summary"]), original_text)
         if found_banned:
             msg = f"Banned words: {', '.join(found_banned[:5])}"
-            if mode == "strict":
-                errors.append(msg)
+            if mode == "strict" or in_summary:
+                errors.append(f"Banned words in the summary: {', '.join(in_summary[:5])}" if in_summary
+                              and mode != "strict" else msg)
             else:  # normal
                 warnings.append(msg)
+        patterns = ai_phrasing(str(data["summary"]))
+        if patterns:
+            errors.append(f"Summary reads as AI-written ({', '.join(patterns)}). Write it plainly.")
 
     return {"passed": len(errors) == 0, "errors": errors, "warnings": warnings}
 
@@ -224,7 +310,6 @@ def validate_tailored_resume(text: str, profile: dict, original_text: str = "") 
         "SUMMARY": ["summary", "professional summary", "profile"],
         "TECHNICAL SKILLS": ["technical skills", "skills", "tech stack", "core skills", "technologies"],
         "EXPERIENCE": ["experience", "work experience", "professional experience"],
-        "PROJECTS": ["projects", "personal projects", "key projects", "selected projects"],
         "EDUCATION": ["education", "academic background"],
     }
     for section, variants in section_variants.items():
@@ -310,7 +395,7 @@ def validate_tailored_resume(text: str, profile: dict, original_text: str = "") 
 
 # ── Cover Letter Validation ──────────────────────────────────────────────
 
-def validate_cover_letter(text: str, mode: str = "normal") -> dict:
+def validate_cover_letter(text: str, mode: str = "normal", original_text: str = "") -> dict:
     """Programmatic validation of a cover letter.
 
     Args:
@@ -331,22 +416,22 @@ def validate_cover_letter(text: str, mode: str = "normal") -> dict:
     if "\u2014" in text or "\u2013" in text:
         errors.append("Contains em dash or en dash.")
 
-    # 2. Banned words — severity depends on mode
+    # 2. Banned words and AI-sounding phrasing: a letter is read closely, so
+    # these are errors unless lenient
     if mode != "lenient":
-        found = [w for w in BANNED_WORDS if re.search(r"\b" + re.escape(w) + r"\b", text_lower)]
+        found = banned_in(text, original_text)
         if found:
-            msg = f"Banned words: {', '.join(found[:5])}"
-            if mode == "strict":
-                errors.append(msg)
-            else:  # normal
-                warnings.append(msg)
+            errors.append(f"Banned words: {', '.join(found[:5])}")
+        patterns = ai_phrasing(text)
+        if patterns:
+            errors.append(f"Reads as AI-written ({', '.join(patterns)}). Write it plainly.")
 
-    # 3. Word count
+    # 3. Word count (an Australian cover letter fits on one page: 200-300 words)
     words = len(text.split())
-    if mode == "strict" and words > 250:
-        errors.append(f"Too long ({words} words). Max 250.")
-    elif mode == "normal" and words > 275:
-        warnings.append(f"Long ({words} words). Target 250.")
+    if mode == "strict" and words > 300:
+        errors.append(f"Too long ({words} words). Max 300.")
+    elif mode == "normal" and words > 330:
+        warnings.append(f"Long ({words} words). Target 200-300.")
     # lenient: no word count check
 
     # 4. LLM self-talk — always an error regardless of mode

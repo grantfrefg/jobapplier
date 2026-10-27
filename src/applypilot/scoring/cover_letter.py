@@ -18,6 +18,7 @@ from applypilot.llm import get_client
 from applypilot.scoring.context import AU_STYLE, current_title, years
 from applypilot.scoring.validator import (
     BANNED_WORDS,
+    australianise,
     LLM_LEAK_PHRASES,
     sanitize_text,
     validate_cover_letter,
@@ -73,19 +74,22 @@ def cover_letter_rules(profile: dict) -> str:
     return f"""Write a cover letter for {name}, {role_line}. The goal is to get an interview with the
 engineers and hiring manager reading it.
 
-STRUCTURE: 3 short paragraphs, under 250 words. Every sentence must earn its place.
+STRUCTURE: 3-4 short paragraphs, 200-300 words, one page. Every sentence must earn its place.
 
-PARAGRAPH 1 (2-3 sentences): Open with the most relevant thing the candidate has built, designed or
-delivered, and how it maps to what this team needs. Not "I'm excited to apply." Start with the work.
+OPENING (2-3 sentences): Name the role, then go straight to the most relevant thing the candidate has
+built, designed or delivered and how it maps to what this team needs. Not "I am writing to express my
+interest" and not "I'm excited to apply". Start with the work.
 
-PARAGRAPH 2 (3-4 sentences): 1-2 more achievements from the resume most relevant to THIS job, with
-real numbers or scale (users, requests, data volume, uptime, cost, time saved). Frame them as the
-problems this team has.{projects_hint}{metrics_hint}
+MIDDLE (one or two paragraphs): 1-2 more achievements from the resume most relevant to THIS job, with
+real numbers or scale where the resume has them. Use the ad's own words for the skills it asks for
+that the candidate really has (recruiters and ATS search for them).{projects_hint}{metrics_hint}
+If the ad asks applicants to address selection criteria (common in Australian government and
+university roles), touch on each one briefly with a real example from the resume.
 
-PARAGRAPH 3 (1-2 sentences): One specific reason for THIS role, taken from the job description (the
+CLOSE (1-2 sentences): One specific reason for THIS role, taken from the job description (the
 product, system, technical challenge or team). If the employer isn't named (e.g. a recruitment agency
-ad), talk about the role and project described instead. Never invent facts about the company. Close
-plainly, e.g. "Happy to walk through any of this in more detail."
+ad), talk about the role and project described instead. Never invent facts about the company. Then a
+plain close, e.g. "Happy to walk through any of this in more detail." No "I would be a great fit".
 
 BANNED WORDS AND PHRASES (automated validator rejects ANY of these, do not use even once):
 {all_banned}
@@ -95,10 +99,12 @@ ALSO BANNED (meta-commentary the validator catches):
 
 BANNED PUNCTUATION: No em dashes (—) or en dashes (–). Use commas or periods.
 
-VOICE:
-- An engineer writing to another engineer: direct, specific, confident, no fluff.
-- Vary sentence length so it reads like a person. Most sentences should carry a concrete detail
-  (a system, a tool, a number, an outcome); cut any that carry none.
+VOICE: IT MUST NOT READ AS AI-WRITTEN (recruiters reject letters that do):
+- An engineer writing to another engineer, Australian tone: direct, specific, understated. Confident
+  without selling; no superlatives, no gushing, no exclamation marks, no questions.
+- Vary sentence length and how sentences start (not every one with "I"). Most sentences carry a
+  concrete detail (a system, a tool, a number, an outcome); cut any that carry none.
+- No "not just X but Y", no "Whether it's...", no lists of three adjectives.
 - NEVER narrate or explain. BAD: "This demonstrates my commitment to X." GOOD: state the fact.
 - NEVER hedge. BAD: "might address some of your challenges." GOOD: "solves the same problem."
 - {AU_STYLE}
@@ -112,7 +118,7 @@ FABRICATION = INSTANT REJECTION (code checks every one of these against the resu
 - Don't join separate facts into a new claim, and don't claim experience the resume doesn't show.
 
 Start with "Dear <name>," if the job ad names the contact person, otherwise "Dear Hiring Manager,".
-Sign off with just "{name}"."""
+End with "Kind regards," on its own line, then "{name}"."""
 
 
 def _build_cover_letter_prompt(profile: dict) -> str:
@@ -215,9 +221,9 @@ def generate_cover_letter(
 
         if stats is not None:
             stats["requests"] = stats.get("requests", 0) + 1
-        letter = clean_letter(client.chat(messages, max_tokens=1024, temperature=0.7))
+        letter = australianise(clean_letter(client.chat(messages, max_tokens=1024, temperature=0.7)), resume_text)
 
-        validation = validate_cover_letter(letter, mode=validation_mode)
+        validation = validate_cover_letter(letter, mode=validation_mode, original_text=resume_text)
         fact_errors = _fact_errors(letter, resume_text, profile)
         validation["errors"] += fact_errors
         if not validation["errors"]:
