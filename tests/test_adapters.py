@@ -405,3 +405,26 @@ def test_upload_box_reads_only_its_own_row(tmp_path):
     [box] = [f for f in fields if f["type"] == "file"]
     assert "cover" not in (box.get("context") or "").lower()
     assert _upload_actions([box], FILES) == {box["id"]: "{{RESUME_PDF}}"}
+
+
+def test_choose_retries_when_the_pick_is_lost():
+    """Regression (flaky on CI): a lost click left the typed text in the box, which passed for the pick."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+
+    from applypilot.browser import launch_chromium
+    page_html = f"""<!doctype html><html><body>{_combo("country", "Country")}{COMBO_JS}<script>
+    combo('country', ['United States +1', 'Australia +61']);
+    let lost = false;  // a busy page drops the first click on an option
+    document.addEventListener('click', e => {{
+      if (!lost && e.target.getAttribute('role') === 'option') {{ lost = true; e.stopImmediatePropagation(); }}
+    }}, true);
+    </script></body></html>"""
+    with sync_playwright() as p:
+        browser = launch_chromium(p)
+        page = browser.new_page()
+        page.set_content(page_html)
+        le._choose(page.main_frame, page.locator("#country"), "Australia +61")
+        chosen = page.locator(".select__single-value").inner_text()
+        browser.close()
+    assert chosen == "Australia +61"

@@ -8,6 +8,7 @@ search configuration YAML (searches.yaml) rather than being hardcoded.
 """
 
 import logging
+import re
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -72,6 +73,44 @@ def _scrape_with_retry(kwargs: dict, max_retries: int = 2, backoff: float = 5.0)
                 time.sleep(wait)
             else:
                 raise
+
+
+# -- Per-site errors and blocks ------------------------------------------------
+
+_SITE_NAMES = {"linkedin": "LinkedIn", "indeed": "Indeed", "glassdoor": "Glassdoor",
+               "zip_recruiter": "ZipRecruiter", "google": "Google Jobs"}
+# A job board refusing us (too many requests, or a block page): asking again
+# this run only wastes time and can make the block last longer.
+_BLOCKED_RE = re.compile(r"\b(429|403)\b|blocked", re.IGNORECASE)
+
+
+def site_name(site: str) -> str:
+    return _SITE_NAMES.get(site, site.replace("_", " ").title())
+
+
+class _SiteErrors(logging.Handler):
+    """Collects JobSpy's per-site errors (its loggers are "jobspy.<site>") instead of
+    printing them unnamed, e.g. "response status code 429 (blocked: use a proxy)"."""
+
+    def __init__(self) -> None:
+        super().__init__(logging.WARNING)
+        self.errors: list[tuple[str, str]] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        site = record.name.split(".")[1] if record.name.count(".") >= 1 else "jobspy"
+        self.errors.append((site, record.getMessage()))
+
+    def take(self) -> list[tuple[str, str]]:
+        errors, self.errors = self.errors, []
+        return errors
+
+
+def _describe_error(message: str) -> str:
+    if re.search(r"\b429\b", message):
+        return "blocked: too many requests (HTTP 429)"
+    if re.search(r"\b403\b", message):
+        return "blocked: access refused (HTTP 403)"
+    return message
 
 
 # -- Location filtering ------------------------------------------------------
@@ -381,21 +420,47 @@ def _full_crawl(
     total_existing = 0
     total_errors = 0
     completed = 0
+    blocked: dict[str, str] = {}  # site -> why it was skipped for the rest of this run
 
-    for s in searches:
-        result = _run_one_search(
-            s, sites, results_per_site, hours_old,
-            proxy_config, defaults, max_retries,
-            accept_locs, reject_locs, glassdoor_map,
-        )
-        completed += 1
-        total_new += result["new"]
-        total_existing += result["existing"]
-        total_errors += result["errors"]
+    # JobSpy logs each site's failure under its own logger without naming the
+    # site; collect them here and report them by name instead.
+    jobspy_log = logging.getLogger("jobspy")
+    collector = _SiteErrors()
+    jobspy_log.addHandler(collector)
+    propagate = jobspy_log.propagate
+    jobspy_log.propagate = False
+    try:
+        for s in searches:
+            active = [site for site in sites if site not in blocked]
+            if not active:
+                log.warning("Every job board has blocked this run; stopping early (%d of %d searches done).",
+                            completed, len(searches))
+                break
+            result = _run_one_search(
+                s, active, results_per_site, hours_old,
+                proxy_config, defaults, max_retries,
+                accept_locs, reject_locs, glassdoor_map,
+            )
+            for site, message in collector.take():
+                if site in blocked:
+                    continue
+                if _BLOCKED_RE.search(message):
+                    blocked[site] = _describe_error(message)
+                    log.warning("%s: %s. Skipping %s for the rest of this run.", site_name(site),
+                                blocked[site], site_name(site))
+                else:
+                    log.warning("%s: %s", site_name(site), message)
+            completed += 1
+            total_new += result["new"]
+            total_existing += result["existing"]
+            total_errors += result["errors"]
 
-        if completed % 5 == 0 or completed == len(searches):
-            log.info("Progress: %d/%d queries done (%d new, %d dupes, %d errors)",
-                     completed, len(searches), total_new, total_existing, total_errors)
+            if completed % 5 == 0 or completed == len(searches):
+                log.info("Progress: %d/%d queries done (%d new, %d dupes, %d errors)",
+                         completed, len(searches), total_new, total_existing, total_errors)
+    finally:
+        jobspy_log.removeHandler(collector)
+        jobspy_log.propagate = propagate
 
     # Final stats
     conn = get_connection()
@@ -403,6 +468,9 @@ def _full_crawl(
 
     log.info("Full crawl complete: %d new | %d dupes | %d errors | %d total in DB",
              total_new, total_existing, total_errors, db_total)
+    for site, why in blocked.items():
+        log.warning("%s was skipped this run (%s). Blocks like this usually lift within a few hours: "
+                    "run Find jobs again later (or set a proxy in .env if it keeps happening).", site_name(site), why)
 
     return {
         "new": total_new,
@@ -410,6 +478,7 @@ def _full_crawl(
         "errors": total_errors,
         "db_total": db_total,
         "queries": len(searches),
+        "blocked": blocked,
     }
 
 
