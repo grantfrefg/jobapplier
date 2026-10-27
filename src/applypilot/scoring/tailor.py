@@ -43,6 +43,33 @@ log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 5  # max cross-run retries before giving up
 
+_FAILURE = {
+    "failed_judge": "The fact-check rejected every draft",
+    "failed_validation": "Every draft broke a resume rule",
+    "exhausted_retries": "The AI's replies couldn't be read",
+    "error": "Something went wrong",
+}
+
+
+def failure_reason(report: dict) -> str:
+    """Why a tailoring attempt wasn't used, in a sentence or two."""
+    if report.get("status") == "failed_judge":
+        return str((report.get("judge") or {}).get("issues") or "").strip()
+    if report.get("status") == "failed_validation":
+        return "; ".join((report.get("validator") or {}).get("errors", [])[:3])
+    return ""
+
+
+def explain_failure(status: str, reason: str, tries_used: int, kept_old: bool = False) -> str:
+    """Plain-English line for the log after a job's documents weren't made."""
+    what = _FAILURE.get(status, "It didn't work")
+    if kept_old:  # a Redo that didn't pass: the documents it was replacing stay
+        return f"{what}{': ' + reason if reason else ''}. The job keeps its previous resume and cover letter."
+    left = MAX_ATTEMPTS - tries_used
+    then = (f"it's tried again on the next run ({left} of {MAX_ATTEMPTS} tries left)" if left > 0
+            else "it won't be tried again unless you press Try again on the Apply tab (All jobs)")
+    return f"{what}{': ' + reason if reason else ''}. No resume or cover letter is used for this job; {then}."
+
 
 # ── Prompt Builders (profile-driven) ──────────────────────────────────────
 
@@ -787,6 +814,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                 "attempts": report["attempts"],
                 "requests": report["requests"],
                 "cover_letter_path": cl_path,
+                "reason": failure_reason(report),
             }
         except BudgetExhausted as e:
             # Not this job's fault: leave it (and the rest) untouched for the next run
@@ -796,6 +824,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             result = {
                 "url": job["url"], "title": job["title"], "site": job["site"],
                 "status": "error", "attempts": 0, "path": None, "pdf_path": None,
+                "reason": str(e)[:300],
             }
             log.error("%d/%d [ERROR] %s -- %s", completed, len(jobs), job["title"][:40], e)
 
@@ -813,6 +842,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             rate * 60,
             result["title"][:40],
         )
+        if result["status"] not in ("approved", "approved_with_judge_warning"):
+            tries = (job.get("tailor_attempts") or 0) + 1
+            log.info("    %s", explain_failure(result["status"], result.get("reason", ""), tries,
+                                               kept_old=bool(job.get("tailored_resume_path"))))
 
     # Persist to DB: increment attempt counter for ALL, save path only for approved
     now = datetime.now(timezone.utc).isoformat()
@@ -823,7 +856,8 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
         if r["status"] in _success_statuses:
             conn.execute(
                 "UPDATE jobs SET tailored_resume_path=?, tailored_at=?, "
-                "tailor_attempts=COALESCE(tailor_attempts,0)+1, ats_score=?, ats_report=? WHERE url=?",
+                "tailor_attempts=COALESCE(tailor_attempts,0)+1, ats_score=?, ats_report=?, "
+                "tailor_status='approved', tailor_issues=NULL WHERE url=?",
                 (r["path"], now, (r.get("ats") or {}).get("score"),
                  json.dumps(r["ats"]) if r.get("ats") else None, r["url"]),
             )
@@ -835,8 +869,9 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                 )
         else:
             conn.execute(
-                "UPDATE jobs SET tailor_attempts=COALESCE(tailor_attempts,0)+1 WHERE url=?",
-                (r["url"],),
+                "UPDATE jobs SET tailor_attempts=COALESCE(tailor_attempts,0)+1, "
+                "tailor_status=?, tailor_issues=? WHERE url=?",
+                (r["status"], r.get("reason") or None, r["url"]),
             )
     conn.commit()
 
@@ -853,6 +888,10 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
         cover_letters,
         total_requests,
     )
+    unused = sum(stats.get(k, 0) for k in ("failed_validation", "failed_judge", "exhausted_retries", "error"))
+    if unused:
+        log.info("%d job(s) got no documents this run (the lines above say why); "
+                 "they're tried again on the next run. The Apply tab (All jobs) shows each one's reason.", unused)
 
     return {
         "approved": stats.get("approved", 0),

@@ -280,6 +280,9 @@ def test_redo_marks_and_starts_rewriting(client, tmp_path, monkeypatch):
     assert started == [["redo", "--pending"]]  # only the marked jobs, whatever their score
     [job] = client.get("/api/jobs?view=ready").json()  # still ready: old documents kept until replaced
     assert job["redo_requested"] == 1
+    # Try again / Redo use the Strictness picked on Find jobs
+    client.post("/api/jobs/redo", json={"url": "https://example.com/job/1", "validation": "lenient"})
+    assert started[-1] == ["redo", "--pending", "--validation", "lenient"]
 
 
 def test_quick_view_and_locate(client, tmp_path, monkeypatch):
@@ -352,3 +355,11 @@ def test_template_examples_are_never_saved_or_used(client):
     used = config.load_profile()
     assert used["personal"]["city"] == "" and used["resume_facts"]["preserved_companies"] == []
     assert used["personal"]["full_name"] == PROFILE["personal"]["full_name"]
+
+
+def test_mark_applied_for_jobs_applied_to_outside_the_app(client, tmp_path):
+    _seed_job(tmp_path, "https://example.com/job/1")
+    assert client.post("/api/jobs/mark-applied", json={"url": "https://example.com/nope"}).status_code == 404
+    assert client.post("/api/jobs/mark-applied", json={"url": "https://example.com/job/1"}).json() == {"ok": True}
+    assert client.get("/api/jobs?view=ready").json() == []
+    assert [j["url"] for j in client.get("/api/jobs?view=applied").json()] == ["https://example.com/job/1"]

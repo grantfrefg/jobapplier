@@ -598,7 +598,8 @@ def create_app() -> FastAPI:
             raise HTTPException(400, "view must be ready, applied or all")
         rows = get_connection().execute(f"""
             SELECT url, title, company, site, location, fit_score, application_url, apply_status,
-                   apply_error, applied_at, duplicate_of, redo_requested,
+                   apply_error, applied_at, duplicate_of, redo_requested, tailor_status, tailor_issues,
+                   COALESCE(tailor_attempts, 0) AS tailor_attempts,
                    apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
                    tailored_resume_path, score_reasoning, full_description,
                    tailored_resume_path IS NOT NULL AS tailored,
@@ -642,6 +643,18 @@ def create_app() -> FastAPI:
         conn.commit()
         return {"ok": True}
 
+    @app.post("/api/jobs/mark-applied")
+    def mark_applied(body: dict) -> dict:
+        """For a job the user applied to themselves, outside the app's browser."""
+        from applypilot.apply.launcher import mark_job
+        url = body.get("url")
+        if not url or not get_connection().execute("SELECT 1 FROM jobs WHERE url = ?", (url,)).fetchone():
+            raise HTTPException(404, "No such job")
+        if session.busy and (session.job or {}).get("url") == url:
+            raise HTTPException(409, "This job is open in the app's browser; use I submitted it there")
+        mark_job(url, "applied")
+        return {"ok": True}
+
     @app.post("/api/jobs/redo")
     def redo_jobs(body: dict) -> dict:
         """Rewrite the resume and cover letter for one job (url) or all jobs not yet applied to.
@@ -657,7 +670,10 @@ def create_app() -> FastAPI:
             raise HTTPException(409, "You're applying to this job right now; finish that first")
         marked = redo_documents(get_connection(), body.get("url") or None, applying_now=applying_now)
         if marked:
-            task.start("Redo resumes and cover letters", ["redo", "--pending"])
+            args = ["redo", "--pending"]
+            if body.get("validation") in ("strict", "normal", "lenient"):
+                args += ["--validation", body["validation"]]  # the Strictness picked on Find jobs
+            task.start("Redo resumes and cover letters", args)
         return {"cleared": marked, "marked": marked, **task.snapshot()}
 
     @app.get("/api/jobs/file")

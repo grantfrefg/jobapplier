@@ -9,6 +9,16 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **Why a job got no documents:** when every draft is rejected (`FAILED_JUDGE`, `FAILED_VALIDATION`), the log now
+  says why and what happens next, the Apply tab's **All jobs** view shows the reason (hover) with a **Try again**
+  button, and **Find jobs** has a "What the log means" guide to the log lines (searches, blocked boards, tailoring
+  results, the daily budget) and a "How it works" guide to each step (also on hover over the step boxes).
+- **Apply tab guides and Mark applied:** "How to use this tab" (applying with the app step by step, accounts, or
+  applying yourself with the downloaded documents) and "What the ATS score means". A **Mark applied** button moves a
+  job you applied to yourself to Applied.
+- **Getting more jobs tailored:** the log guide explains what to do when many jobs are rejected (complete the
+  resume and skills list, Try again, lenient strictness and its trade-off, skipping titles you can't match).
+  **Try again** and **Redo** now use the Strictness picked on Find jobs.
 - **Free local apply engine** (`EXECUTION_ENGINE=local_playwright`): a visible browser plus your Gemini key fills
   application forms, including multi-page ones. Personal identifiers are sent to Gemini only as placeholders.
   Automation never clicks Submit/Apply/Send: you review and submit yourself.
@@ -64,6 +74,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- Drop-downs (Greenhouse country, location, screening questions) were sometimes left empty on a busy computer: the
+  click waited for the box to stop moving and gave up after 3 seconds. It now clicks anyway. The apply log also says
+  why an action failed.
 - The Apply browser showed "You are using an unsupported command-line flag: --no-sandbox" in Chrome and Edge: the
   browser's sandbox is now left on (except on Linux, where containers can't use it).
 - A job board that blocks the search (LinkedIn's "429 too many requests") was reported as an unnamed "response status

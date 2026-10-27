@@ -73,6 +73,10 @@
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   td a { color: var(--accent); }
   .score { font-weight: 700; }
+  .log-help { margin-top: 10px; font-size: 13px; }
+  .log-help dt { font-weight: 600; margin-top: 8px; }
+  .log-help dd { margin: 2px 0 0 0; color: var(--muted); }
+  .log-help p { margin: 8px 0 0; color: var(--muted); }
   .muted { color: var(--muted); font-size: 12px; }
   .table-wrap { overflow-x: auto; }
   .gate { border: 2px solid var(--warn); background: var(--warn-bg); }
@@ -232,8 +236,8 @@
     <p class="sub">Searches job boards, scores each job against your resume, then writes a tailored resume and cover letter for the good matches. This can take a while.</p>
     <div class="row" id="stage-boxes"></div>
     <div class="row">
-      <label style="margin:0">Minimum score <input type="number" id="min-score" value="7" min="1" max="10" style="width:70px"></label>
-      <label style="margin:0">Strictness
+      <label style="margin:0" title="Only jobs scoring at least this (1-10) get a tailored resume and cover letter">Minimum score <input type="number" id="min-score" value="7" min="1" max="10" style="width:70px"></label>
+      <label style="margin:0" title="How hard the checks on tailored resumes are. Lenient skips the AI fact-check (fewer requests).">Strictness
         <select id="validation" style="width:auto">
           <option value="normal">normal</option><option value="lenient">lenient (fewest API calls)</option>
           <option value="strict">strict</option></select></label>
@@ -244,6 +248,87 @@
       <span id="pipeline-state" class="muted"></span>
     </div>
     <pre class="log" id="pipeline-log"></pre>
+    <details class="log-help"><summary>How it works: what each step does</summary>
+      <p>Each step picks up what the step before it left, so you can run them all or tick just some. Jobs you've
+        already processed aren't done again.</p>
+      <dl>
+        <dt>1. Discover <span class="muted">(no AI)</span></dt>
+        <dd>Searches LinkedIn, Indeed Australia and Jora with the job titles and places from Setup → Job search.
+          Jobs outside your locations, or with an excluded title, are dropped. The same role listed on several sites
+          is kept once (LinkedIn first, then Indeed, then Jora). SEEK isn't searched: its terms forbid it.</dd>
+        <dt>2. Enrich <span class="muted">(AI only when needed)</span></dt>
+        <dd>Opens each job's page to get the full description and the link to apply. Most pages are read without
+          AI; the AI is asked only for pages it can't read otherwise.</dd>
+        <dt>3. Score <span class="muted">(1 request per 10 jobs)</span></dt>
+        <dd>Rates each job 1–10 against your resume and profile. Deal-breakers (citizenship or a security clearance
+          you don't have, the wrong city when you won't move, far too senior or junior) score 3 or lower.
+          Titles on your exclude list get 0 without asking the AI.</dd>
+        <dt>4. Tailor <span class="muted">(about 2 requests per job)</span></dt>
+        <dd>For jobs scoring at least the <b>Minimum score</b>, writes a resume reworded and reordered for the ad,
+          plus a cover letter. It may change order, emphasis and wording, never facts. Code then checks every title,
+          employer, date, skill and number against your real resume, and an AI fact-check reads the result. A draft
+          that fails is written again (up to 4 drafts in all); if none passes, nothing is used (see "What the log means").</dd>
+        <dt>5. Cover <span class="muted">(only for older jobs)</span></dt>
+        <dd>Cover letters now come with step 4. This step only writes letters for jobs tailored before that.</dd>
+        <dt>6. Pdf <span class="muted">(no AI)</span></dt>
+        <dd>Turns both documents into A4 PDFs laid out for applicant tracking systems (plain, one column, standard
+          headings). Each resume also gets an ATS score, shown on the Apply tab.</dd>
+        <dt>Then: Apply tab</dt>
+        <dd>Jobs with documents appear there. <b>Apply</b> opens a browser, fills the form from your profile and
+          saved answers (the AI only for questions it hasn't seen) and uploads your PDFs. You always review and
+          press Submit yourself.</dd>
+        <dt>Strictness</dt>
+        <dd><i>normal</i>: the usual checks. <i>strict</i>: overused words such as "leverage" also count as errors.
+          <i>lenient</i>: skips the AI fact-check (about half the requests); the code checks still run.</dd>
+      </dl>
+    </details>
+    <details class="log-help"><summary>What the log means</summary>
+      <dl>
+        <dt>"9 results -> 7 new, 0 dupes, 2 filtered (location)"</dt>
+        <dd>One search on a job board. <i>New</i> jobs were added; <i>dupes</i> were already saved; <i>filtered</i> ones
+          were outside your locations or excluded titles.</dd>
+        <dt>"LinkedIn: blocked" or "429 (blocked: use a proxy)"</dt>
+        <dd>The job board is limiting how often it can be searched. It's skipped for the rest of the run and
+          the other boards carry on. It usually lifts within a few hours; run again later.</dd>
+        <dt>"5/20 [APPROVED] attempts=1 requests=2"</dt>
+        <dd>Job 5 of 20 got a tailored resume and cover letter. <i>Attempts</i> is how many drafts were written;
+          <i>requests</i> is how many Gemini requests that took (each draft is written, then fact-checked).</dd>
+        <dt>[FAILED_JUDGE]</dt>
+        <dd>The fact-check compared every draft with your real resume and found something invented or stretched
+          (a duty, a skill, a more senior title). Those drafts are never used. Common when a job asks for more than
+          your resume shows. The line after it says what was wrong.</dd>
+        <dt>[FAILED_VALIDATION]</dt>
+        <dd>Every draft broke a fixed rule (for example a missing section, or a skill or employer that isn't in your
+          resume).</dd>
+        <dt>[ERROR]</dt>
+        <dd>A request failed (network, or the AI's reply couldn't be read).</dd>
+        <dt>After a failure</dt>
+        <dd>That job gets no documents and isn't offered on the Apply tab. It's tried again on the next run, up to
+          5 times. <b>Apply → All jobs</b> shows the reason; <b>Try again</b> there retries it now. The rejected
+          draft is kept as <code>…_REJECTED.txt</code> in the <code>tailored_resumes</code> folder.</dd>
+        <dt>Getting more jobs tailored</dt>
+        <dd>A few rejections are normal: they're jobs that ask for more than your resume shows. If many jobs
+          fail, in order of what to try first:<br>
+          1. <b>Make your resume and profile complete.</b> The checks only allow what's in them. Add real
+          experience, tools and achievements you left out of the resume (Setup → Resume), and list every skill
+          you really use in the profile's skills, then tick <b>My skills list is accurate</b>. Then press
+          <b>Try again</b> on the job (Apply → All jobs).<br>
+          2. <b>Press Try again.</b> Each try writes new drafts, and a borderline job often passes the second
+          time.<br>
+          3. <b>Set Strictness to lenient</b> (above) before pressing <b>Run</b> or <b>Try again</b>. It skips the
+          AI fact-check, the step that rejects "stretched" claims. The code checks still remove invented titles,
+          employers, skills, tools and numbers, but a reworded duty that overstates what you did can get through,
+          so read those resumes before you send them. It also halves the requests per job.<br>
+          4. <b>Skip jobs you can't honestly match.</b> If you're not senior, add "Senior" (or "Lead",
+          "Principal") to <i>Skip jobs whose title contains</i> in Setup → Job search, so those jobs aren't
+          tailored at all, or
+          raise the <b>Minimum score</b> so only close matches are tailored.<br>
+          A job that failed 5 times isn't tried again automatically; <b>Try again</b> still works on it.</dd>
+        <dt>"Daily Gemini budget … used up"</dt>
+        <dd>Today's free requests are used (some are kept for applying). It resets at midnight US Pacific time
+          (late afternoon or evening in Australia); the remaining jobs wait for the next run.</dd>
+      </dl>
+    </details>
   </div>
 </section>
 
@@ -274,6 +359,62 @@
       <button class="btn secondary" id="locate-jobs" title="Open each ready job in the browser and note where its application is (Greenhouse, Workday, SEEK...) and whether it needs an account. No AI requests.">Check where to apply</button>
       <button class="btn secondary" id="redo-all" title="Rewrite every resume and cover letter not yet sent, with the current prompts and site preference (LinkedIn > Indeed > Jora)">Redo all documents</button>
     </div>
+    <details class="log-help"><summary>How to use this tab</summary>
+      <dl>
+        <dt>The list</dt>
+        <dd><b>Score</b> is how well the job fits you (1–10). Click the job title to open the ad. <b>Resume</b> and
+          <b>Cover letter</b> open the PDFs written for that job; <b>ATS</b> is the resume check (below). The views:
+          <i>Ready to apply</i> (has documents, not applied yet), <i>Ready: no employer account</i> (quick ones),
+          <i>Applied</i>, and <i>All jobs</i> (including ones that got no documents, with the reason).</dd>
+        <dt>Applying with the app</dt>
+        <dd>1. Optional: press <b>Check where to apply</b> to see which jobs need an employer account (no AI).<br>
+          2. Press <b>Apply</b> on a job. A browser opens the ad, follows its Apply link, fills in your details and
+          saved answers, uploads the resume and cover letter, and moves through Next pages. The AI is asked only
+          about questions it hasn't seen before.<br>
+          3. When it stops, the panel at the top says what's left (a field it couldn't answer, a sign-in, a button
+          only you can press). Do it in the browser, then <b>Fill this page again</b> if a new page appeared.<br>
+          4. Check everything in the browser and press the site's <b>Submit</b> yourself. The app never submits.<br>
+          5. Back here, press <b>I submitted it</b> so the job moves to <i>Applied</i>. <b>Not yet: save for
+          later</b> keeps it ready; <b>Never apply to this job</b> removes it from the list.</dd>
+        <dt>Accounts and logins</dt>
+        <dd>Workday, PageUp, iCIMS and similar sites need an account with each employer: the app types your email,
+          never a password. Sign in or create the account in the browser, then <b>Fill this page again</b>. For
+          Google sign-in, use <b>Log in</b> on the job (or Setup → Log in to sites) first.</dd>
+        <dt>Applying yourself instead</dt>
+        <dd>You don't have to use the Apply button. Click the job title to open the ad in your usual browser,
+          download the <b>Resume</b> and <b>Cover letter</b> from this list (or copy text from them), and apply and
+          submit everything yourself. Then press <b>Mark applied</b> so the job moves to <i>Applied</i> and isn't
+          offered again. The same PDFs for the job you're applying to are also in the <code>ApplyPilot uploads</code>
+          folder in your home folder.</dd>
+        <dt>Redo and Try again</dt>
+        <dd><b>Redo</b> rewrites a job's resume and cover letter (for example after you update your resume or
+          profile); the old ones stay until the new ones pass the checks. <b>Redo all documents</b> does it for
+          every job you haven't applied to. Each costs about 2 Gemini requests per job.</dd>
+      </dl>
+    </details>
+    <details class="log-help"><summary>What the ATS score means</summary>
+      <p>Most employers put applications through an applicant tracking system (ATS): Workday, SuccessFactors,
+        PageUp, JobAdder, Greenhouse and others. It reads your resume into fields, and recruiters then search and
+        filter on keywords, location and work rights. The ATS badge (out of 100) estimates how well this resume
+        survives that. It uses no AI and isn't any one vendor's ranking: it's a guide.</p>
+      <dl>
+        <dt>What's checked</dt>
+        <dd><b>Keywords (most of the score):</b> of the tools and must-haves in the ad that you really have, how many
+          appear in the resume in the ad's own words.<br>
+          <b>Readability:</b> standard headings (Summary, Skills, Experience, Education), email and phone at the
+          top, a readable date range for every job, 1–3 pages.<br>
+          <b>Filters Australian employers use:</b> work rights (e.g. "Australian Citizen") and city/state shown; no
+          date of birth or photo.<br>
+          <b>Australian spelling.</b></dd>
+        <dt>Reading it</dt>
+        <dd><span class="badge ok">ATS 80+</span> is good. Lower usually means keywords you have are missing, or
+          something like work rights isn't on the resume. Hover the badge to see exactly what to look at.</dd>
+        <dt>Skills you don't have</dt>
+        <dd>Hover also lists what the ad asks for that isn't in your resume. These don't lower the score and are
+          never added: putting them in would be untrue. If you do have one, add it to your resume or your profile's
+          skills list, then <b>Redo</b>.</dd>
+      </dl>
+    </details>
     <div class="table-wrap">
       <table><thead><tr><th>Score</th><th>Job</th><th>Status</th><th>Documents</th><th></th></tr></thead>
         <tbody id="jobs"></tbody></table>
@@ -509,8 +650,17 @@ async function loadAnswers() {
 
 // ---------- find jobs ----------
 const STAGES = ["discover", "enrich", "score", "tailor", "cover", "pdf"];
+const STAGE_HELP = {
+  discover: "Search the job boards for new jobs (no AI)",
+  enrich: "Get each job's full description and application link",
+  score: "Rate each job 1-10 against your resume (1 Gemini request per 10 jobs)",
+  tailor: "Write a tailored resume and cover letter for jobs at or above the minimum score (about 2 requests per job)",
+  cover: "Cover letters for jobs tailored before letters came with the resume",
+  pdf: "Make the A4 PDFs you upload (no AI)",
+};
 $("#stage-boxes").replaceChildren(...STAGES.map((s) =>
-  el("label", { class: "choice", style: "margin:0" }, el("input", { type: "checkbox", value: s, checked: true }), human(s))));
+  el("label", { class: "choice", style: "margin:0", title: STAGE_HELP[s] },
+    el("input", { type: "checkbox", value: s, checked: true }), human(s))));
 $("#run-pipeline").addEventListener("click", () => guarded(async () => {
   const stages = $$("#stage-boxes input:checked").map((i) => i.value);
   await post("/api/pipeline", {
@@ -557,6 +707,26 @@ function atsBadge(a) {
   return el("span", { class: "badge " + tone, title: lines.join("\n"), style: "cursor:help" }, "ATS " + a.score);
 }
 
+const TAILOR_FAILED = {
+  failed_judge: "the fact-check rejected the drafts",
+  failed_validation: "the drafts broke a resume rule",
+  exhausted_retries: "the AI's replies couldn't be read",
+  error: "an error stopped it",
+};
+function tailorHelp(j) {
+  const lines = [];
+  if (j.tailor_status === "failed_judge")
+    lines.push("Every draft was compared with your real resume and something was invented or stretched,",
+               "so none was used. Common when the job asks for more than your resume shows.");
+  if (j.tailor_issues) lines.push("", "Last reason: " + j.tailor_issues);
+  const left = 5 - j.tailor_attempts;
+  lines.push("", left > 0 ? "Tried " + j.tailor_attempts + " of 5 times; it's tried again on the next run."
+                          : "Tried 5 times; it won't be tried again automatically.",
+             "Try again retries it now (with the Strictness set on Find jobs; lenient lets more through).",
+             "More ways to get it tailored: Find jobs → What the log means → Getting more jobs tailored.");
+  return lines.join("\n");
+}
+
 async function loadJobs() {
   const view = $("#job-view").value;
   const query = view === "quick" ? "ready&quick=true" : view;
@@ -571,10 +741,19 @@ async function loadJobs() {
     const statusText = j.redo_requested ? "Rewriting documents…"
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
-      : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ? "Ready" : "Not tailored");
+      : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ? "Ready"
+      : TAILOR_FAILED[j.tailor_status] ? "No documents: " + TAILOR_FAILED[j.tailor_status] : "Not tailored yet");
+    const statusHelp = !j.tailored && TAILOR_FAILED[j.tailor_status] ? tailorHelp(j) : "";
     const actions = [];
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
+    }
+    if (j.tailored && !j.applied_at && !j.duplicate_of) {
+      actions.push(" ", el("button", { class: "btn secondary", disabled: busy && applyState.job && applyState.job.url === j.url,
+        title: "You applied to this one yourself (outside the app's browser): move it to Applied",
+        onclick: () => confirm("Mark \"" + (j.title || "this job") + "\" as applied?") && guarded(async () => {
+          await post("/api/jobs/mark-applied", { url: j.url }); loadJobs(); refreshStatus();
+        }, "Marked as applied") }, "Mark applied"));
     }
     if (j.apply_account === "yes" && !j.applied_at && j.apply_site_url) {
       actions.push(" ", el("button", { class: "btn secondary", title: "Open this employer's site in a normal window " +
@@ -584,6 +763,9 @@ async function loadJobs() {
     if ((j.tailored || j.has_cover) && !j.applied_at) {
       actions.push(" ", el("button", { class: "btn secondary", title: "Write this job's resume and cover letter again",
         onclick: () => redo(j.url) }, "Redo"));
+    } else if (TAILOR_FAILED[j.tailor_status] && !j.applied_at && !j.duplicate_of) {
+      actions.push(" ", el("button", { class: "btn secondary", title: "Try writing this job's resume and cover letter again now",
+        onclick: () => redo(j.url) }, "Try again"));
     }
     if (["manual", "failed"].includes(j.apply_status) && !j.applied_at) {
       actions.push(" ", el("button", { class: "btn secondary", onclick: () => guarded(async () => {
@@ -596,7 +778,7 @@ async function loadJobs() {
         j.apply_site_name ? el("div", { class: "muted", title: ACCOUNT_HELP[j.apply_account] || "" },
           "Applies on " + j.apply_site_name + " · " + (ACCOUNT_LABEL[j.apply_account] || j.apply_account)) : "",
         j.also_on ? el("div", { class: "muted" }, "Also on: " + j.also_on) : ""),
-      el("td", { class: "muted" }, statusText),
+      el("td", { class: "muted", title: statusHelp, style: statusHelp ? "cursor:help" : "" }, statusText),
       el("td", {}, docs.length ? docs : el("span", { class: "muted" }, "–")),
       el("td", { style: "white-space:nowrap" }, actions));
   }));
@@ -612,7 +794,7 @@ async function redo(url) {
   if (all && !confirm("Rewrite the resume and cover letter for every job you haven't applied to? " +
                       "This uses about two Gemini requests per job (writing and fact-checking).")) return;
   await guarded(async () => {
-    const r = await post("/api/jobs/redo", { url });
+    const r = await post("/api/jobs/redo", { url, validation: $("#validation").value });
     if (!r.marked) return toast("Nothing to rewrite.");
     toast("Rewriting " + (all ? r.marked + " job(s)" : "this job") +
           ". The old documents stay until the new ones are ready. Follow along on the Find jobs tab.");
