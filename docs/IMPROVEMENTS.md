@@ -32,7 +32,7 @@ estimates from the code paths, not measurements.
 | C | Remember how to read each site | Small | ~2 per title per run → ~0 | **Done** (#12) |
 | D | Daily request budget | Medium | Spends requests on the best jobs | **Done** (#13) |
 | E1 | Standard fields in code + answer bank | Medium | ~1 per page → 0 on known pages | **Done** (#11) |
-| E2 | Site adapters (SEEK, Greenhouse, Lever) | Large | Fewer wrong answers on those sites | Planned |
+| E2 | Site adapters (SEEK, Greenhouse, Lever) | Large | Fewer wrong answers on those sites | **Done** (#15) |
 
 ---
 
@@ -179,8 +179,31 @@ again on every application.
   change an answer in the browser before clicking Submit, store your
   version so the same question is answered your way next time. The AI is
   only asked about questions it hasn't seen.
-- **Site adapters (E2, planned):** dedicated handlers for SEEK, Greenhouse and Lever,
-  whose forms are predictable.
+- **Site adapters (E2, done in #15):** checked against live Greenhouse and
+  Lever job forms. Most of the work was making the form scanner read these
+  sites correctly, which helps every site:
+  - Questions are read from their container (Lever's question cards,
+    fieldsets), so radio groups are no longer named after their own "Yes"
+    option and drop-down labels no longer include every option.
+  - Searchable drop-downs (React-Select on Greenhouse, location
+    autocompletes) are recognised; their options are read by opening them,
+    and answers are picked by typing and clicking the matching suggestion.
+    Hidden "required" duplicates are skipped.
+  - Fields are also matched by their HTML id (`first_name`, `resume`,
+    `cover_letter`, `candidate-location`), so "Attach" buttons and
+    non-English labels still work. Phone fields with a country picker get
+    `+61 …`. Current company/title and location come from the profile.
+  - Choices that reveal more fields (SEEK's "Upload a resumé") get a second
+    pass without the AI.
+  - Picking a suggestion never presses Enter (that could submit the form);
+    when nothing matches, you're told which field to pick yourself.
+  - `apply/adapters.py`: SEEK's document step (upload the tailored resume;
+    upload or write the cover letter) and Lever's "Additional information"
+    (cover letter when there's no other place). SEEK's markup couldn't be
+    checked live (it needs a login), so its rule matches the visible option
+    text rather than page structure.
+  - On the live forms, Greenhouse's standard section and Lever's needed no
+    AI; only the employer's own questions went to Gemini.
 - The human-approval step (you click Submit) stays exactly as it is.
 
 **Expected:** fewer requests, consistent answers across applications, and

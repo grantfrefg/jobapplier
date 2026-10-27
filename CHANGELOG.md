@@ -30,6 +30,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   seniority); tailoring and the fact-check never add tools you don't have; Australian English, 2-page resumes and
   DD/MM/YYYY dates; truthful screening answers and legal questions left for you. New profile fields:
   `security_clearance`, `willing_to_relocate`, `notice_period`, `drivers_licence`.
+- **Greenhouse, Lever and SEEK forms:** searchable drop-downs, correct question text for radio groups and
+  drop-downs, matching by field id, +61 phone format, SEEK's document step and Lever's additional-information box
+  are handled without the AI. Picking a suggestion never presses Enter.
 - **Redo documents:** rewrite the resume and cover letter for one job or every job not yet applied to (Apply tab,
   or `applypilot redo`), re-picking the preferred site's listing (LinkedIn > Indeed > Jora).
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).

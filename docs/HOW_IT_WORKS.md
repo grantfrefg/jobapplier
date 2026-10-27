@@ -91,7 +91,9 @@ Cover letters are written together with the tailored resume (above). The separat
 ### The free local engine
 1. Opens a **visible** browser with its own saved profile (`~/.applypilot/local-playwright-profile`). Log in to SEEK, LinkedIn or Workday there once and you stay logged in. It uses installed Chrome or Edge, or ApplyPilot's own Chromium (Setup → **Install browser**).
 2. Reads every form field on the page, including inside embedded frames (Greenhouse).
-3. Fills what it already knows **without the AI**: standard fields (name, email, phone, LinkedIn, address, state, resume and cover letter uploads) from your profile, and screening questions from the **answer bank**. Fields that already hold a value are left alone.
+3. Fills what it already knows **without the AI**: standard fields (name, email, phone, LinkedIn, address, location, current company, resume and cover letter uploads) from your profile, and screening questions from the **answer bank**. Fields that already hold a value are left alone.
+   - **Searchable drop-downs** (Greenhouse, location autocompletes) are opened to read their options, and answers are picked by typing and clicking the matching suggestion. It never presses Enter, which could submit the form; if nothing matches, the "Your turn" panel says which field to pick.
+   - **Site rules:** on SEEK it chooses "Upload a resumé" and uploads or writes the cover letter; on Lever the cover letter goes in "Additional information" when there's no cover letter field. Fields revealed by a choice are filled in a second pass.
 4. Asks Gemini only about the fields still unanswered (none left means no request). The prompt includes hints for SEEK (e.g. right-to-work questions), Greenhouse, Lever and Workday.
 5. Clicks only **Next / Continue / Save and continue / Review** to move through multi-page forms.
 

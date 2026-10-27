@@ -39,7 +39,7 @@ from pathlib import Path
 import httpx
 
 from applypilot import budget, config
-from applypilot.apply import answers
+from applypilot.apply import adapters, answers
 from applypilot.apply.dashboard import add_event, update_state
 from applypilot.database import apply_link
 
@@ -133,6 +133,19 @@ def _walk_sensitive(obj, prefix: str = "") -> list[tuple[str, str]]:
     return found
 
 
+def _international_phone(phone: str, country: str) -> str:
+    """+61 format for phone fields with a country picker (0412 345 678 -> +61 412 345 678)."""
+    phone = (phone or "").strip()
+    if phone.startswith("+"):
+        return phone
+    digits = "".join(c for c in phone if c.isdigit())
+    if digits.startswith("0") and (not country or "australia" in country.lower()):
+        rest = digits[1:]
+        mobile = len(rest) == 9 and rest.startswith("4")
+        return "+61 " + (f"{rest[:3]} {rest[3:6]} {rest[6:]}" if mobile else rest)
+    return ""
+
+
 def build_placeholders(profile: dict) -> dict[str, str]:
     """Map {{TOKEN}} -> real value for every identifier we keep local."""
     personal = profile.get("personal", {})
@@ -148,6 +161,7 @@ def build_placeholders(profile: dict) -> dict[str, str]:
         "EMAIL": personal.get("email", ""),
         "PHONE": phone,
         "PHONE_DIGITS": "".join(c for c in phone if c.isdigit()),
+        "PHONE_INTL": _international_phone(phone, personal.get("country", "")),
         "STREET_ADDRESS": personal.get("address", ""),
         "POSTAL_CODE": personal.get("postal_code", ""),
         "LINKEDIN_URL": personal.get("linkedin_url", ""),
@@ -276,6 +290,35 @@ _EXTRACT_JS = r"""
     return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
   };
   const byId = id => id ? document.getElementById(id) : null;
+  // Text of an element without the text of any form controls inside it
+  // (a <select>'s parent would otherwise include every option).
+  const ownText = node => {
+    let t = node.innerText || '';  // innerText skips hidden status messages
+    for (const x of node.querySelectorAll('select, textarea, [role=listbox]')) {
+      const inner = x.innerText;
+      if (inner) t = t.split(inner).join(' ');
+    }
+    return clean(t);
+  };
+  // The question an input belongs to, from its surrounding container
+  // (Lever's .application-label, fieldset legends, form-group labels). Never
+  // the text of the input's own option label ("Yes" / "No").
+  const questionOf = el => {
+    const own = el.closest('label');
+    const sel = 'legend, .application-label, [class*="question-label"], [class*="question__label"], ' +
+                'label:not(:has(input, select, textarea)), [class*="label"]:not(:has(input, select, textarea))';
+    let p = el.parentElement;
+    for (let i = 0; i < 7 && p && p !== document.body; i++, p = p.parentElement) {
+      for (const q of p.querySelectorAll(sel)) {
+        if (q.contains(el) || (own && own.contains(q)) || q.closest('label') === own && own) continue;
+        if (q.querySelector('input[type=radio], input[type=checkbox]')) continue;
+        const t = ownText(q);
+        if (t) return t;
+      }
+      if (p.matches('li.application-question, fieldset, [role=group], [role=radiogroup], .form-group, .field')) break;
+    }
+    return '';
+  };
   const labelOf = el => {
     let t = '';
     if (el.id) {
@@ -285,15 +328,18 @@ _EXTRACT_JS = r"""
     if (!t && el.getAttribute('aria-labelledby'))
       t = el.getAttribute('aria-labelledby').split(/\s+/).map(i => byId(i)?.innerText || '').join(' ');
     if (!t) t = el.getAttribute('aria-label') || '';
-    if (!t) { const l = el.closest('label'); if (l) t = l.innerText; }
+    if (!t) { const l = el.closest('label'); if (l) t = ownText(l); }
+    if (!t && el.type !== 'radio' && el.type !== 'checkbox') t = questionOf(el);
     if (!t) t = el.getAttribute('placeholder') || '';
     if (!t) {
       let p = el.parentElement;
-      for (let i = 0; i < 3 && p && !clean(t); i++) { t = p.innerText; p = p.parentElement; }
+      for (let i = 0; i < 3 && p && !clean(t); i++) { t = ownText(p); p = p.parentElement; }
     }
     return clean(t);
   };
   const groupOf = el => {
+    const q = questionOf(el);
+    if (q) return q;
     const fs = el.closest('fieldset');
     const lg = fs && fs.querySelector('legend');
     if (lg) return clean(lg.innerText);
@@ -301,9 +347,12 @@ _EXTRACT_JS = r"""
     if (rg) return clean(rg.getAttribute('aria-label') ||
                          byId(rg.getAttribute('aria-labelledby'))?.innerText || '');
     let p = el.parentElement;
+    const own = el.closest('label');
     for (let i = 0; i < 4 && p; i++, p = p.parentElement) {
-      const q = p.querySelector('label:not(:has(input)), legend, h3, h4, p, span');
-      if (q && !q.contains(el) && clean(q.innerText)) return clean(q.innerText);
+      for (const q of p.querySelectorAll('label:not(:has(input)), legend, h3, h4, p, span')) {
+        if (q.contains(el) || (own && own.contains(q)) || q.closest('label')) continue;
+        if (clean(q.innerText)) return clean(q.innerText);
+      }
     }
     return '';
   };
@@ -319,10 +368,14 @@ _EXTRACT_JS = r"""
     const tag = el.tagName.toLowerCase();
     const type = tag === 'input' ? (el.type || 'text').toLowerCase() : tag;
     if (skip.has(type) || el.disabled || el.readOnly || !visible(el)) continue;
+    // React-Select & co. keep a hidden "required" twin of each drop-down
+    if (type !== 'file' && el.getAttribute('aria-hidden') === 'true') continue;
     const id = `${prefix}-${n++}`;
     el.setAttribute('data-ap-id', id);
     const f = { id, type, label: labelOf(el), name: el.name || '', required: !!(el.required ||
                 el.getAttribute('aria-required') === 'true') };
+    if (el.id && el.id.length <= 60) f.html_id = el.id;
+    if (el.closest('.iti')) f.intl_phone = true;  // intl-tel-input: wants +61 format
     if (tag === 'select') {
       f.options = [...el.options].map(o => clean(o.text)).filter(Boolean).slice(0, 60);
       f.value = clean(el.selectedOptions[0]?.text || '');
@@ -335,6 +388,13 @@ _EXTRACT_JS = r"""
     } else if (el.getAttribute('role') === 'combobox' && tag !== 'input') {
       f.type = 'combobox';
       f.value = clean(el.innerText);
+    } else if (tag === 'input' && (el.getAttribute('role') === 'combobox' ||
+               el.getAttribute('aria-autocomplete') === 'list' || el.classList.contains('select__input'))) {
+      // Searchable drop-down (React-Select, Greenhouse, Lever location)
+      f.type = 'combobox';
+      const box = el.closest('[class*="container"]');
+      const chosen = box && box.querySelector('[class*="single-value"], [class*="singleValue"]');
+      f.value = clean(el.value || (chosen ? chosen.innerText : ''));
     } else {
       f.value = clean(el.value || el.innerText || '');
     }
@@ -407,7 +467,9 @@ Actions:
 - "select": native <select> -> value is the EXACT option text from "options"
 - "check":  checkbox or radio to tick -> value ""  (only list ones that must be ON)
 - "uncheck": checkbox to clear -> value ""
-- "choose": custom combobox -> value is the option text to pick
+- "choose": searchable drop-down (type "combobox") -> value is the EXACT option text; if
+            "more_options" is true the list was cut short: give the option text you expect
+            (e.g. "Australia")
 - "upload": file input -> value "{{RESUME_PDF}}" or "{{COVER_LETTER_PDF}}"
 
 Rules:
@@ -523,6 +585,64 @@ def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
 # Applying actions
 # ---------------------------------------------------------------------------
 
+# Suggestion lists of searchable drop-downs and autocomplete inputs:
+# ARIA options (React-Select, Greenhouse), Lever's location results, Google Places
+_OPTION_SELECTOR = "[role=option]:visible, .dropdown-results > :visible, .pac-item:visible"
+_MAX_OPTIONS = 60
+
+
+def _visible_options(frame) -> list[str]:
+    try:
+        return [t.strip() for t in frame.locator(_OPTION_SELECTOR).all_inner_texts() if t.strip()]
+    except Exception:
+        return []
+
+
+def _choose(frame, loc, value: str, timeout_ms: int = 4000) -> None:
+    """Pick `value` in a searchable drop-down or autocomplete input.
+
+    Types the value to filter the list, waits for suggestions and clicks the
+    best match. Never presses Enter: in a plain input that would submit the
+    form, which only the user may do.
+    """
+    loc.click(timeout=3000)
+    if loc.evaluate("el => ['input', 'textarea'].includes(el.tagName.toLowerCase())"):
+        loc.fill(value, timeout=3000)
+    waited = 0
+    while waited <= timeout_ms:
+        texts = _visible_options(frame)
+        best = answers.best_option(texts, value) if texts else None
+        if best:
+            for option in frame.locator(_OPTION_SELECTOR).all():
+                if option.inner_text().strip() == best:
+                    option.click(timeout=3000)
+                    return
+        frame.page.wait_for_timeout(250)
+        waited += 250
+    raise RuntimeError(f"no option matching the answer ({len(_visible_options(frame))} shown)")
+
+
+def _collect_combobox_options(fields: list[dict], frame_by_id: dict) -> None:
+    """Open each empty searchable drop-down once to read its options."""
+    for f in fields:
+        if f.get("type") != "combobox" or f.get("options") or (f.get("value") or "").strip():
+            continue
+        frame = frame_by_id.get(f["id"])
+        if frame is None:
+            continue
+        try:
+            frame.locator(f'[data-ap-id="{f["id"]}"]').click(timeout=2000)
+            frame.page.wait_for_timeout(300)
+            texts = _visible_options(frame)
+            frame.page.keyboard.press("Escape")  # closes the menu; never submits
+        except Exception:
+            continue
+        if texts:
+            f["options"] = texts[:_MAX_OPTIONS]
+            if len(texts) > _MAX_OPTIONS:
+                f["more_options"] = True  # type to filter: "choose" with any option text
+
+
 def _apply_action(action: dict, frame_by_id: dict, local_values: dict[str, str],
                   file_values: dict[str, str]) -> str | None:
     """Perform one Gemini-proposed action. Returns a log line, or None if skipped."""
@@ -559,14 +679,7 @@ def _apply_action(action: dict, frame_by_id: dict, local_values: dict[str, str],
         except Exception:
             loc.select_option(value=value, timeout=3000)
     elif kind == "choose":
-        loc.click(timeout=3000)
-        page = frame.page
-        option = page.get_by_role("option", name=value, exact=False).first
-        try:
-            option.click(timeout=3000)
-        except Exception:
-            page.keyboard.type(value)
-            page.keyboard.press("Enter")
+        _choose(frame, loc, value)
     else:
         loc.fill(value, timeout=5000)
     # Log the field, not the value — the value may be sensitive
@@ -598,9 +711,32 @@ def _remember_ai_answers(conn, fields: list[dict], done: list[dict], pii_values:
             continue
         if f["type"] == "radio" and action["action"] == "check" and f.get("group"):
             answers.save_answer(conn, f["group"], f.get("label", ""), "ai")
-        elif (f["type"] == "select" and action["action"] == "select"
+        elif (f["type"] in ("select", "combobox") and action["action"] in ("select", "choose")
               or f["type"] in ("text", "number") and action["action"] == "fill" and len(value) <= 80):
             answers.save_answer(conn, f.get("label", ""), value, "ai")
+
+
+def _signature(fields: list[dict], action: dict) -> tuple:
+    """Identify a field across re-scans (data-ap-ids are renumbered each scan)."""
+    f = next((f for f in fields if f["id"] == action["id"]), {})
+    return (f.get("type"), f.get("label"), f.get("group"), f.get("name"), f.get("html_id"), action["action"])
+
+
+def _known_actions(fields: list[dict], frame_by_id: dict, ats: str | None, ctx: dict,
+                   lf) -> tuple[list[dict], list[dict]]:
+    """Everything answerable without the AI: site rules, standard fields, saved answers."""
+    known, remaining = adapters.site_actions(ats, fields, ctx["local_values"], ctx["file_values"])
+    standard, remaining = answers.standard_actions(remaining, ctx["local_values"], ctx["file_values"],
+                                                   ctx["profile"])
+    known += standard
+    _collect_combobox_options(remaining, frame_by_id)
+    conn = ctx.get("conn")
+    if conn is not None:
+        from_bank, remaining, used = answers.bank_actions(conn, remaining)
+        known += from_bank
+        if used:
+            lf.write(f"  answer bank: {len(used)} saved answer(s) reused\n")
+    return known, remaining
 
 
 def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[str]]:
@@ -614,27 +750,41 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
     if not fields:
         return controls, frame_by_id, []
 
-    known, remaining = answers.standard_actions(fields, ctx["local_values"], ctx["file_values"],
-                                                ctx["profile"])
+    ats = detect_ats(page.url) or ctx["ats"]
+    tried: set[tuple] = set()
+    filled = 0
+    unpicked: list[str] = []
+    remaining = fields
+    # Choices can reveal more fields (SEEK's "Upload a resume" shows the file
+    # input, Greenhouse follow-up questions), so look again after each round.
+    for _ in range(3):
+        known, remaining = _known_actions(fields, frame_by_id, ats, ctx, lf)
+        known = [a for a in known if _signature(fields, a) not in tried]
+        if not known:
+            break
+        tried |= {_signature(fields, a) for a in known}
+        done = _run_actions(known, frame_by_id, ctx, lf)
+        filled += len(done)
+        by_id = {f["id"]: f for f in fields}
+        unpicked += [by_id[a["id"]].get("label") or "a drop-down" for a in known
+                     if a not in done and a["action"] == "choose" and a["id"] in by_id]
+        fields, controls, frame_by_id = _scan(page)
+    else:
+        _, remaining = _known_actions(fields, frame_by_id, ats, ctx, lf)  # ids from the last scan
+    lf.write(f"  filled {filled} fields without AI\n")
     conn = ctx.get("conn")
-    if conn is not None:
-        from_bank, remaining, used = answers.bank_actions(conn, remaining)
-        known += from_bank
-        if used:
-            lf.write(f"  answer bank: {len(used)} saved answer(s) reused\n")
-    done = _run_actions(known, frame_by_id, ctx, lf)
-    lf.write(f"  filled {len(done)}/{len(known)} fields without AI\n")
+    notes = [f"Pick '{label[:60]}' from its list yourself (no suggestion matched)" for label in unpicked]
 
     # Ticked boxes and already-chosen options need nothing from the AI
     if not any(not (f["type"] == "checkbox" and f.get("checked")) for f in remaining):
         lf.write("  nothing left for Gemini on this page\n")
-        return controls, frame_by_id, []
+        return controls, frame_by_id, notes
 
     prompt = _build_user_prompt(
         job, remaining, ctx["safe_profile"], ctx["safe_resume"],
         has_cover_pdf="{{COVER_LETTER_PDF}}" in ctx["file_values"],
         has_cover_text=bool(ctx["local_values"].get("{{COVER_LETTER_TEXT}}")),
-        ats=detect_ats(page.url) or ctx["ats"],
+        ats=ats,
     )
     result = _call_gemini(prompt, ctx["api_key"], ctx["model"])
     done = _run_actions(result["actions"], frame_by_id, ctx, lf)
@@ -644,7 +794,7 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
             _remember_ai_answers(conn, remaining, done, ctx["pii_values"])
         except Exception as e:  # the bank is a convenience; never fail the application over it
             lf.write(f"  answer bank: {e}\n")
-    return controls, frame_by_id, [str(n) for n in result["needs_attention"]]
+    return controls, frame_by_id, notes + [str(n) for n in result["needs_attention"]]
 
 
 def _page_answers(page, ctx: dict) -> dict[str, tuple[str, str]]:

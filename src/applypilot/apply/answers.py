@@ -70,9 +70,11 @@ _STANDARD_TEXT = [
     (r"\b(personal )?website\b", "{{WEBSITE_URL}}"),
     (r"\b(post ?code|postal code|zip)\b", "{{POSTAL_CODE}}"),
     (r"\b(street|address line 1|home address|^address$)", "{{STREET_ADDRESS}}"),
-    (r"\b(city|suburb|town)\b", "city"),
-    (r"^(state|province|territory|state or territory)$", "province_state"),
-    (r"^country( of residence)?$", "country"),
+    (r"\b(city|suburb|town)\b|^(current )?location( city)?$|^candidate location$", "personal.city"),
+    (r"^(state|province|territory|state or territory)$", "personal.province_state"),
+    (r"^country( of residence)?$", "personal.country"),
+    (r"^(current|most recent) (company|employer)$|^org$", "experience.current_company"),
+    (r"^(current|most recent) (job )?title$", "experience.current_job_title"),
 ]
 _MAX_STANDARD_LABEL = 60  # longer labels are questions, not contact fields
 
@@ -81,34 +83,50 @@ def _field_text(field: dict) -> str:
     return " ".join(re.findall(r"[a-z0-9-]+", f"{field.get('label', '')}".lower()))
 
 
+def _field_keys(field: dict) -> list[str]:
+    """The field's name and HTML id, as words ("first_name" -> "first name")."""
+    keys = []
+    for raw in (field.get("name"), field.get("html_id")):
+        words = " ".join(re.findall(r"[a-z0-9]+", (raw or "").lower()))
+        if words and not re.search(r"\b[0-9a-f]{8}\b", words):  # skip generated ids (Lever cards)
+            keys.append(words)
+    return keys
+
+
+def _standard_token(field: dict) -> str | None:
+    label = _field_text(field)
+    for pattern, token in _STANDARD_TEXT:
+        if len(label) <= _MAX_STANDARD_LABEL and re.search(pattern, label):
+            return token
+        if any(re.search(pattern, k) for k in _field_keys(field)):
+            return token
+    return None
+
+
 def is_standard(field: dict) -> bool:
     """True for contact/address fields that are always filled from the profile."""
-    if field.get("type") in ("email", "tel"):
-        return True
-    label, name = _field_text(field), (field.get("name") or "").lower()
-    return len(label) <= _MAX_STANDARD_LABEL and any(
-        re.search(pattern, label) or re.search(pattern, name) for pattern, _ in _STANDARD_TEXT)
+    return field.get("type") in ("email", "tel") or _standard_token(field) is not None
 
 
 def _standard_value(field: dict, local_values: dict[str, str], profile: dict) -> tuple[str, str] | None:
     """(action value, real value) for a standard contact/address field, else None."""
-    label = _field_text(field)
-    name = (field.get("name") or "").lower()
     if field.get("type") == "email":
         token = "{{EMAIL}}"
     elif field.get("type") == "tel":
         token = "{{PHONE}}"
-    elif len(label) > _MAX_STANDARD_LABEL:
-        return None
     else:
-        token = next((t for pattern, t in _STANDARD_TEXT
-                      if re.search(pattern, label) or re.search(pattern, name)), None)
+        token = _standard_token(field)
         if token is None:
             return None
+    if token == "{{PHONE}}" and field.get("intl_phone") and local_values.get("{{PHONE_INTL}}"):
+        token = "{{PHONE_INTL}}"  # intl-tel-input picks the country from the +61 prefix
     if token.startswith("{{"):
         real = local_values.get(token)
         return (token, real) if real else None
-    real = (profile.get("personal") or {}).get(token, "")
+    section, _, key = token.partition(".")
+    real = str((profile.get(section) or {}).get(key) or "")
+    if not real and key == "current_job_title":
+        real = str((profile.get(section) or {}).get("current_title") or "")
     return (real, real) if real else None
 
 
@@ -128,7 +146,7 @@ def standard_actions(fields: list[dict], local_values: dict[str, str], file_valu
         if ftype == "file":
             if f.get("has_file"):
                 continue
-            label = _field_text(f) + " " + (f.get("name") or "").lower()
+            label = " ".join([_field_text(f), *_field_keys(f)])
             if re.search(r"cover", label) and "{{COVER_LETTER_PDF}}" in file_values:
                 actions.append({"id": f["id"], "action": "upload", "value": "{{COVER_LETTER_PDF}}"})
             elif re.search(r"resume|\bcv\b|curriculum", label):
@@ -143,7 +161,7 @@ def standard_actions(fields: list[dict], local_values: dict[str, str], file_valu
         if ftype == "checkbox":
             remaining.append(f)
             continue
-        if (f.get("value") or "").strip():
+        if has_value(f):
             continue  # already filled (by the site, by you, or on an earlier pass)
         if (ftype == "textarea" and "{{COVER_LETTER_TEXT}}" in local_values
                 and re.search(r"cover", _field_text(f)) and len(_field_text(f)) <= _MAX_STANDARD_LABEL):
@@ -151,6 +169,8 @@ def standard_actions(fields: list[dict], local_values: dict[str, str], file_valu
             continue
         standard = _standard_value(f, local_values, profile)
         if standard is None:
+            if not f.get("required") and _standard_token(f):
+                continue  # e.g. an optional Portfolio URL you don't have: the AI can't know it either
             remaining.append(f)
         elif ftype == "select":
             option = best_option(f.get("options") or [], standard[1])
@@ -158,9 +178,29 @@ def standard_actions(fields: list[dict], local_values: dict[str, str], file_valu
                 actions.append({"id": f["id"], "action": "select", "value": option})
             else:
                 remaining.append(f)
+        elif ftype == "combobox" or token_is_location(f):
+            # Searchable list: type the answer and pick the matching suggestion
+            actions.append({"id": f["id"], "action": "choose", "value": standard[0]})
         else:
             actions.append({"id": f["id"], "action": "fill", "value": standard[0]})
     return actions, remaining
+
+
+_PLACEHOLDER_OPTION = re.compile(r"^(select|choose|please)\b|^-+$|^none selected$")
+
+
+def has_value(field: dict) -> bool:
+    """Whether the field already holds an answer (a drop-down still on "Select..." doesn't)."""
+    value = (field.get("value") or "").strip()
+    if field.get("type") in ("select", "combobox") and _PLACEHOLDER_OPTION.search(value.lower()):
+        return False
+    return bool(value)
+
+
+def token_is_location(field: dict) -> bool:
+    """Autocomplete location inputs (Lever's "Current location") need a suggestion picked."""
+    return _standard_token(field) == "personal.city" and "location" in " ".join(
+        [_field_text(field), *_field_keys(field)])
 
 
 # -- Answer bank --------------------------------------------------------------
@@ -221,11 +261,13 @@ def bank_actions(conn: sqlite3.Connection, fields: list[dict]) -> tuple[list[dic
         if f.get("type") == "radio":
             radios.setdefault(question_key(f.get("group")), []).append(f)
             continue
-        answer = lookup(conn, f.get("label")) if f.get("type") in ("select", *_REUSABLE_TEXT_TYPES) else None
-        if answer and f.get("type") == "select":
+        answer = (lookup(conn, f.get("label"))
+                  if f.get("type") in ("select", "combobox", *_REUSABLE_TEXT_TYPES) else None)
+        if answer and f.get("type") in ("select", "combobox"):
             option = best_option(f.get("options") or [], answer)
-            if option:
-                actions.append({"id": f["id"], "action": "select", "value": option})
+            if option or (f.get("type") == "combobox" and f.get("more_options")):
+                kind = "select" if f["type"] == "select" else "choose"
+                actions.append({"id": f["id"], "action": kind, "value": option or answer})
                 used.append(question_key(f.get("label")))
                 continue
         elif answer and _reusable_text(f):
@@ -261,13 +303,13 @@ def answers_on_page(fields: list[dict], pii_values: set[str]) -> dict[str, tuple
             if f.get("checked") and f.get("group"):
                 found[question_key(f["group"])] = (f["group"], f.get("label", ""))
             continue
-        if ftype == "select" or _reusable_text(f):
+        if ftype in ("select", "combobox") or _reusable_text(f):
             value = (f.get("value") or "").strip()
             if not value or len(value) > _MAX_REUSABLE_TEXT or not f.get("label") or is_standard(f):
                 continue
             if value.lower() in pii_values:
                 continue
-            if ftype == "select" and re.search(r"^(select|choose|please)\b|^-+$", value.lower()):
+            if not has_value(f):
                 continue  # still on the placeholder option
             found[question_key(f["label"])] = (f["label"], value)
     return {k: v for k, v in found.items() if k}
