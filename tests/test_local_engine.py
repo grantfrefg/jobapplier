@@ -441,3 +441,105 @@ def test_job_ad_without_apply_link_asks_the_user(tmp_path, monkeypatch):
            "tailored_resume_path": str(resume_txt), "cover_letter_path": None, "fit_score": 9}
     assert le.run_job(job, gate=gate)[0] == "manual"
     assert seen["where"] == "" and "Click Apply in the browser" in seen["needs"][0]
+
+
+def _serve(directory):
+    import functools
+    import http.server
+    import threading
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_port}"
+
+
+def _engine_env(tmp_path, monkeypatch):
+    (tmp_path / "tailored").mkdir()
+    resume_txt = tmp_path / "tailored" / "a.txt"
+    resume_txt.write_text(RESUME)
+    resume_txt.with_suffix(".pdf").write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(json.dumps(PROFILE))
+    for name, value in {"PROFILE_PATH": profile_path, "LOG_DIR": tmp_path, "APPLY_WORKER_DIR": tmp_path / "apply",
+                        "LOCAL_BROWSER_PROFILE_DIR": tmp_path / "browser"}.items():
+        monkeypatch.setattr(config, name, value)
+    monkeypatch.setattr(le, "_call_gemini", _fake_gemini([]))
+    monkeypatch.setattr(le, "_is_job_listing", lambda url: url.endswith("ad.html"))
+    return str(resume_txt)
+
+
+EASY_APPLY_AD = """<!doctype html><html><body>
+<header><label for="kw">Search by title, skill, or company</label><input id="kw"></header>
+<h1>Data Scientist</h1>
+<button id="easy" onclick="document.getElementById('modal').style.display='block'">Easy Apply</button>
+<div id="modal" role="dialog" aria-modal="true" style="display:none">
+  <div id="s1"><label for="fn">First name</label><input id="fn"><label for="em">Email address</label><input id="em">
+    <button onclick="s1.style.display='none'; s2.style.display='block'">Next</button></div>
+  <div id="s2" style="display:none"><label for="ln">Last name</label><input id="ln">
+    <button onclick="window.submitted = true">Submit application</button></div>
+</div></body></html>"""
+
+
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
+def test_easy_apply_dialog_is_filled_after_the_user_opens_it(tmp_path, monkeypatch):
+    """LinkedIn Easy Apply: the form opens in a dialog on the job ad's own URL."""
+    pytest.importorskip("playwright")
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "ad.html").write_text(EASY_APPLY_AD)
+    server, base = _serve(site)
+    resume = _engine_env(tmp_path, monkeypatch)
+    calls = []
+
+    def gate(page, needs, dry_run):
+        calls.append(needs)
+        if len(calls) == 1:
+            assert "Click Apply in the browser" in needs[0]
+            page.click("#easy")       # the user opens Easy Apply
+            return "rescan"
+        calls.append(page.evaluate("() => ({kw: kw.value, fn: fn.value, em: em.value, ln: ln.value,"
+                                   " submitted: !!window.submitted})"))
+        return "manual"
+
+    job = {"title": "Data Scientist", "site": "linkedin", "url": f"{base}/ad.html", "application_url": None,
+           "tailored_resume_path": resume, "cover_letter_path": None, "fit_score": 9}
+    try:
+        assert le.run_job(job, gate=gate)[0] == "manual"
+    finally:
+        server.shutdown()
+    seen = calls[-1]
+    assert seen["kw"] == ""                                   # the page's search box is left alone
+    assert (seen["fn"], seen["em"], seen["ln"]) == ("Jane", "jane.doe@example.com", "Doe")  # both steps
+    assert seen["submitted"] is False
+
+
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
+def test_apply_button_opening_a_new_tab_is_followed(tmp_path, monkeypatch):
+    """LinkedIn's (non-Easy) Apply opens the employer's form in a new tab."""
+    pytest.importorskip("playwright")
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "form.html").write_text(FORM_HTML)
+    (site / "ad.html").write_text("""<!doctype html><html><body><h1>Data Scientist</h1>
+      <button id="apply" onclick="window.open('/form.html')">Apply</button></body></html>""")
+    server, base = _serve(site)
+    resume = _engine_env(tmp_path, monkeypatch)
+    seen = {}
+
+    def gate(page, needs, dry_run):
+        if not seen:
+            seen["first_url"] = page.url
+            page.click("#apply")
+            page.wait_for_timeout(500)
+            return "rescan"
+        seen.update(url=page.url, fn=page.evaluate("() => fn.value"))
+        return "manual"
+
+    job = {"title": "Data Scientist", "site": "linkedin", "url": f"{base}/ad.html", "application_url": None,
+           "tailored_resume_path": resume, "cover_letter_path": None, "fit_score": 9}
+    try:
+        assert le.run_job(job, gate=gate)[0] == "manual"
+    finally:
+        server.shutdown()
+    assert seen["first_url"].endswith("ad.html") and seen["url"].endswith("form.html") and seen["fn"] == "Jane"
