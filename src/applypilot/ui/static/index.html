@@ -444,7 +444,7 @@ $("#save-yaml").addEventListener("click", () => guarded(async () => {
 // ---------- setup: profile (form generated from the template's shape) ----------
 const REQUIRED = new Set(["personal.full_name", "personal.email", "personal.phone"]);
 async function loadProfile() {
-  const { profile } = await api("/api/profile");
+  const { profile, options = {}, numbers = [] } = await api("/api/profile");
   const form = $("#profile-form");
   form.replaceChildren();
   for (const [section, fields] of Object.entries(profile)) {
@@ -455,17 +455,28 @@ async function loadProfile() {
       const isList = Array.isArray(value);
       const type = key.includes("password") ? "password" : key === "email" ? "email" : "text";
       const id = "p-" + path.replace(".", "-");
-      box.append(el("div", {},
-        el("label", { for: id }, human(key) + (REQUIRED.has(path) ? " *" : "") + (isList ? " (comma separated)" : "")),
-        el("input", { id, type, "data-path": path, "data-list": isList ? "1" : false,
-                      value: isList ? value.join(", ") : String(value ?? "") })));
+      const label = el("label", { for: id }, human(key) + (REQUIRED.has(path) ? " *" : "") + (isList ? " (comma separated)" : ""));
+      let input;
+      if (options[path]) {
+        // A fixed set of answers: a drop-down, so the wording is always one the app understands
+        const current = String(value ?? "");
+        const known = options[path].some((o) => o.value === current);
+        input = el("select", { id, "data-path": path },
+          ...(known ? [] : [el("option", { value: current, selected: true }, (current || "(empty)") + " (pick one)")]),
+          ...options[path].map((o) => el("option", { value: o.value, selected: o.value === current }, o.label)));
+      } else {
+        input = el("input", { id, type: numbers.includes(path) ? "number" : type, "data-path": path,
+                              "data-list": isList ? "1" : false, min: numbers.includes(path) ? "0" : false,
+                              value: isList ? value.join(", ") : String(value ?? "") });
+      }
+      box.append(el("div", {}, label, input));
     }
     form.append(el("fieldset", {}, el("legend", {}, human(section)), box));
   }
 }
 $("#save-profile").addEventListener("click", () => guarded(async () => {
   const out = {};
-  for (const input of $$("#profile-form input")) {
+  for (const input of $$("#profile-form input, #profile-form select")) {
     const [section, key] = input.dataset.path.split(".");
     out[section] ??= {};
     out[section][key] = input.dataset.list

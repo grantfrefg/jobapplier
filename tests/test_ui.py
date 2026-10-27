@@ -301,3 +301,30 @@ def test_quick_view_and_locate(client, tmp_path, monkeypatch):
     monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, **kw: started.append((label, args)))
     assert client.post("/api/jobs/locate", json={"min_score": 8}).status_code == 200
     assert started == [("Check where to apply", ["locate", "--min-score", "8"])]
+
+
+def test_profile_choices_are_drop_downs_and_old_wording_is_mapped(client):
+    from applypilot import profile_options as po
+    profile = {"personal": {"full_name": "Jane Doe", "email": "j@x.com", "phone": "0412 345 678",
+                            "province_state": "New South Wales"},
+               "work_authorization": {"legally_authorized_to_work": True, "require_sponsorship": "false",
+                                      "work_permit_type": "citizen", "security_clearance": "None"},
+               "experience": {"education_level": "Masters"},
+               "eeo_voluntary": {"gender": "Decline to self-identify"}}
+    assert client.post("/api/profile", json=profile).status_code == 200
+    data = client.get("/api/profile").json()
+    p = data["profile"]
+    assert (p["personal"]["province_state"], p["work_authorization"]["legally_authorized_to_work"],
+            p["work_authorization"]["require_sponsorship"], p["work_authorization"]["work_permit_type"],
+            p["work_authorization"]["security_clearance"], p["experience"]["education_level"],
+            p["eeo_voluntary"]["gender"]) == ("NSW", "Yes", "No", "Australian citizen", "", "Master's degree",
+                                             "Prefer not to say")
+    assert {o["label"] for o in data["options"]["work_authorization.security_clearance"]} >= {"None", "NV1"}
+    assert "experience.years_of_experience_total" in data["numbers"]
+    # Saved in the canonical wording, and a made-up value is refused
+    saved = json.loads(config.PROFILE_PATH.read_text())
+    assert saved["work_authorization"]["work_permit_type"] == "Australian citizen"
+    bad = {**profile, "work_authorization": {"security_clearance": "Top secret-ish"}}
+    r = client.post("/api/profile", json=bad)
+    assert r.status_code == 400 and "security clearance" in r.json()["detail"]
+    assert po.normalise("availability.notice_period", "Immediate") == "Immediately"

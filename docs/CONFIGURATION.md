@@ -89,7 +89,7 @@ queries:
 
 ## `profile.json`
 
-Sections, each a set of fields shown as a form on the Setup page:
+Sections, each a set of fields shown as a form on the Setup page. Fields with only a few sensible answers are drop-downs (Yes/No questions, state, country, work rights, security clearance, notice period, salary currency, education, and the diversity questions), so the wording is always one the app understands. Older or hand-typed values are mapped onto them when the profile loads ("true" becomes Yes, "Masters" becomes Master's degree); anything unrecognised is flagged to pick again.
 
 | Section | Used for |
 |---|---|

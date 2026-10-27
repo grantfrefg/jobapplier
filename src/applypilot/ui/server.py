@@ -478,10 +478,14 @@ def create_app() -> FastAPI:
 
     @app.get("/api/profile")
     def get_profile() -> dict:
+        from applypilot import profile_options as po
         template = json.loads(PROFILE_TEMPLATE_PATH.read_text(encoding="utf-8"))
         saved = json.loads(config.PROFILE_PATH.read_text(encoding="utf-8")) if config.PROFILE_PATH.exists() else None
-        return {"exists": saved is not None, "profile": _deep_merge(template, saved or {}),
-                "template": template}
+        profile = po.normalise_profile(_deep_merge(template, saved or {}))
+        options = {path: [{"value": v, "label": v or po.EMPTY_LABELS.get(path, "Not set")} for v in values]
+                   for path, values in po.OPTIONS.items()}
+        return {"exists": saved is not None, "profile": profile, "template": template,
+                "options": options, "numbers": sorted(po.NUMBERS)}
 
     @app.post("/api/profile")
     def save_profile(body: dict) -> dict:
@@ -489,6 +493,12 @@ def create_app() -> FastAPI:
         missing = [k for k in ("full_name", "email", "phone") if not str(personal.get(k, "")).strip()]
         if missing:
             raise HTTPException(400, f"Required: {', '.join(missing)}")
+        from applypilot import profile_options as po
+        body = po.normalise_profile(body)
+        bad = po.invalid_choices(body)
+        if bad:
+            raise HTTPException(400, "Pick one of the listed options for: "
+                                + ", ".join(b.split(".", 1)[1].replace("_", " ") for b in bad))
         config.PROFILE_PATH.write_text(json.dumps(body, indent=2, ensure_ascii=False), encoding="utf-8")
         return get_profile()
 
