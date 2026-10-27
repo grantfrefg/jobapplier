@@ -573,3 +573,25 @@ def test_a_tab_you_open_yourself_is_never_filled(tmp_path, monkeypatch):
     finally:
         server.shutdown()
     assert seen["url"].endswith("form.html") and seen["q"] == ""
+
+
+@pytest.mark.parametrize("platform, sandbox", [("win32", True), ("darwin", True), ("linux", False)])
+def test_engine_browser_keeps_the_sandbox_outside_linux(monkeypatch, tmp_path, platform, sandbox):
+    """Without it Chrome / Edge show "unsupported command-line flag: --no-sandbox"."""
+    seen = {}
+
+    class Chromium:
+        executable_path = str(tmp_path / "missing")
+
+        def launch_persistent_context(self, profile, **kw):
+            seen.update(kw)
+            return "ctx"
+
+    class P:
+        chromium = Chromium()
+
+    monkeypatch.setattr(le.sys, "platform", platform)
+    monkeypatch.setattr(le.config, "find_system_browsers", lambda: ["/opt/chrome"])
+    monkeypatch.delenv("CHROME_PATH", raising=False)
+    assert le.launch_browser(P()) == "ctx"
+    assert seen["chromium_sandbox"] is sandbox

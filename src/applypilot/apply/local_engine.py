@@ -1155,6 +1155,10 @@ def launch_browser(p):
                 headless=False,
                 executable_path=exe,
                 viewport={"width": width, "height": height},
+                # Playwright turns the sandbox off by default, and Chrome / Edge
+                # then warn "unsupported command-line flag: --no-sandbox".
+                # Containers (Linux) have no usable sandbox, so only there.
+                chromium_sandbox=not sys.platform.startswith("linux"),
             )
         except Exception as e:
             errors.append(f"{exe or 'Playwright Chromium'}: {str(e).strip().splitlines()[0][:150]}")
