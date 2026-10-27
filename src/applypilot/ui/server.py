@@ -519,7 +519,7 @@ def create_app() -> FastAPI:
     # -- jobs --------------------------------------------------------------
 
     @app.get("/api/jobs")
-    def list_jobs(view: str = "ready") -> list[dict]:
+    def list_jobs(view: str = "ready", quick: bool = False) -> list[dict]:
         from applypilot.database import mark_duplicates
         mark_duplicates(get_connection())
         where = {
@@ -528,11 +528,14 @@ def create_app() -> FastAPI:
             "applied": "applied_at IS NOT NULL",
             "all": "1 = 1",
         }.get(view)
+        if view == "ready" and quick:
+            where += " AND apply_account IN ('no', 'board')"
         if where is None:
             raise HTTPException(400, "view must be ready, applied or all")
         rows = get_connection().execute(f"""
             SELECT url, title, company, site, location, fit_score, application_url, apply_status,
                    apply_error, applied_at, duplicate_of, redo_requested,
+                   apply_site, apply_site_name, apply_account,
                    tailored_resume_path IS NOT NULL AS tailored,
                    cover_letter_path IS NOT NULL AS has_cover,
                    (SELECT site FROM jobs c WHERE c.url = jobs.duplicate_of) AS duplicate_site,
@@ -542,6 +545,17 @@ def create_app() -> FastAPI:
             LIMIT 500
         """).fetchall()
         return [{**dict(r), "link": apply_link(r)} for r in rows]
+
+    @app.post("/api/jobs/locate")
+    def locate_jobs(body: dict) -> dict:
+        """Check where each ready job applies (opens the visible browser; no AI)."""
+        if session.busy:
+            raise HTTPException(409, "Finish the application that's open first (they share the browser)")
+        args = ["locate", "--min-score", str(int(body.get("min_score", 7)))]
+        if body.get("recheck"):
+            args.append("--recheck")
+        task.start("Check where to apply", args)
+        return task.snapshot()
 
     @app.post("/api/jobs/reset")
     def reset_job(body: dict) -> dict:
@@ -648,6 +662,8 @@ def create_app() -> FastAPI:
         if config.get_execution_engine() == config.ENGINE_LOCAL_PLAYWRIGHT:
             if not os.environ.get("GEMINI_API_KEY"):
                 raise HTTPException(400, "Add your Gemini API key first (Setup tab)")
+            if task.running and task.label == "Check where to apply":
+                raise HTTPException(409, "Wait for 'Check where to apply' to finish (they share the browser)")
             session.start(url, int(body.get("min_score", 0)))
             return {"mode": "local", **session.snapshot()}
         # Claude Code engine is autonomous: run the normal CLI as a subprocess

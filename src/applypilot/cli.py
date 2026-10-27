@@ -316,6 +316,26 @@ def redo(
 
 
 @app.command()
+def locate(
+    min_score: int = typer.Option(7, "--min-score", help="Only jobs scoring at least this."),
+    recheck: bool = typer.Option(False, "--recheck", help="Check jobs that were already checked again."),
+    limit: int = typer.Option(0, "--limit", help="Check at most this many jobs (0 = all)."),
+) -> None:
+    """Find out where each ready job applies (Greenhouse, Workday, SEEK...) and whether it needs an account.
+
+    Opens the free engine's visible browser, follows each ad's Apply link and
+    records where it lands. Nothing is filled in and no AI requests are used.
+    """
+    _bootstrap()
+    import logging
+
+    from applypilot.apply.sites import locate_jobs
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    locate_jobs(min_score=min_score, recheck=recheck, limit=limit)
+
+
+@app.command()
 def status() -> None:
     """Show pipeline statistics from the database."""
     _bootstrap()
