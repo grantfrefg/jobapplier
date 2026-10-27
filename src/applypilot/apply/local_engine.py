@@ -968,7 +968,9 @@ def _auth_note(kind: str, page) -> str:
                 "password and finish signing up (check your email if it asks you to verify), then choose "
                 "'Fill this page again'. This browser remembers the account for this employer.")
     return (f"Sign in to {site} to continue (your email is filled in; type your password), then choose "
-            "'Fill this page again'. No account yet? Use its 'Create account' link.")
+            "'Fill this page again'. No account yet? Use its 'Create account' link. If it only offers "
+            "'Sign in with Google' and Google blocks it here: choose 'Not yet: save for later', sign in "
+            "with Setup → Log in to sites (or the job's Log in button), close that window, and apply again.")
 
 
 def _record_apply_site(job: dict, page, ctx: dict, password: bool = False) -> None:
