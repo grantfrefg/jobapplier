@@ -111,8 +111,13 @@ Cover letters are written together with the tailored resume (above). The separat
 
 | Engine | Cost | Who clicks Submit |
 |---|---|---|
-| `local_playwright` (desktop app default) | Free: your Gemini key | **You** |
+| `local_playwright` (desktop app default) | Free with Gemini, or your own OpenAI / Anthropic key | **You** |
 | `claude_code` (original) | Paid Claude Code subscription | The agent, automatically |
+| `codex` | Your ChatGPT plan (`codex login`) or OpenAI key | The agent, automatically |
+
+**AI provider.** Scoring, tailoring, cover letters and the local engine's form answers all use the provider chosen in Setup: Google Gemini (free daily allowance), or your own paid OpenAI or Anthropic (Claude) API key. Paid keys have no daily budget in the app; each tailored job costs about two requests. Personal identifiers are sent to every provider only as placeholders.
+
+**Codex engine.** Works like the Claude Code engine: the same instructions and the same Chrome, driven through the Playwright MCP server, and it submits by itself. Codex's own command runner is kept in a read-only sandbox, so it acts only through the browser. Install it with `npm install -g @openai/codex` and run `codex login` once (or set `OPENAI_API_KEY`). It isn't offered in the desktop app, which always uses the engine where you click Submit.
 
 ### The free local engine
 1. Opens a **visible** browser with its own saved profile (`~/.applypilot/local-playwright-profile`). Log in to SEEK, LinkedIn or Workday there once and you stay logged in. It uses installed Chrome or Edge, or ApplyPilot's own Chromium (Setup → **Install browser**).

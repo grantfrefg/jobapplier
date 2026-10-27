@@ -235,17 +235,23 @@ def apply(
 
     effective_limit = limit if limit is not None else (0 if continuous else 1)
 
-    from applypilot.config import get_execution_engine, get_local_engine_model, ENGINE_LOCAL_PLAYWRIGHT
+    import os
+
+    from applypilot.config import (ENGINE_CODEX, ENGINE_LOCAL_PLAYWRIGHT, PROVIDERS, get_execution_engine,
+                                   get_llm_provider, get_local_engine_model)
     engine = get_execution_engine()
 
     console.print("\n[bold blue]Launching Auto-Apply[/bold blue]")
     console.print(f"  Engine:   {engine}")
     if engine == ENGINE_LOCAL_PLAYWRIGHT:
-        console.print(f"  Gemini:   {get_local_engine_model()}")
+        provider = get_llm_provider()
+        console.print(f"  AI:       {PROVIDERS[provider][2] if provider else 'none'} ({get_local_engine_model()})")
         console.print("  [dim]Forms are filled locally; YOU click Submit after reviewing.[/dim]")
+    elif engine == ENGINE_CODEX:
+        console.print(f"  Codex:    {os.environ.get('CODEX_MODEL') or 'its default model'}")
     console.print(f"  Limit:    {'unlimited' if continuous else effective_limit}")
     console.print(f"  Workers:  {workers}")
-    if engine != ENGINE_LOCAL_PLAYWRIGHT:
+    if engine not in (ENGINE_LOCAL_PLAYWRIGHT, ENGINE_CODEX):
         console.print(f"  Model:    {model}")
     console.print(f"  Headless: {headless}")
     console.print(f"  Dry run:  {dry_run}")
@@ -515,40 +521,32 @@ def doctor() -> None:
 
     # --- Tier 2 checks ---
     import os
-    has_gemini = bool(os.environ.get("GEMINI_API_KEY"))
-    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
-    has_local = bool(os.environ.get("LLM_URL"))
-    if has_gemini:
-        from applypilot.config import DEFAULT_GEMINI_MODEL
-        model = os.environ.get("LLM_MODEL") or DEFAULT_GEMINI_MODEL
-        results.append(("LLM API key", ok_mark, f"Gemini ({model})"))
-    elif has_openai:
-        model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
-        results.append(("LLM API key", ok_mark, f"OpenAI ({model})"))
-    elif has_local:
-        results.append(("LLM API key", ok_mark, f"Local: {os.environ.get('LLM_URL')}"))
+    from applypilot.config import PROVIDERS, get_llm_model, get_llm_provider
+    provider = get_llm_provider()
+    if provider:
+        detail = os.environ.get("LLM_URL") if provider == "local" else get_llm_model(provider)
+        results.append(("AI provider", ok_mark, f"{PROVIDERS[provider][2]} ({detail})"))
     else:
-        results.append(("LLM API key", fail_mark,
-                        "Set GEMINI_API_KEY in ~/.applypilot/.env (run 'applypilot init')"))
+        results.append(("AI provider", fail_mark,
+                        "Set GEMINI_API_KEY (free), OPENAI_API_KEY or ANTHROPIC_API_KEY in ~/.applypilot/.env"))
 
     # --- Tier 3 checks ---
-    from applypilot.config import (
-        get_execution_engine, get_local_engine_model, has_playwright, ENGINE_LOCAL_PLAYWRIGHT,
-    )
+    from applypilot.config import ENGINE_CODEX, ENGINE_LOCAL_PLAYWRIGHT, get_execution_engine, has_playwright
     engine = get_execution_engine()
     results.append(("Apply engine", ok_mark, f"EXECUTION_ENGINE={engine}"))
 
     if engine == ENGINE_LOCAL_PLAYWRIGHT:
-        if os.environ.get("GEMINI_API_KEY"):
-            results.append(("Gemini (local engine)", ok_mark, get_local_engine_model()))
-        else:
-            results.append(("Gemini (local engine)", fail_mark,
-                            "Set GEMINI_API_KEY (needed for local_playwright)"))
         if has_playwright():
             results.append(("Playwright", ok_mark, "Run 'playwright install chromium' if the browser won't start"))
         else:
             results.append(("Playwright", fail_mark,
                             "pip install playwright && playwright install chromium"))
+    elif engine == ENGINE_CODEX:
+        codex_bin = shutil.which("codex")
+        if codex_bin:
+            results.append(("Codex CLI", ok_mark, f"{codex_bin} (signed in? run 'codex login' once)"))
+        else:
+            results.append(("Codex CLI", fail_mark, "npm install -g @openai/codex, then 'codex login'"))
     else:
         # Claude Code CLI
         claude_bin = shutil.which("claude")
@@ -558,6 +556,7 @@ def doctor() -> None:
             results.append(("Claude Code CLI", fail_mark,
                             "Install from https://claude.ai/code (needed for auto-apply)"))
 
+    if engine != ENGINE_LOCAL_PLAYWRIGHT:
         # Chrome
         try:
             chrome_path = get_chrome_path()
@@ -599,7 +598,8 @@ def doctor() -> None:
     console.print(f"[bold]Current tier: Tier {tier} — {TIER_LABELS[tier]}[/bold]")
 
     tier3_needs = (
-        "GEMINI_API_KEY + Playwright" if engine == ENGINE_LOCAL_PLAYWRIGHT
+        "an AI key + Playwright" if engine == ENGINE_LOCAL_PLAYWRIGHT
+        else "Codex CLI + Chrome + Node.js" if engine == ENGINE_CODEX
         else "Claude Code CLI + Chrome + Node.js"
     )
     if tier == 1:

@@ -1,22 +1,25 @@
 """
 Unified LLM client for ApplyPilot.
 
-Auto-detects provider from environment:
-  GEMINI_API_KEY  -> Google Gemini (default: gemini-3.5-flash-lite)
-  OPENAI_API_KEY  -> OpenAI (default: gpt-4o-mini)
-  LLM_URL         -> Local llama.cpp / Ollama compatible endpoint
+The provider is chosen in Settings (LLM_PROVIDER) or by which key is set
+(config.get_llm_provider):
+  GEMINI_API_KEY    -> Google Gemini (default: gemini-3.5-flash-lite, free tier)
+  OPENAI_API_KEY    -> OpenAI (default: gpt-5-mini)
+  ANTHROPIC_API_KEY -> Anthropic Claude (default: claude-opus-5-5; llm_anthropic.py)
+  LLM_URL           -> Local llama.cpp / Ollama compatible endpoint
 
-LLM_MODEL env var overrides the model name for any provider.
+LLM_MODEL overrides the model when it names one of the chosen provider's models.
 """
 
 import logging
 import os
+import re
 import time
 
 import httpx
 
-from applypilot import budget
-from applypilot.config import DEFAULT_GEMINI_MODEL
+from applypilot import budget, config
+from applypilot.config import DEFAULT_GEMINI_MODEL  # noqa: F401  (re-exported for callers)
 
 log = logging.getLogger(__name__)
 
@@ -24,42 +27,29 @@ log = logging.getLogger(__name__)
 # Provider detection
 # ---------------------------------------------------------------------------
 
+_BASE_URLS = {
+    config.PROVIDER_GEMINI: "https://generativelanguage.googleapis.com/v1beta/openai",
+    config.PROVIDER_OPENAI: "https://api.openai.com/v1",
+    config.PROVIDER_ANTHROPIC: "https://api.anthropic.com",
+}
+
+
 def _detect_provider() -> tuple[str, str, str]:
-    """Return (base_url, model, api_key) based on environment variables.
+    """Return (base_url, model, api_key) for the chosen provider.
 
     Reads env at call time (not module import time) so that load_env() called
     in _bootstrap() is always visible here.
     """
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
-    local_url = os.environ.get("LLM_URL", "")
-    model_override = os.environ.get("LLM_MODEL", "")
-
-    if gemini_key and not local_url:
-        return (
-            "https://generativelanguage.googleapis.com/v1beta/openai",
-            model_override or DEFAULT_GEMINI_MODEL,
-            gemini_key,
+    provider = config.get_llm_provider()
+    if provider is None:
+        raise RuntimeError(
+            "No AI provider configured. Set GEMINI_API_KEY (free), OPENAI_API_KEY, "
+            "ANTHROPIC_API_KEY or LLM_URL (Setup page or .env)."
         )
-
-    if openai_key and not local_url:
-        return (
-            "https://api.openai.com/v1",
-            model_override or "gpt-4o-mini",
-            openai_key,
-        )
-
-    if local_url:
-        return (
-            local_url.rstrip("/"),
-            model_override or "local-model",
-            os.environ.get("LLM_API_KEY", ""),
-        )
-
-    raise RuntimeError(
-        "No LLM provider configured. "
-        "Set GEMINI_API_KEY, OPENAI_API_KEY, or LLM_URL in your environment."
-    )
+    model = config.get_llm_model(provider)
+    if provider == config.PROVIDER_LOCAL:
+        return config.provider_key(provider).rstrip("/"), model, os.environ.get("LLM_API_KEY", "")
+    return _BASE_URLS[provider], model, config.provider_key(provider)
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +87,11 @@ class LLMClient:
         # False once the OpenAI-compat endpoint has rejected response_format
         self._compat_json_ok: bool = True
         self._is_gemini: bool = base_url.startswith(_GEMINI_COMPAT_BASE)
+        self._is_openai: bool = base_url.startswith("https://api.openai.com")
+        self._claude = None
+        if base_url.startswith("https://api.anthropic.com"):
+            from applypilot.llm_anthropic import ClaudeChat
+            self._claude = ClaudeChat(api_key, model)
 
     # -- Native Gemini API --------------------------------------------------
 
@@ -172,6 +167,8 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if self._is_openai:
+            _openai_params(payload, self.model)
         if json_mode and self._compat_json_ok:
             payload["response_format"] = {"type": "json_object"}
 
@@ -223,6 +220,9 @@ class LLMClient:
             first = messages[0]
             if first.get("role") == "user" and not first["content"].startswith("/no_think"):
                 messages = [{"role": first["role"], "content": f"/no_think\n{first['content']}"}] + messages[1:]
+
+        if self._claude is not None:
+            return self._claude.chat(messages, max_tokens=max_tokens, json_mode=json_mode)
 
         # Pipeline work stops cleanly when the day's Gemini budget is spent
         budget.check(self.model if self._is_gemini else None, budget.PIPELINE)
@@ -311,6 +311,23 @@ class LLMClient:
 
     def close(self) -> None:
         self._client.close()
+        if self._claude is not None:
+            self._claude.close()
+
+
+# OpenAI reasoning models (gpt-5 family, o-series) take max_completion_tokens,
+# only the default temperature, and spend part of the token limit on reasoning.
+_OPENAI_REASONING = re.compile(r"^(gpt-5|o\d)")
+
+
+def _openai_params(payload: dict, model: str) -> None:
+    """Adjust a chat/completions payload for api.openai.com's current models."""
+    tokens = payload.pop("max_tokens")
+    if _OPENAI_REASONING.match(model.lower()):
+        payload.pop("temperature", None)
+        payload["reasoning_effort"] = "low"
+        tokens += 8000  # room for the reasoning before the answer
+    payload["max_completion_tokens"] = tokens
 
 
 def error_detail(resp: httpx.Response) -> str:

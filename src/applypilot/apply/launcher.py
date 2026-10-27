@@ -11,6 +11,7 @@ import logging
 import os
 import platform
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -316,6 +317,8 @@ def run_job(job: dict, port: int, worker_id: int = 0,
     if config.get_execution_engine() == config.ENGINE_LOCAL_PLAYWRIGHT:
         from applypilot.apply import local_engine
         return local_engine.run_job(job, worker_id=worker_id, dry_run=dry_run)
+    if config.get_execution_engine() == config.ENGINE_CODEX:
+        return _run_codex(job, port, worker_id, dry_run)
 
     # Read tailored resume text
     from applypilot.own_docs import documents
@@ -460,53 +463,12 @@ def run_job(job: dict, port: int, worker_id: int = 0,
             return "skipped", int((time.time() - start) * 1000)
 
         output = "\n".join(text_parts)
-        elapsed = int(time.time() - start)
-        duration_ms = int((time.time() - start) * 1000)
-
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        job_log = config.LOG_DIR / f"claude_{ts}_w{worker_id}_{job.get('site', 'unknown')[:20]}.txt"
-        job_log.write_text(output, encoding="utf-8")
-
         if stats:
             cost = stats.get("cost_usd", 0)
             ws = get_state(worker_id)
             prev_cost = ws.total_cost if ws else 0.0
             update_state(worker_id, total_cost=prev_cost + cost)
-
-        def _clean_reason(s: str) -> str:
-            return re.sub(r'[*`"]+$', '', s).strip()
-
-        for result_status in ["APPLIED", "EXPIRED", "CAPTCHA", "LOGIN_ISSUE"]:
-            if f"RESULT:{result_status}" in output:
-                add_event(f"[W{worker_id}] {result_status} ({elapsed}s): {job['title'][:30]}")
-                update_state(worker_id, status=result_status.lower(),
-                             last_action=f"{result_status} ({elapsed}s)")
-                return result_status.lower(), duration_ms
-
-        if "RESULT:FAILED" in output:
-            for out_line in output.split("\n"):
-                if "RESULT:FAILED" in out_line:
-                    reason = (
-                        out_line.split("RESULT:FAILED:")[-1].strip()
-                        if ":" in out_line[out_line.index("FAILED") + 6:]
-                        else "unknown"
-                    )
-                    reason = _clean_reason(reason)
-                    PROMOTE_TO_STATUS = {"captcha", "expired", "login_issue"}
-                    if reason in PROMOTE_TO_STATUS:
-                        add_event(f"[W{worker_id}] {reason.upper()} ({elapsed}s): {job['title'][:30]}")
-                        update_state(worker_id, status=reason,
-                                     last_action=f"{reason.upper()} ({elapsed}s)")
-                        return reason, duration_ms
-                    add_event(f"[W{worker_id}] FAILED ({elapsed}s): {reason[:30]}")
-                    update_state(worker_id, status="failed",
-                                 last_action=f"FAILED: {reason[:25]}")
-                    return f"failed:{reason}", duration_ms
-            return "failed:unknown", duration_ms
-
-        add_event(f"[W{worker_id}] NO RESULT ({elapsed}s)")
-        update_state(worker_id, status="failed", last_action=f"no result ({elapsed}s)")
-        return "failed:no_result_line", duration_ms
+        return _outcome(output, job, worker_id, start, "claude")
 
     except subprocess.TimeoutExpired:
         duration_ms = int((time.time() - start) * 1000)
@@ -519,6 +481,176 @@ def run_job(job: dict, port: int, worker_id: int = 0,
         add_event(f"[W{worker_id}] ERROR: {str(e)[:40]}")
         update_state(worker_id, status="failed", last_action=f"ERROR: {str(e)[:25]}")
         return f"failed:{str(e)[:100]}", duration_ms
+    finally:
+        with _claude_lock:
+            _claude_procs.pop(worker_id, None)
+        if proc is not None and proc.poll() is None:
+            _kill_process_tree(proc.pid)
+
+
+def _outcome(output: str, job: dict, worker_id: int, start: float, agent: str) -> tuple[str, int]:
+    """Read the agent's RESULT:... line (Claude Code and Codex end the same way)."""
+    elapsed = int(time.time() - start)
+    duration_ms = int((time.time() - start) * 1000)
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    job_log = config.LOG_DIR / f"{agent}_{ts}_w{worker_id}_{job.get('site', 'unknown')[:20]}.txt"
+    job_log.write_text(output, encoding="utf-8")
+
+    def _clean_reason(s: str) -> str:
+        return re.sub(r'[*`"]+$', '', s).strip()
+
+    for result_status in ["APPLIED", "EXPIRED", "CAPTCHA", "LOGIN_ISSUE"]:
+        if f"RESULT:{result_status}" in output:
+            add_event(f"[W{worker_id}] {result_status} ({elapsed}s): {job['title'][:30]}")
+            update_state(worker_id, status=result_status.lower(),
+                         last_action=f"{result_status} ({elapsed}s)")
+            return result_status.lower(), duration_ms
+
+    if "RESULT:FAILED" in output:
+        for out_line in output.split("\n"):
+            if "RESULT:FAILED" in out_line:
+                reason = (
+                    out_line.split("RESULT:FAILED:")[-1].strip()
+                    if ":" in out_line[out_line.index("FAILED") + 6:]
+                    else "unknown"
+                )
+                reason = _clean_reason(reason)
+                PROMOTE_TO_STATUS = {"captcha", "expired", "login_issue"}
+                if reason in PROMOTE_TO_STATUS:
+                    add_event(f"[W{worker_id}] {reason.upper()} ({elapsed}s): {job['title'][:30]}")
+                    update_state(worker_id, status=reason,
+                                 last_action=f"{reason.upper()} ({elapsed}s)")
+                    return reason, duration_ms
+                add_event(f"[W{worker_id}] FAILED ({elapsed}s): {reason[:30]}")
+                update_state(worker_id, status="failed",
+                             last_action=f"FAILED: {reason[:25]}")
+                return f"failed:{reason}", duration_ms
+        return "failed:unknown", duration_ms
+
+    add_event(f"[W{worker_id}] NO RESULT ({elapsed}s)")
+    update_state(worker_id, status="failed", last_action=f"no result ({elapsed}s)")
+    return "failed:no_result_line", duration_ms
+
+
+# ---------------------------------------------------------------------------
+# Codex engine: OpenAI's Codex CLI drives the same Chrome through Playwright MCP
+# ---------------------------------------------------------------------------
+
+def codex_command(port: int, last_message: Path, model: str = "") -> list[str]:
+    """`codex exec` reading the prompt from stdin, with the Playwright MCP server
+    attached to this worker's Chrome (the same browser Claude Code would drive).
+
+    Codex works only through the browser: its own shell runs in a read-only
+    sandbox (it can't change files or run anything that writes), and it never
+    stops to ask for approval, since nobody is watching the terminal.
+    """
+    mcp_args = json.dumps(["@playwright/mcp@latest", f"--cdp-endpoint=http://localhost:{port}",
+                           f"--viewport-size={config.DEFAULTS['viewport']}"])
+    cmd = [
+        shutil.which("codex") or "codex", "exec",
+        "--json",                     # one JSON event per line
+        "--skip-git-repo-check",      # it runs in a scratch folder, not a repository
+        "--ephemeral",                # no saved session files
+        "--sandbox", "read-only",
+        "-c", 'approval_policy="never"',
+        "-c", 'mcp_servers.playwright.command="npx"',
+        "-c", f"mcp_servers.playwright.args={mcp_args}",
+        "--output-last-message", str(last_message),
+    ]
+    if model:
+        cmd += ["--model", model]
+    return cmd + ["-"]
+
+
+def _codex_event(event: dict) -> tuple[str | None, str | None]:
+    """(text the agent wrote, short description of a browser action) from one event."""
+    item = event.get("item") if isinstance(event.get("item"), dict) else {}
+    kind = event.get("type", "")
+    if kind == "item.completed" and item.get("type") == "agent_message":
+        return item.get("text") or "", None
+    if kind == "item.started" and item.get("type") == "mcp_tool_call":
+        tool = str(item.get("tool") or "tool").replace("browser_", "")
+        args = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
+        detail = args.get("url") or args.get("element") or ""
+        return None, f"{tool} {str(detail)[:50]}".strip()
+    if kind in ("turn.failed", "error"):
+        err = event.get("error") if isinstance(event.get("error"), dict) else {}
+        message = str(err.get("message") or event.get("message") or event)
+        if message.startswith("Reconnecting"):  # Codex retries by itself; only the final error matters
+            return None, None
+        return f"Codex error: {message}", None
+    return None, None
+
+
+def _run_codex(job: dict, port: int, worker_id: int, dry_run: bool) -> tuple[str, int]:
+    from applypilot.own_docs import documents  # your own resume when you gave one
+    agent_prompt = prompt_mod.build_prompt(job=job, tailored_resume=documents(job)["resume"]["text"],
+                                           dry_run=dry_run)
+    worker_dir = reset_worker_dir(worker_id)
+    last_message = worker_dir / "codex-last-message.txt"
+    cmd = codex_command(port, last_message, os.environ.get("CODEX_MODEL", "").strip())
+
+    update_state(worker_id, status="applying", job_title=job["title"],
+                 company=job.get("site", ""), score=job.get("fit_score", 0),
+                 start_time=time.time(), actions=0, last_action="starting")
+    add_event(f"[W{worker_id}] Starting (Codex): {job['title'][:40]} @ {job.get('site', '')}")
+    worker_log = config.LOG_DIR / f"worker-{worker_id}.log"
+    start = time.time()
+    proc = None
+    try:
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, encoding="utf-8", errors="replace", cwd=str(worker_dir))
+        with _claude_lock:
+            _claude_procs[worker_id] = proc
+        proc.stdin.write(agent_prompt)
+        proc.stdin.close()
+
+        text_parts: list[str] = []
+        with open(worker_log, "a", encoding="utf-8") as lf:
+            lf.write(f"\n{'=' * 60}\n[{datetime.now():%Y-%m-%d %H:%M:%S}] {job['title']} @ {job.get('site', '')}"
+                     f" (Codex)\nURL: {job.get('application_url') or job['url']}\n{'=' * 60}\n")
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    text_parts.append(line)
+                    lf.write(line + "\n")
+                    continue
+                text, action = _codex_event(event) if isinstance(event, dict) else (None, None)
+                if text:
+                    text_parts.append(text)
+                    lf.write(text + "\n")
+                if action:
+                    lf.write(f"  >> {action}\n")
+                    ws = get_state(worker_id)
+                    update_state(worker_id, actions=(ws.actions if ws else 0) + 1, last_action=action[:35])
+        proc.wait(timeout=300)
+        if proc.returncode and proc.returncode < 0:
+            return "skipped", int((time.time() - start) * 1000)
+        proc = None
+        if last_message.exists():
+            text_parts.append(last_message.read_text(encoding="utf-8", errors="replace"))
+        output = "\n".join(text_parts)
+        if "RESULT:" not in output and "401 Unauthorized" in output:
+            add_event(f"[W{worker_id}] Codex isn't signed in: run 'codex login' (or set OPENAI_API_KEY)")
+            update_state(worker_id, status="failed", last_action="Codex not signed in")
+            return "failed:codex_not_signed_in", int((time.time() - start) * 1000)
+        return _outcome(output, job, worker_id, start, "codex")
+    except FileNotFoundError:
+        add_event(f"[W{worker_id}] Codex CLI not found")
+        return "failed:codex_cli_not_found", int((time.time() - start) * 1000)
+    except subprocess.TimeoutExpired:
+        add_event(f"[W{worker_id}] TIMEOUT ({int(time.time() - start)}s)")
+        update_state(worker_id, status="failed", last_action="TIMEOUT")
+        return "failed:timeout", int((time.time() - start) * 1000)
+    except Exception as e:
+        add_event(f"[W{worker_id}] ERROR: {str(e)[:40]}")
+        update_state(worker_id, status="failed", last_action=f"ERROR: {str(e)[:25]}")
+        return f"failed:{str(e)[:100]}", int((time.time() - start) * 1000)
     finally:
         with _claude_lock:
             _claude_procs.pop(worker_id, None)
