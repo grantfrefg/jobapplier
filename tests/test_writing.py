@@ -184,3 +184,67 @@ def test_run_tailoring_saves_resume_and_cover_letter(tmp_path, monkeypatch, use)
     database.close_connection(db)
     report = json.loads((tmp_path / "tailored" / "Sydney_Health_Data_Analyst_REPORT.json").read_text())
     assert report["requests"] == 1
+
+
+@pytest.fixture
+def tailoring_db(tmp_path, monkeypatch, use):
+    db = tmp_path / "jobs.db"
+    monkeypatch.setattr(database, "DB_PATH", db)
+    monkeypatch.setattr(config, "load_search_config", lambda: {})
+    for mod in (tailor, cl_mod):
+        monkeypatch.setattr(mod, "load_profile", lambda: PROFILE)
+        monkeypatch.setattr(mod, "RESUME_PATH", tmp_path / "resume.txt")
+    (tmp_path / "resume.txt").write_text(RESUME)
+    monkeypatch.setattr(tailor, "TAILORED_DIR", tmp_path / "tailored")
+    monkeypatch.setattr(tailor, "COVER_LETTER_DIR", tmp_path / "covers")
+    monkeypatch.setattr("applypilot.scoring.pdf.convert_to_pdf", lambda path: path)
+    conn = database.init_db(db)
+
+    def add(url, title, company, score, **extra):
+        cols = {"url": url, "title": title, "company": company, "site": "indeed", "location": "Sydney",
+                "full_description": JOB["full_description"], "fit_score": score, **extra}
+        conn.execute(f"INSERT INTO jobs ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})", list(cols.values()))
+        conn.commit()
+
+    yield conn, add
+    database.close_connection(db)
+
+
+def test_redo_rewrites_exactly_the_marked_job_whatever_its_score(tailoring_db, use):
+    conn, add = tailoring_db
+    add("https://ex.com/old", "Data Analyst", "Sydney Health", 6, tailored_resume_path="/old/resume.txt",
+        cover_letter_path="/old/cl.txt")
+    add("https://ex.com/new", "BI Analyst", "Other Co", 9)  # waiting for a normal tailor run
+    assert database.redo_documents(conn, url="https://ex.com/old") == 1
+    fake = use(FakeLLM(combined=[combined()]))
+    result = tailor.run_tailoring(min_score=8, limit=0, redo_only=True)
+    assert result["approved"] == 1 and fake.calls == ["combined"]  # the other job wasn't touched
+    row = conn.execute("SELECT tailored_resume_path, cover_letter_path, redo_requested FROM jobs "
+                       "WHERE url = 'https://ex.com/old'").fetchone()
+    assert row[0].endswith("Sydney_Health_Data_Analyst.txt") and row[1].endswith("_CL.txt") and row[2] == 0
+    assert conn.execute("SELECT tailored_resume_path FROM jobs WHERE url = 'https://ex.com/new'").fetchone()[0] is None
+
+
+def test_failed_redo_keeps_the_old_documents(tailoring_db, use):
+    conn, add = tailoring_db
+    add("https://ex.com/old", "Data Analyst", "Sydney Health", 9, tailored_resume_path="/old/resume.txt",
+        cover_letter_path="/old/cl.txt")
+    database.redo_documents(conn)
+    bad = copy.deepcopy(GOOD_RESUME)
+    bad["experience"][0]["header"] = "Data Analyst at Somewhere"  # drops a preserved company every time
+    use(FakeLLM(combined=[combined(bad)] * 4))
+    tailor.run_tailoring(redo_only=True, limit=0)
+    row = conn.execute("SELECT tailored_resume_path, cover_letter_path, redo_requested FROM jobs").fetchone()
+    assert tuple(row) == ("/old/resume.txt", "/old/cl.txt", 0)
+    assert not (tailor.TAILORED_DIR / "Sydney_Health_Data_Analyst.txt").exists()  # draft kept aside
+
+
+def test_redo_interrupted_by_budget_stays_marked(tailoring_db, use):
+    from applypilot.budget import BudgetExhausted
+    conn, add = tailoring_db
+    add("https://ex.com/old", "Data Analyst", "Sydney Health", 9, tailored_resume_path="/old/resume.txt")
+    database.redo_documents(conn)
+    use(FakeLLM(combined=[BudgetExhausted("out of requests")]))
+    tailor.run_tailoring(redo_only=True, limit=0)
+    row = conn.execute("SELECT tailored_resume_path, redo_requested FROM jobs").fetchone()
+    assert tuple(row) == ("/old/resume.txt", 1)  # picked up again on the next run

@@ -532,7 +532,7 @@ def create_app() -> FastAPI:
             raise HTTPException(400, "view must be ready, applied or all")
         rows = get_connection().execute(f"""
             SELECT url, title, company, site, location, fit_score, application_url, apply_status,
-                   apply_error, applied_at, duplicate_of,
+                   apply_error, applied_at, duplicate_of, redo_requested,
                    tailored_resume_path IS NOT NULL AS tailored,
                    cover_letter_path IS NOT NULL AS has_cover,
                    (SELECT site FROM jobs c WHERE c.url = jobs.duplicate_of) AS duplicate_site,
@@ -553,17 +553,21 @@ def create_app() -> FastAPI:
 
     @app.post("/api/jobs/redo")
     def redo_jobs(body: dict) -> dict:
-        """Regenerate the resume and cover letter for one job (url) or all jobs not yet applied to."""
+        """Rewrite the resume and cover letter for one job (url) or all jobs not yet applied to.
+
+        Only the marked jobs are rewritten, whatever their score, and each
+        keeps its old documents until the new ones pass the checks.
+        """
         from applypilot.database import redo_documents
         if task.running:
             raise HTTPException(409, f"'{task.label}' is still running; try again when it finishes")
         applying_now = (session.job or {}).get("url") if session.busy else None
         if applying_now and body.get("url") == applying_now:
             raise HTTPException(409, "You're applying to this job right now; finish that first")
-        cleared = redo_documents(get_connection(), body.get("url") or None, applying_now=applying_now)
-        args = ["run", "tailor", "cover", "pdf", "--min-score", str(int(body.get("min_score", 7)))]
-        task.start("Redo resumes and cover letters", args)
-        return {"cleared": cleared, **task.snapshot()}
+        marked = redo_documents(get_connection(), body.get("url") or None, applying_now=applying_now)
+        if marked:
+            task.start("Redo resumes and cover letters", ["redo", "--pending"])
+        return {"cleared": marked, "marked": marked, **task.snapshot()}
 
     @app.get("/api/jobs/file")
     def job_file(url: str, kind: str = "resume") -> FileResponse:
