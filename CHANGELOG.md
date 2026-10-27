@@ -74,6 +74,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- Drop-downs (Greenhouse country, location, screening questions) were sometimes left empty on a busy computer: the
+  click waited for the box to stop moving and gave up after 3 seconds. It now clicks anyway. The apply log also says
+  why an action failed.
 - The Apply browser showed "You are using an unsupported command-line flag: --no-sandbox" in Chrome and Edge: the
   browser's sandbox is now left on (except on Linux, where containers can't use it).
 - A job board that blocks the search (LinkedIn's "429 too many requests") was reported as an unnamed "response status

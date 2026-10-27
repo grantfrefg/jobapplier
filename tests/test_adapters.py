@@ -429,3 +429,25 @@ def test_choose_retries_when_the_pick_is_lost():
         chosen = page.locator(".select__single-value").inner_text()
         browser.close()
     assert chosen == "Australia +61"
+
+
+def test_choose_works_when_the_drop_down_never_settles():
+    """Regression (CI): clicks waited for the box to be 'stable' and timed out, so nothing was picked."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+
+    from applypilot.browser import launch_chromium
+    page_html = f"""<!doctype html><html><head><style>
+    @keyframes wobble {{ from {{ width: 200px; }} to {{ width: 202px; }} }}
+    #country, [role=option] {{ animation: wobble 0.05s infinite alternate; }}
+    </style></head><body>{_combo("country", "Country")}{COMBO_JS}<script>
+    combo('country', ['United States +1', 'Australia +61']);
+    </script></body></html>"""
+    with sync_playwright() as p:
+        browser = launch_chromium(p)
+        page = browser.new_page()
+        page.set_content(page_html)
+        le._choose(page.main_frame, page.locator("#country"), "Australia +61")
+        chosen = page.locator(".select__single-value").inner_text()
+        browser.close()
+    assert chosen == "Australia +61"
