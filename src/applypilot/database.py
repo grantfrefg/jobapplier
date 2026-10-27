@@ -10,7 +10,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from applypilot.config import DB_PATH
 
@@ -148,23 +148,35 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     from applypilot import budget
     budget.ensure_table(conn)  # daily Gemini request counts
 
-    # Older JobSpy imports stored the text "None" (or a relative path) as the
-    # application link when a board gave none; treat those as no link.
-    conn.execute(
-        "UPDATE jobs SET application_url = NULL "
+    # Older JobSpy imports stored the text "None" as the application link when a
+    # board gave none; treat those as no link. Relative links (Jora's
+    # "/job/rd/..." redirect to the employer's site) are made absolute.
+    for url, link in conn.execute(
+        "SELECT url, application_url FROM jobs "
         "WHERE application_url IS NOT NULL AND application_url NOT LIKE 'http%'"
-    )
+    ).fetchall():
+        conn.execute("UPDATE jobs SET application_url = ? WHERE url = ?", (_absolute_link(url, link), url))
     conn.commit()
 
     return conn
 
 
+def _absolute_link(page_url: str, link) -> str | None:
+    """`link` as an absolute http(s) URL, resolving "/path" against the listing; None if it isn't a link."""
+    if not isinstance(link, str):
+        return None
+    link = link.strip()
+    if link.startswith(("http://", "https://")):
+        return link
+    if link.startswith("/") and not link.startswith("//") and str(page_url or "").startswith(("http://", "https://")):
+        return urljoin(page_url, link)
+    return None
+
+
 def apply_link(job) -> str:
     """The page to open to apply: the application link if it's a real URL, else the listing."""
     link = job["application_url"] if "application_url" in job.keys() else None
-    if isinstance(link, str) and link.startswith(("http://", "https://")):
-        return link
-    return job["url"]
+    return _absolute_link(job["url"], link) or job["url"]
 
 
 # Complete column registry: column_name -> SQL type with optional default.
@@ -384,6 +396,43 @@ def mark_duplicates(conn: sqlite3.Connection | None = None) -> int:
             changed += 1
     conn.commit()
     return changed
+
+
+def redo_documents(conn: sqlite3.Connection | None = None, url: str | None = None,
+                   applying_now: str | None = None) -> int:
+    """Clear tailored resumes and cover letters so the next tailor run writes them again.
+
+    For one job (`url`, together with the other listings of the same role)
+    or, with no url, every job. Jobs already applied to keep theirs, and so
+    does `applying_now` (the job open in the browser at this moment). Jobs
+    left "in_progress" by a run that never finished are included and put
+    back in the apply queue. A tailored listing counts as the canonical copy of its role,
+    so clearing them also lets duplicates be re-picked by `site_priority`
+    (LinkedIn > Indeed > Jora by default): the preferred site's listing is
+    the one tailored next. Returns the number of jobs cleared.
+    """
+    if conn is None:
+        conn = get_connection()
+    where = "applied_at IS NULL AND (? IS NULL OR url != ?)"
+    params: list = [applying_now, applying_now]
+    if url:
+        group = conn.execute("SELECT COALESCE(duplicate_of, url) FROM jobs WHERE url = ?", (url,)).fetchone()
+        if not group:
+            return 0
+        where += " AND (url = ? OR duplicate_of = ?)"
+        params += [group[0], group[0]]
+    # Stale apply locks: nothing is applying to these any more
+    conn.execute("UPDATE jobs SET apply_status = NULL, agent_id = NULL "
+                 f"WHERE {where} AND apply_status = 'in_progress'", params)
+    cleared = conn.execute(
+        "UPDATE jobs SET tailored_resume_path = NULL, tailored_at = NULL, tailor_attempts = 0, "
+        "cover_letter_path = NULL, cover_letter_at = NULL, cover_attempts = 0 "
+        f"WHERE {where} AND (tailored_resume_path IS NOT NULL OR cover_letter_path IS NOT NULL "
+        "OR COALESCE(tailor_attempts, 0) > 0)", params,
+    ).rowcount
+    conn.commit()
+    mark_duplicates(conn)
+    return cleared
 
 
 def get_stats(conn: sqlite3.Connection | None = None) -> dict:
