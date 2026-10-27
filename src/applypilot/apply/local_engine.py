@@ -670,8 +670,9 @@ def _chosen_text(loc) -> str | None:
         text = loc.evaluate("""el => {
             const box = el.closest('[class*="container"]');
             const v = box && box.querySelector('[class*="single-value"], [class*="singleValue"]');
-            if (el.tagName !== 'INPUT' && !v) return null;  // a widget we can't read back
-            return (el.value || (v ? v.innerText : '') || '').trim();
+            if (v) return v.innerText.trim();  // not el.value: that's only what we typed
+            if (el.tagName !== 'INPUT') return null;  // a widget we can't read back
+            return (el.value || '').trim();
         }""")
     except Exception:
         return None
