@@ -328,3 +328,14 @@ def test_profile_choices_are_drop_downs_and_old_wording_is_mapped(client):
     r = client.post("/api/profile", json=bad)
     assert r.status_code == 400 and "security clearance" in r.json()["detail"]
     assert po.normalise("availability.notice_period", "Immediate") == "Immediately"
+
+
+def test_skills_confirmation_round_trip(client):
+    profile = {"personal": {"full_name": "Jane Doe", "email": "j@x.com", "phone": "0412 345 678"},
+               "skills_boundary": {"tools": ["Git", "CI/CD"]}}
+    client.post("/api/profile", json={**profile, "skills_confirmed": True})
+    data = client.get("/api/profile").json()
+    assert data["skills_confirmed"] is True and "skills_confirmed" not in data["profile"]
+    assert json.loads(config.PROFILE_PATH.read_text())["skills_confirmed"] is True
+    client.post("/api/profile", json=profile)  # unticked
+    assert client.get("/api/profile").json()["skills_confirmed"] is False

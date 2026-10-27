@@ -121,3 +121,16 @@ def test_rewordings_of_real_skills_are_kept():
                               "Recommendation systems, Stakeholder management, Personalisation")
     assert dropped == ["AWS", "MLOps", "Communication skills"]  # never in the resume
     assert source.covers("personalization")  # US and Australian spellings are the same word
+
+
+def test_real_tools_in_brackets_are_kept_when_the_name_in_front_is_not():
+    source = facts.Source("Pipelines on Vertex AI and BigQuery.")
+    kept, dropped = facts.filter_skills({"Cloud": "Amazon SageMaker Suite (Vertex AI, BigQuery)"}, source)
+    assert kept == {"Cloud": "Vertex AI, BigQuery"} and dropped == ["Amazon SageMaker Suite"]
+
+
+def test_confirmed_skills_list_counts_template_examples_as_real():
+    profile = {"skills_boundary": {"tools": ["Git", "CI/CD"], "ml": ["MLOps"]}}
+    assert facts.profile_skills(profile) == ["MLOps"] and facts.template_skills_left(profile) == ["Git", "CI/CD"]
+    confirmed = {**profile, "skills_confirmed": True}
+    assert facts.profile_skills(confirmed) == ["Git", "CI/CD", "MLOps"] and facts.template_skills_left(confirmed) == []

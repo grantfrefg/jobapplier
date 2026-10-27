@@ -509,7 +509,7 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
 
     claims = facts.role_claims(str(fixed.get("summary", "")), source)
     if claims:
-        errors.append(f"Summary calls the candidate a {', '.join(claims)}: not a title in their resume. "
+        errors.append(f"Summary calls the candidate '{', '.join(claims)}': not a title in their resume. "
                       "Describe what they've done instead.")
     prose = _generated_text({**fixed, "skills": {}, "title": ""}, "")
     tools = facts.new_tools(prose, source)
@@ -537,7 +537,7 @@ def letter_problems(letter: str, source: "facts.Source", resume_text: str) -> li
     problems = []
     claims = facts.letter_role_claims(letter, source)
     if claims:
-        problems.append(f"Calls the candidate a {', '.join(claims)}: not a title in their resume.")
+        problems.append(f"Calls the candidate '{', '.join(claims)}': not a title in their resume.")
     tools = facts.new_tools(letter, source)
     if tools:
         problems.append(f"Mentions {', '.join(tools)}, which the resume never does.")

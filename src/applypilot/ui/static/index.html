@@ -205,6 +205,11 @@
     <h2>Your profile</h2>
     <p class="sub">The answers used to fill application forms. With the free engine, your name, contact details, address and any ID numbers are sent to Gemini only as placeholders.</p>
     <form id="profile-form"></form>
+    <label class="choice"><input type="checkbox" id="skills-confirmed">
+      <span><b>My skills list is accurate</b>
+      <small>Everything under "Skills boundary" is a tool or skill I can really use. Resumes and cover letters may
+        mention these even when my resume doesn't. Until this is ticked, the template's example skills
+        (JavaScript, Docker, AWS, CI/CD, MongoDB, Git, Linux...) are ignored. Remove the ones you don't use first.</small></span></label>
     <div class="row"><button class="btn" id="save-profile">Save profile</button></div>
   </div>
 
@@ -359,7 +364,8 @@ async function refreshStatus() {
     ["Resume PDF", c.resume_pdf],
     ["Profile", c.profile],
     [status.example_skills && status.example_skills.length
-       ? "Skills list: replace the examples (" + status.example_skills.join(", ") + ")" : "Skills list",
+       ? "Skills list: remove the examples you don't use (" + status.example_skills.join(", ") +
+         "), then tick 'My skills list is accurate'" : "Skills list",
      c.profile && !(status.example_skills || []).length],
     ["Job search", c.searches],
     local ? ["Browser ready", c.playwright && c.browser] : ["Claude Code CLI found", c.claude_cli],
@@ -444,7 +450,8 @@ $("#save-yaml").addEventListener("click", () => guarded(async () => {
 // ---------- setup: profile (form generated from the template's shape) ----------
 const REQUIRED = new Set(["personal.full_name", "personal.email", "personal.phone"]);
 async function loadProfile() {
-  const { profile, options = {}, numbers = [] } = await api("/api/profile");
+  const { profile, options = {}, numbers = [], skills_confirmed = false } = await api("/api/profile");
+  $("#skills-confirmed").checked = skills_confirmed;
   const form = $("#profile-form");
   form.replaceChildren();
   for (const [section, fields] of Object.entries(profile)) {
@@ -482,6 +489,7 @@ $("#save-profile").addEventListener("click", () => guarded(async () => {
     out[section][key] = input.dataset.list
       ? input.value.split(",").map((v) => v.trim()).filter(Boolean) : input.value.trim();
   }
+  out.skills_confirmed = $("#skills-confirmed").checked;
   await post("/api/profile", out); await refreshStatus();
 }, "Profile saved"));
 
