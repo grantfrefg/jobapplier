@@ -194,12 +194,14 @@ def test_codex_run(tmp_path, monkeypatch, events, last, expected):
 def test_agent_clis_are_found_where_installers_put_them(tmp_path, monkeypatch):
     bin_dir = tmp_path / ".local" / "bin"
     bin_dir.mkdir(parents=True)
-    fake = bin_dir / "codex"
-    fake.write_text("#!/bin/sh\n")
+    # npm installs a .cmd shim on Windows; elsewhere it's an executable file
+    fake = bin_dir / ("codex.cmd" if os.name == "nt" else "codex")
+    fake.write_text("@echo off\n" if os.name == "nt" else "#!/bin/sh\n")
     fake.chmod(0o755)
     monkeypatch.setattr(config.Path, "home", lambda: tmp_path)
     monkeypatch.setenv("PATH", "/usr/bin")  # a double-clicked app's bare PATH
-    assert config.agent_cli("codex") == str(fake)
+    found = config.agent_cli("codex")
+    assert found and os.path.normcase(found) == os.path.normcase(str(fake))  # Windows may say .CMD
     assert str(bin_dir) in os.environ["PATH"].split(os.pathsep)
 
 
