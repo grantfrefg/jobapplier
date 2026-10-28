@@ -4,7 +4,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 
 | File | Purpose |
 |---|---|
-| `.env` | API keys, model, apply engine |
+| `.env` | AI provider, API keys, model, apply engine |
 | `searches.yaml` | What and where to search, and which sources to use |
 | `profile.json` | Your details and the answers used on application forms |
 | `resume.txt` | Your master resume as plain text (what the AI reads) |
@@ -12,6 +12,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `applypilot.db` | The job database (SQLite), including saved screening answers |
 | `tailored_resumes/`, `cover_letters/` | Generated documents |
 | `site_plans/` | How smart extract reads each site (delete a file to make that site re-learn) |
+| `own_documents/` | Resumes and cover letters you uploaded for particular jobs (Apply tab → **use my own resume / cover letter**) |
 | `~/ApplyPilot uploads/` | Outside `~/.applypilot`: the current application's resume and cover letter, for picking in a file dialog. Set `APPLYPILOT_UPLOAD_DIR` to move it |
 | `local-playwright-profile/` | The local engine's browser profile (keeps job-site logins) |
 | `logs/` | Run logs; `desktop.log` for the desktop app |
@@ -29,6 +30,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `LLM_MODEL` | the provider's default | Model for every AI step; ignored if it isn't one of the chosen provider's models |
 | `EXECUTION_ENGINE` | `claude_code` (`local_playwright` in the desktop app, until you choose and confirm another in Setup) | `local_playwright`: fills forms and **you** click Submit (with any provider above). `claude_code`: paid Claude Code CLI, submits automatically. `codex`: OpenAI's Codex CLI, submits automatically |
 | `CODEX_MODEL` | Codex's default | Model for the `codex` engine |
+| `AGENT_ENGINE_CONFIRMED` | — | Written by the desktop app when you confirm Claude Code or Codex in Setup; without it the desktop app uses `local_playwright` |
 | `LLM_URL`, `LLM_API_KEY` | — | Use a local OpenAI-compatible server (llama.cpp, Ollama) instead |
 | `GEMINI_DAILY_LIMIT` | `500` | Gemini requests per day for your model (Google's free-tier limit). Requests are counted per US Pacific day, when Google resets them |
 | `GEMINI_APPLY_RESERVE` | `50` | Requests kept for applying: finding and preparing jobs stops when only this many are left |
@@ -98,16 +100,16 @@ Sections, each a set of fields shown as a form on the Setup page. Fields with on
 | Section | Used for |
 |---|---|
 | `personal` | Name, email, phone, address, LinkedIn/GitHub/portfolio URLs, job-site password. **Required:** `full_name`, `email`, `phone` |
-| `work_authorization` | Right to work, sponsorship, `work_permit_type` (e.g. Australian citizen, Permanent resident: shown in the resume header), `security_clearance` (Baseline, NV1, NV2, PV; blank = none). Add fields such as `tax_file_number` if forms ask; ID-like values are never sent to Gemini |
+| `work_authorization` | Right to work, sponsorship, `work_permit_type` (e.g. Australian citizen, Permanent resident: shown in the resume header), `security_clearance` (Baseline, NV1, NV2, PV; blank = none). Add fields such as `tax_file_number` if forms ask; ID-like values are never sent to the AI |
 | `availability` | Start date, notice period, full-time/contract, `willing_to_relocate`, `drivers_licence` |
-| `compensation` | Salary expectation, currency and range |
+| `compensation` | Salary expectation, currency and range: **base salary, excluding super** (forms asking for a package get 12% super added) |
 | `experience` | Years, education, current title/company, target role (the prompts write for this role and seniority) |
 | `skills_boundary` | Extra skills the tailor may mention when your resume doesn't name them. Template example values are ignored until `skills_confirmed` is true (Setup: **My skills list is accurate**). Skills in your resume are always allowed, in any common short or long form |
 | `resume_facts` | Employers, projects, school and real metrics the tailor must keep exactly |
 | `eeo_voluntary` | Answers to voluntary diversity questions, including Aboriginal or Torres Strait Islander status (default "Prefer not to say") |
 | `skills_confirmed` | `true` once you've confirmed your skills list (a single value, not a section) |
 
-What Gemini sees: everything except the password. Identifiers (name, email, phone, street address, postcode, URLs, ID numbers) are replaced by placeholders and filled in locally. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md#privacy).
+What the AI sees (Gemini, OpenAI or Claude): everything except the password. Identifiers (name, email, phone, street address, postcode, URLs, ID numbers) are replaced by placeholders and filled in locally. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md#privacy).
 
 ---
 
