@@ -638,6 +638,7 @@ def create_app() -> FastAPI:
                    apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
                    tailored_resume_path, score_reasoning, full_description,
                    tailored_resume_path IS NOT NULL AS generated_resume,
+                   full_description IS NOT NULL AS has_description,
                    cover_letter_path IS NOT NULL AS generated_cover,
                    {HAS_RESUME} AS tailored,
                    (cover_letter_path IS NOT NULL OR own_cover_path IS NOT NULL) AS has_cover,
@@ -717,6 +718,41 @@ def create_app() -> FastAPI:
                 args += ["--validation", body["validation"]]  # the Strictness picked on Find jobs
             task.start("Redo resumes and cover letters", args)
         return {"cleared": marked, "marked": marked, **task.snapshot()}
+
+    @app.post("/api/jobs/rerun")
+    def rerun_step(body: dict) -> dict:
+        """Run one step again: for one job (url) or every job not applied to yet.
+
+        dry_run only counts the jobs, for the confirmation the page shows.
+        """
+        from applypilot import rerun
+        step = body.get("step")
+        if step not in rerun.STEPS:
+            raise HTTPException(400, f"step must be one of {', '.join(rerun.STEPS)}")
+        url = body.get("url") or None
+        min_score = None if url else int(body.get("min_score", 7))
+        jobs = rerun.targets(get_connection(), step, [url] if url else None, min_score)
+        info = {"step": step, "count": len(jobs), "what": rerun.STEPS[step][0], "cost": rerun.STEPS[step][1]}
+        if body.get("dry_run"):
+            return info
+        if not jobs:
+            raise HTTPException(400, "No jobs to run that step for" + ("" if url else " yet"))
+        if task.running:
+            raise HTTPException(409, f"'{task.label}' is still running; try again when it finishes")
+        applying_now = (session.job or {}).get("url") if session.busy else None
+        if applying_now and url == applying_now:
+            raise HTTPException(409, "You're applying to this job right now; finish that first")
+        if step == "tailor":  # marked here, so the list shows "Rewriting documents…" straight away
+            from applypilot.database import redo_documents
+            for job in jobs:
+                redo_documents(get_connection(), job["url"], applying_now=applying_now)
+            args = ["redo", "--pending"]
+        else:
+            args = ["rerun", step] + (["--url", url] if url else ["--min-score", str(min_score)])
+        if body.get("validation") in ("strict", "normal", "lenient"):
+            args += ["--validation", body["validation"]]
+        task.start("Run again: " + step + ("" if url else f" ({len(jobs)} jobs)"), args)
+        return {**info, **task.snapshot()}
 
     @app.post("/api/jobs/tailor")
     def tailor_chosen(body: dict) -> dict:

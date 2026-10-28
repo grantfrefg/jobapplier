@@ -100,6 +100,18 @@ It uses no AI requests. It's a guide, not a prediction of any one vendor's ranki
 - `normal` (default): banned words are warnings.
 - `lenient`: banned words are ignored and the AI fact-check is skipped. The code fact checks always run.
 
+**Running one step again.** Each stage skips jobs it has already done, so `applypilot run` never repeats work. To repeat a single step, use **Run again…** on a job's row (Apply tab), **Find jobs → Run a step again for jobs already done** for every job not applied to yet, or `applypilot rerun STEP [--url URL] [--min-score N]`. Without a job named, steps after scoring only take jobs at or above the minimum score. What a job has is kept until the new version is ready:
+
+| Step | What runs again | AI requests |
+|---|---|---|
+| `enrich` | Reads the ad's page again for the description and application link; a page that fails keeps the description it had | only for pages it can't read |
+| `score` | Scores the job again; the old score stays if the request fails | about 1 per 10 jobs |
+| `tailor` | Resume and cover letter, the same as **Redo** | about 2 per job |
+| `cover` | Just the cover letter, keeping the resume; a letter that fails its fact checks keeps the old one | 1 or 2 per job |
+| `review` | The AI fact-check from tailoring, on the documents the job has now. A job it flags keeps its documents and shows "the fact-check flagged it" with what was found, so you can Redo it or apply as it is | 1 per job |
+| `pdf` | Renders both PDFs again from their text, then the ATS check | none |
+| `ats` | The ATS check (your own resume's file when you gave one) | none |
+
 **Your own documents.** On the Apply tab, **use my own resume** / **use my own cover letter** under a job takes a PDF or Word (.docx) file you wrote. Applying uploads yours (as `Your_Name_Resume.docx`, for example) instead of the generated one, and the form-filling AI reads its text. A job with your own resume isn't tailored (so it costs no requests) and is ready to apply even if its generated drafts were rejected. Its ATS score checks your file; a PDF with no readable text (a scan) is flagged, since applicant tracking systems can't read it either. **use generated** (or **remove my resume**) switches back. The files are kept in `~/.applypilot/own_documents`.
 
 ## Cover letter and PDF

@@ -283,6 +283,18 @@
       <button class="btn secondary" id="stop-pipeline" disabled>Stop</button>
       <span id="pipeline-state" class="muted"></span>
     </div>
+    <div class="row">
+      <label style="margin:0" title="Each step normally skips jobs it has already done. This runs one step again for every job not applied to yet (steps after Score: only jobs at or above the Minimum score). For one job, use Run again on the Apply tab.">Run a step again for jobs already done
+        <select id="rerun-step" style="width:auto">
+          <option value="enrich">Enrich: get descriptions and links again</option>
+          <option value="score">Score again</option>
+          <option value="tailor">Tailor: write resume + cover letter again</option>
+          <option value="cover">Cover letter only</option>
+          <option value="review">Fact-check the documents again</option>
+          <option value="pdf">Pdf: make the PDFs again</option>
+          <option value="ats">ATS check again</option></select></label>
+      <button class="btn secondary" id="rerun-all">Run again</button>
+    </div>
     <pre class="log" id="pipeline-log"></pre>
     <details class="log-help"><summary>How it works: what each step does</summary>
       <p>Each step picks up what the step before it left, so you can run them all or tick just some. Jobs you've
@@ -316,6 +328,14 @@
         <dd>Jobs with documents appear there. <b>Apply</b> opens a browser, fills the form from your profile and
           saved answers (the AI only for questions it hasn't seen) and uploads your PDFs. You always review and
           press Submit yourself.</dd>
+        <dt>Running a step again</dt>
+        <dd>Each step skips jobs it has already done. <b>Run a step again for jobs already done</b> (under Run)
+          repeats one step for every job not applied to yet; steps after Score only take jobs at or above the
+          Minimum score. For a single job, use <b>Run again…</b> on its row on the Apply tab. What a job has is kept
+          until the new version is ready: a failed re-score keeps the old score, and a cover letter that fails its
+          checks keeps the old letter. <i>Fact-check again</i> is the AI review from step 4 on the documents the job
+          has now (1 request); a job it flags keeps its documents and says what was found, so you can Redo it or
+          apply as it is.</dd>
         <dt>Strictness</dt>
         <dd><i>normal</i>: the usual checks. <i>strict</i>: overused words such as "leverage" also count as errors.
           <i>lenient</i>: skips the AI fact-check (about half the requests); the code checks still run.</dd>
@@ -458,6 +478,10 @@
           tailoring, and its ATS score checks your file. It also works for a job whose drafts were rejected: give
           it your resume and it's ready to apply. <b>use generated</b> switches back. Your files are kept in the
           <code>own_documents</code> folder inside <code>.applypilot</code>.</dd>
+        <dt>Run again…</dt>
+        <dd>Repeats one step for that job: get the ad again, score again, write just the cover letter again,
+          fact-check the documents again, make the PDFs again, or redo the ATS check. The confirmation says how many
+          AI requests it uses. To rewrite the resume and letter together, use <b>Redo</b>.</dd>
         <dt>Redo and Try again</dt>
         <dd><b>Redo</b> rewrites a job's resume and cover letter (for example after you update your resume or
           profile); the old ones stay until the new ones pass the checks. <b>Redo all documents</b> does it for
@@ -819,6 +843,7 @@ async function pollPipeline() {
   lastTask = t;
   $("#run-pipeline").disabled = t.running;
   $("#stop-pipeline").disabled = !t.running;
+  $("#rerun-all").disabled = t.running;
   $("#pipeline-state").replaceChildren(t.running ? el("span", { class: "spinner" }) : "",
     t.running ? "Running: " + t.label : t.label ? (t.returncode === 0 ? "Finished" : "Stopped (exit " + t.returncode + ")") : "");
   const log = $("#pipeline-log");
@@ -991,9 +1016,12 @@ async function loadJobs() {
     const statusText = j.redo_requested ? (j.tailored ? "Rewriting documents…" : "Writing documents…")
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
-      : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ? "Ready"
+      : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ?
+        (j.tailor_status === "review_failed" && j.generated_resume ? "Ready, but the fact-check flagged it" : "Ready")
       : TAILOR_FAILED[j.tailor_status] ? "No documents: " + TAILOR_FAILED[j.tailor_status] : "Not tailored yet");
-    const statusHelp = !j.tailored && TAILOR_FAILED[j.tailor_status] ? tailorHelp(j) : "";
+    const statusHelp = !j.tailored && TAILOR_FAILED[j.tailor_status] ? tailorHelp(j)
+      : j.tailor_status === "review_failed" ? "Fact-check run again found: " + (j.tailor_issues || "") +
+        "\nThe documents are kept. Read them, then Redo the job or apply as they are." : "";
     const actions = [];
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
@@ -1017,6 +1045,13 @@ async function loadJobs() {
       actions.push(" ", el("button", { class: "btn secondary", title: "Try writing this job's resume and cover letter again now",
         onclick: () => redo(j.url) }, "Try again"));
     }
+    const steps = rerunSteps(j);
+    if (steps.length) {
+      const menu = el("select", { style: "width:auto", title: "Run one step again for this job",
+        onchange: () => { const step = menu.value; menu.value = ""; if (step) rerunStep(step, j); } },
+        el("option", { value: "" }, "Run again…"), ...steps.map((st) => el("option", { value: st }, RERUN_LABEL[st])));
+      actions.push(" ", menu);
+    }
     if (["manual", "failed"].includes(j.apply_status) && !j.applied_at) {
       actions.push(" ", el("button", { class: "btn secondary", onclick: () => guarded(async () => {
         await post("/api/jobs/reset", { url: j.url }); loadJobs(); }, "Job reset") }, "Reset"));
@@ -1038,6 +1073,38 @@ async function loadJobs() {
     : "Nothing here yet.";
 }
 $("#job-view").addEventListener("change", loadJobs);
+
+// Run one step again (rerun.py): per job from the Apply list, or for all jobs from Find jobs
+const RERUN_LABEL = {
+  enrich: "Get the ad again", score: "Score again", cover: "Cover letter only",
+  review: "Fact-check again", pdf: "Make the PDFs again", ats: "ATS check again",
+};
+function rerunSteps(j) {
+  if (j.applied_at || j.duplicate_of) return [];
+  const steps = ["enrich"];
+  if (j.has_description) steps.push("score");
+  if (j.generated_resume && j.has_description) steps.push("cover");
+  if (j.generated_resume) steps.push("review");
+  if (j.generated_resume || j.generated_cover) steps.push("pdf");
+  if (j.tailored) steps.push("ats");
+  return steps;
+}
+async function rerunStep(step, job) {
+  await guarded(async () => {
+    const body = { step, url: job ? job.url : null, min_score: Number($("#min-score").value || 7),
+                   validation: $("#validation").value };
+    const info = await post("/api/jobs/rerun", { ...body, dry_run: true });
+    if (!info.count) return toast(job ? "That step can't run for this job yet." : "No jobs for that step yet.", true);
+    const what = job ? "\"" + (job.title || "this job") + "\"" : info.count + " job(s)";
+    if (!confirm(info.what + " for " + what + "?\nAI use: " + info.cost + "." +
+                 (step === "review" ? "\nThe documents are kept either way; a job that fails shows what was found." : "")))
+      return;
+    await post("/api/jobs/rerun", body);
+    toast("Running it again. Follow along on the Find jobs tab.");
+    showTab("find"); pollPipeline(); loadJobs();
+  });
+}
+$("#rerun-all").addEventListener("click", () => rerunStep($("#rerun-step").value, null));
 
 async function redo(url) {
   const all = !url;

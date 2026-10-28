@@ -144,7 +144,8 @@ def score_job(resume_text: str, job: dict) -> dict:
     return result or {"score": 0, "keywords": "", "reasoning": "LLM returned no score"}
 
 
-def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = None) -> dict:
+def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = None,
+                urls: list[str] | None = None) -> dict:
     """Score unscored jobs that have full descriptions.
 
     Jobs whose title matches searches.yaml `exclude_titles` get score 0
@@ -156,6 +157,8 @@ def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = 
         limit: Maximum number of jobs to score in this run.
         rescore: If True, re-score all jobs (not just unscored ones).
         batch_size: Jobs per LLM request.
+        urls: Score just these jobs again (scored or not); their old score stays
+              until the new one is saved.
 
     Returns:
         {"scored": int, "skipped": int, "errors": int, "requests": int,
@@ -181,7 +184,11 @@ def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = 
     conn.commit()
     mark_duplicates(conn)  # skip roles already found on another site
 
-    if rescore:
+    if urls:
+        marks = ",".join("?" * len(urls))
+        jobs = conn.execute(f"SELECT * FROM jobs WHERE full_description IS NOT NULL AND url IN ({marks})",
+                            list(urls)).fetchall()
+    elif rescore:
         query = "SELECT * FROM jobs WHERE full_description IS NOT NULL"
         if limit > 0:
             query += f" LIMIT {limit}"
