@@ -222,6 +222,7 @@ _ALL_COLUMNS: dict[str, str] = {
     "own_cover_path": "TEXT",
     "tailor_status": "TEXT",   # last result: approved, failed_judge, failed_validation, ...
     "tailor_issues": "TEXT",   # why the last try wasn't used (shown in the UI)
+    "tailor_skipped": "INTEGER DEFAULT 0",  # you chose not to tailor it (Find jobs → Choose jobs)
     # Cover letter
     "cover_letter_path": "TEXT",
     "cover_letter_at": "TEXT",
@@ -487,6 +488,26 @@ def redo_documents(conn: sqlite3.Connection | None = None, url: str | None = Non
     return conn.execute("SELECT COUNT(*) FROM jobs WHERE redo_requested = 1").fetchone()[0]
 
 
+def choose_for_tailoring(conn: sqlite3.Connection, urls: list[str],
+                         applying_now: str | None = None) -> int:
+    """Mark the jobs you picked to be tailored next, whatever their score.
+
+    Uses the Redo mark (redo_documents), so `applypilot redo --pending`
+    writes exactly these. A skipped job you pick is no longer skipped.
+    Returns the number of roles marked.
+    """
+    for url in urls:
+        conn.execute("UPDATE jobs SET tailor_skipped = 0 WHERE url = ?", (url,))
+        redo_documents(conn, url, applying_now=applying_now)
+    return conn.execute("SELECT COUNT(*) FROM jobs WHERE redo_requested = 1").fetchone()[0]
+
+
+def skip_tailoring(conn: sqlite3.Connection, urls: list[str], skip: bool = True) -> None:
+    """Leave these jobs out of tailoring (and the chooser), or put them back."""
+    conn.executemany("UPDATE jobs SET tailor_skipped = ? WHERE url = ?", [(int(skip), u) for u in urls])
+    conn.commit()
+
+
 def finish_redo(conn: sqlite3.Connection, url: str) -> None:
     """A rewrite finished (passed or not): clear the mark on every listing of the role."""
     conn.execute("UPDATE jobs SET redo_requested = 0 WHERE url = ? OR duplicate_of = ?", (url, url))
@@ -560,7 +581,7 @@ def get_stats(conn: sqlite3.Connection | None = None) -> dict:
     stats["untailored_eligible"] = conn.execute(
         "SELECT COUNT(*) FROM jobs "
         "WHERE fit_score >= 7 AND full_description IS NOT NULL "
-        "AND tailored_resume_path IS NULL AND duplicate_of IS NULL"
+        "AND tailored_resume_path IS NULL AND duplicate_of IS NULL AND COALESCE(tailor_skipped, 0) = 0"
     ).fetchone()[0]
 
     stats["tailor_exhausted"] = conn.execute(
@@ -668,7 +689,8 @@ def get_jobs_by_stage(conn: sqlite3.Connection | None = None,
         ),
         "pending_tailor": (
             "fit_score >= ? AND full_description IS NOT NULL AND duplicate_of IS NULL "
-            "AND tailored_resume_path IS NULL AND own_resume_path IS NULL AND COALESCE(tailor_attempts, 0) < 5"
+            "AND tailored_resume_path IS NULL AND own_resume_path IS NULL AND COALESCE(tailor_attempts, 0) < 5 "
+            "AND COALESCE(tailor_skipped, 0) = 0"
         ),
         "tailored": "tailored_resume_path IS NOT NULL",
         "pending_apply": (

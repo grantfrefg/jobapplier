@@ -79,6 +79,7 @@
   .log-help p { margin: 8px 0 0; color: var(--muted); }
   .own-docs { font-size: 12px; margin-top: 4px; }
   .own-docs a { color: var(--muted); }
+  #choose-card .muted a { color: var(--accent); }
   .muted { color: var(--muted); font-size: 12px; }
   .table-wrap { overflow-x: auto; }
   .gate { border: 2px solid var(--warn); background: var(--warn-bg); }
@@ -265,6 +266,11 @@
     <h2>Find and prepare jobs</h2>
     <p class="sub">Searches job boards, scores each job against your resume, then writes a tailored resume and cover letter for the good matches. This can take a while.</p>
     <div class="row" id="stage-boxes"></div>
+    <label class="choice" style="margin-top:10px" title="Run then stops after scoring, and only the jobs you tick below get a resume and cover letter">
+      <input type="checkbox" id="choose-mode" checked>
+      <span>Let me choose which jobs get tailored<small>Run stops after scoring. Then tick the jobs you want in
+        <b>Choose jobs to tailor</b> below and press <b>Tailor ticked jobs</b>. Untick to tailor every job at or
+        above the Minimum score automatically.</small></span></label>
     <div class="row">
       <label style="margin:0" title="Only jobs scoring at least this (1-10) get a tailored resume and cover letter">Minimum score <input type="number" id="min-score" value="7" min="1" max="10" style="width:70px"></label>
       <label style="margin:0" title="How hard the checks on tailored resumes are. Lenient skips the AI fact-check (fewer requests).">Strictness
@@ -294,7 +300,10 @@
           you don't have, the wrong city when you won't move, far too senior or junior) score 3 or lower.
           Titles on your exclude list get 0 without asking the AI.</dd>
         <dt>4. Tailor <span class="muted">(about 2 requests per job)</span></dt>
-        <dd>For jobs scoring at least the <b>Minimum score</b>, writes a resume reworded and reordered for the ad,
+        <dd>With <b>Let me choose which jobs get tailored</b> ticked, this step waits for you: Run stops after
+          scoring, and only the jobs you tick in <b>Choose jobs to tailor</b> are tailored, whatever their score.
+          Otherwise it runs for every job scoring at least the <b>Minimum score</b>. Either way it writes a resume
+          reworded and reordered for the ad,
           plus a cover letter. It may change order, emphasis and wording, never facts. Code then checks every title,
           employer, date, skill and number against your real resume, and an AI fact-check reads the result. A draft
           that fails is written again (up to 4 drafts in all); if none passes, nothing is used (see "What the log means").</dd>
@@ -359,6 +368,32 @@
           (late afternoon or evening in Australia); the remaining jobs wait for the next run.</dd>
       </dl>
     </details>
+  </div>
+
+  <div class="card" id="choose-card" style="margin-top:16px">
+    <div class="row" style="margin-top:0">
+      <h2 style="margin:0">Choose jobs to tailor</h2>
+      <select id="choose-view" style="width:auto">
+        <option value="choose">Not tailored yet</option><option value="skipped">Skipped</option></select>
+      <button class="btn secondary" id="choose-refresh">Refresh</button>
+    </div>
+    <p class="sub" id="choose-sub" style="margin-top:8px">Scored jobs that don't have a resume yet, best match first.
+      Tick the ones you want and press <b>Tailor ticked jobs</b>: each gets a tailored resume and cover letter (about
+      2 AI requests per job), whatever its score. Jobs at or above the Minimum score start ticked. <b>Skip</b> hides
+      jobs you don't want, so they're never tailored automatically either (the Skipped view puts them back).</p>
+    <div class="row">
+      <span class="muted">Tick:
+        <a href="#" data-tick="all">all</a> ·
+        <a href="#" data-tick="min">at or above the Minimum score</a> ·
+        <a href="#" data-tick="none">none</a></span>
+      <button class="btn" id="tailor-chosen" disabled>Tailor ticked jobs</button>
+      <button class="btn secondary" id="skip-chosen" disabled>Skip ticked</button>
+    </div>
+    <div class="table-wrap" style="margin-top:10px">
+      <table><thead><tr><th></th><th>Score</th><th>Job</th><th>Why this score</th></tr></thead>
+        <tbody id="choose-jobs"></tbody></table>
+    </div>
+    <p class="muted" id="choose-empty"></p>
   </div>
 </section>
 
@@ -508,6 +543,7 @@ function showTab(name) {
   $$("section.tab").forEach((s) => s.classList.toggle("active", s.id === "tab-" + name));
   try { localStorage.setItem("ap-tab", name); } catch {}
   if (name === "apply") { loadJobs(); ensureVnc(); }
+  if (name === "find") loadChoose();
   if (name === "setup") loadAnswers().catch(() => {});
 }
 
@@ -747,8 +783,28 @@ const STAGE_HELP = {
 $("#stage-boxes").replaceChildren(...STAGES.map((s) =>
   el("label", { class: "choice", style: "margin:0", title: STAGE_HELP[s] },
     el("input", { type: "checkbox", value: s, checked: true }), human(s))));
+$$("#stage-boxes input").forEach((b) => b.addEventListener("change", () => (b.dataset.was = b.checked ? "on" : "off")));
+// Choosing jobs yourself: Run doesn't tailor; "Tailor ticked jobs" does, for the ticked ones only
+const CHOSEN_STAGES = ["tailor", "cover"];
+function showChooseMode() {
+  const on = $("#choose-mode").checked;
+  for (const box of $$("#stage-boxes input")) {
+    if (!CHOSEN_STAGES.includes(box.value)) continue;
+    box.disabled = on;
+    if (on) box.checked = false; else if (box.dataset.was !== "off") box.checked = true;
+    box.parentElement.title = on ? "Off while you choose the jobs to tailor (below)" : STAGE_HELP[box.value];
+  }
+}
+try { $("#choose-mode").checked = localStorage.getItem("ap-choose") !== "0"; } catch {}
+$("#choose-mode").addEventListener("change", () => {
+  try { localStorage.setItem("ap-choose", $("#choose-mode").checked ? "1" : "0"); } catch {}
+  showChooseMode();
+});
+showChooseMode();
+
 $("#run-pipeline").addEventListener("click", () => guarded(async () => {
   const stages = $$("#stage-boxes input:checked").map((i) => i.value);
+  if (!stages.length) throw new Error("Tick at least one step");
   await post("/api/pipeline", {
     stages: stages.length === STAGES.length ? [] : stages,
     min_score: Number($("#min-score").value || 7), validation: $("#validation").value,
@@ -757,9 +813,10 @@ $("#run-pipeline").addEventListener("click", () => guarded(async () => {
 }));
 $("#stop-pipeline").addEventListener("click", () => guarded(() => post("/api/pipeline/stop")));
 
-let lastLogLen = -1, wasRunning = false;
+let lastLogLen = -1, wasRunning = false, lastTask = null;
 async function pollPipeline() {
   let t; try { t = await api("/api/pipeline"); } catch { return; }
+  lastTask = t;
   $("#run-pipeline").disabled = t.running;
   $("#stop-pipeline").disabled = !t.running;
   $("#pipeline-state").replaceChildren(t.running ? el("span", { class: "spinner" }) : "",
@@ -771,9 +828,77 @@ async function pollPipeline() {
     if (atBottom) log.scrollTop = log.scrollHeight;
     lastLogLen = t.log.length;
   }
-  if (wasRunning && !t.running) { refreshStatus(); loadJobs(); }
+  if (wasRunning && !t.running) { refreshStatus(); loadJobs(); loadChoose(); }
   wasRunning = t.running;
+  if (chooseJobs.length) chooseCounts();
 }
+
+// ---------- choose jobs to tailor ----------
+const picks = new Map();  // url -> ticked, for jobs you ticked or unticked yourself
+let chooseJobs = [];
+const minScore = () => Number($("#min-score").value || 7);
+const ticked = (j) => picks.has(j.url) ? picks.get(j.url) : $("#choose-view").value === "choose" && j.fit_score >= minScore();
+function chooseCounts() {
+  const n = chooseJobs.filter((j) => !j.redo_requested && ticked(j)).length;
+  const skipped = $("#choose-view").value === "skipped";
+  const t = $("#tailor-chosen");
+  t.textContent = n ? "Tailor ticked jobs (" + n + ")" : "Tailor ticked jobs";
+  t.disabled = !n || (lastTask && lastTask.running);
+  t.title = n ? "About " + 2 * n + " AI requests" : "";
+  $("#skip-chosen").textContent = skipped ? "Put back ticked" : "Skip ticked";
+  $("#skip-chosen").disabled = !n;
+}
+async function loadChoose() {
+  const view = $("#choose-view").value;
+  try { chooseJobs = await api("/api/jobs?view=" + view); } catch (e) { return toast(e.message, true); }
+  $("#choose-jobs").replaceChildren(...chooseJobs.map((j) => {
+    const box = el("input", { type: "checkbox", disabled: !!j.redo_requested,
+      onchange: () => { picks.set(j.url, box.checked); chooseCounts(); } });
+    box.checked = !j.redo_requested && ticked(j);
+    const notes = [];
+    if (j.redo_requested) notes.push("Being tailored…");
+    else if (TAILOR_FAILED[j.tailor_status]) notes.push("Tried before: " + TAILOR_FAILED[j.tailor_status]);
+    if (j.own_cover) notes.push("Has your own cover letter");
+    return el("tr", {},
+      el("td", {}, box),
+      el("td", { class: "score" }, j.fit_score ?? "–"),
+      el("td", {}, el("a", { href: j.link, target: "_blank", rel: "noopener" }, j.title || j.link),
+        el("div", { class: "muted" }, [j.company, j.site, j.location, j.salary].filter(Boolean).join(" · ")),
+        notes.length ? el("div", { class: "muted", title: TAILOR_FAILED[j.tailor_status] ? tailorHelp(j) : "" },
+          notes.join(" · ")) : ""),
+      el("td", { class: "muted", title: j.score_reason || "" },
+        (j.score_reason || "").length > 160 ? j.score_reason.slice(0, 160) + "…" : j.score_reason || ""));
+  }));
+  $("#choose-empty").textContent = chooseJobs.length ? "" : view === "skipped" ? "No skipped jobs."
+    : "Nothing to choose from yet. Run the Discover, Enrich and Score steps above first.";
+  chooseCounts();
+}
+$("#choose-view").addEventListener("change", loadChoose);
+$("#choose-refresh").addEventListener("click", loadChoose);
+$("#min-score").addEventListener("change", loadChoose);
+$$("[data-tick]").forEach((a) => a.addEventListener("click", (e) => {
+  e.preventDefault();
+  for (const j of chooseJobs)
+    picks.set(j.url, a.dataset.tick === "all" || (a.dataset.tick === "min" && j.fit_score >= minScore()));
+  loadChoose();
+}));
+const tickedUrls = () => chooseJobs.filter((j) => !j.redo_requested && ticked(j)).map((j) => j.url);
+$("#tailor-chosen").addEventListener("click", () => guarded(async () => {
+  const urls = tickedUrls();
+  if (!confirm("Write a tailored resume and cover letter for " + urls.length + " job(s)? " +
+               "This uses about " + 2 * urls.length + " AI requests.")) return;
+  const r = await post("/api/jobs/tailor", { urls, validation: $("#validation").value });
+  urls.forEach((u) => picks.delete(u));
+  toast("Tailoring " + r.marked + " job(s). Follow along in the log above; they appear on the Apply tab when ready.");
+  pollPipeline(); loadChoose();
+}));
+$("#skip-chosen").addEventListener("click", () => guarded(async () => {
+  const urls = tickedUrls(), skip = $("#choose-view").value !== "skipped";
+  await post("/api/jobs/skip", { urls, skip });
+  urls.forEach((u) => picks.delete(u));
+  toast(skip ? "Skipped " + urls.length + " job(s)" : "Put back " + urls.length + " job(s)");
+  loadChoose(); refreshStatus();
+}));
 
 // ---------- apply ----------
 const ACCOUNT_LABEL = { no: "no account", board: "job board login", yes: "account needed", unknown: "not sure" };
@@ -863,7 +988,7 @@ async function loadJobs() {
     if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank",
       title: j.own_cover ? "Your own file, used instead of the generated cover letter" : "" }, j.own_cover ? "Your cover letter" : "Cover letter"));
     if (!j.applied_at && !j.duplicate_of) docs.push(el("div", { class: "own-docs" }, ownDocLinks(j)));
-    const statusText = j.redo_requested ? "Rewriting documents…"
+    const statusText = j.redo_requested ? (j.tailored ? "Rewriting documents…" : "Writing documents…")
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
       : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ? "Ready"
