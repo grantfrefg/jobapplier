@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-28
+
+The first public release of jobapplier. Covers everything since the original ApplyPilot, including what was
+tagged v0.4.0.
+
 ### Added
 - **Guide tab:** a user guide inside the web UI: what the app does, setting up, finding and choosing jobs, applying (with the app or yourself), Redo / Try again / Run again, getting more jobs tailored, the ATS score, costs, where files are, privacy, a typical week and troubleshooting. Links jump to the right tab; it opens first on a new install, and Setup links to it.
 - **Retry failed searches:** discovery remembers the searches a board blocked or failed (LinkedIn and Indeed per board, Jora per page), and **Run a step again → Discover: retry the searches that failed** (`applypilot rerun discover`) runs just those; Find jobs says how many are waiting. **Discover: search every board again** repeats every search.

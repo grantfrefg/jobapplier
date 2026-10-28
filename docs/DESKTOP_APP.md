@@ -25,7 +25,7 @@ Each build:
 3. **smoke-tests the packaged app** (`packaging/smoke_test.py`): CLI mode, desktop mode, a pipeline stage run from the app, and Quit;
 4. zips it with a `READ_ME_FIRST` file.
 
-Push a version tag (e.g. `git tag v0.4.0 && git push origin v0.4.0`) to also attach the zips to a GitHub Release.
+Push a version tag (e.g. `git tag v0.5.0 && git push origin v0.5.0`) to also attach the zips to a GitHub Release.
 
 ### Building locally
 ```bash
