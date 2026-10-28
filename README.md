@@ -67,6 +67,7 @@ The web UI has three tabs.
 
 **2. Find jobs**
 - Press **Run**. It searches the job boards, scores each job against your resume, and writes a tailored resume and cover letter for the good matches, with a live log.
+- **Search again:** a board that blocks or errors is skipped for the rest of a run, and the searches it missed are remembered (a note under Run says how many). **Run a step again → Discover: retry the searches that failed** searches just those, on just those boards; **Discover: search every board again** repeats everything.
 - **Run a step again:** each step skips jobs it has done. **Run a step again for jobs already done** (under Run) repeats one step (get the ad, score, write the documents, cover letter only, the AI fact-check, the PDFs or the ATS check) for every job not applied to yet; **Run again…** on a job's row on the Apply tab does it for that job. A job keeps what it has until the new version is ready.
 - **Choose which jobs get tailored** (on by default): Run stops after scoring, and **Choose jobs to tailor** lists the scored jobs best match first, with why each scored what it did. Tick the ones you want (jobs at or above the Minimum score start ticked) and press **Tailor ticked jobs**; only those get a resume and cover letter, whatever their score. **Skip** hides a job for good (the Skipped view brings it back). Untick the option to tailor every good match automatically.
 - **How it works** (under the log) explains each step; **What the log means** explains each log line, including blocked job boards and jobs whose drafts were rejected. Hover a step's checkbox for a one-line summary.
@@ -145,7 +146,7 @@ applypilot apply --url URL         # fill one application
 applypilot apply --limit 5         # the next 5 best-scoring jobs
 applypilot apply --reset-failed    # bring back skipped / saved-for-later jobs
 applypilot redo [--url URL]        # rewrite resumes and cover letters (all, or one job)
-applypilot rerun STEP [--url URL]  # run one step again: enrich score tailor cover review pdf ats
+applypilot rerun STEP [--url URL]  # run one step again: discover (failed searches) enrich score tailor cover review pdf ats
 applypilot ats [--url URL]         # ATS check of each tailored resume
 applypilot locate                  # find where each ready job applies (opens the browser)
 applypilot login [--url URL]       # normal browser window to sign in (Google, LinkedIn, SEEK...)

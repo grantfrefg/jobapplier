@@ -9,6 +9,7 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **Retry failed searches:** discovery remembers the searches a board blocked or failed (LinkedIn and Indeed per board, Jora per page), and **Run a step again → Discover: retry the searches that failed** (`applypilot rerun discover`) runs just those; Find jobs says how many are waiting. **Discover: search every board again** repeats every search.
 - **Run any step again:** **Run again…** on a job (Apply tab), **Run a step again for jobs already done** on Find jobs, or `applypilot rerun STEP [--url URL]`, for enrich, score, tailor, cover (letter only), review (the AI fact-check of the current documents), pdf and ats. A job keeps what it has until the new version is ready; a job the fact-check flags keeps its documents and shows what was found.
 - **Choose which jobs get tailored:** after discovering and scoring, Find jobs lists the scored jobs (best match first, with the scorer's reason); tick the ones you want and **Tailor ticked jobs** writes a resume and cover letter for just those, whatever their score. On by default (**Let me choose which jobs get tailored**), which leaves tailoring out of **Run**. **Skip ticked** keeps a job out of tailoring for good, including automatic runs (`tailor_skipped`); the Skipped view puts it back.
 - **Claude Code and Codex in the desktop app:** Setup offers them there too, after a confirmation that they submit

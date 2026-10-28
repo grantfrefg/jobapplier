@@ -471,3 +471,20 @@ def test_run_a_step_again(client, tmp_path, monkeypatch):
 
     assert client.post("/api/jobs/rerun", json={"step": "review", "url": "https://example.com/low"}).status_code == 400
     assert client.post("/api/jobs/rerun", json={"step": "nope"}).status_code == 400
+
+
+def test_retry_failed_searches(client, monkeypatch):
+    from applypilot.discovery import retry
+    started = []
+    from applypilot.ui import server
+    monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, **kw: started.append(args))
+    assert client.get("/api/status").json()["discover_failed"] == {"searches": 0, "boards": []}
+    assert client.post("/api/jobs/rerun", json={"step": "discover"}).status_code == 400
+
+    retry.save("jobspy", [{"query": "A", "location": "Sydney", "sites": ["linkedin"]}])
+    retry.save("smartextract", [{"name": "Jora", "url": "https://au.jora.com/j?q=A", "query": "A"}])
+    assert client.get("/api/status").json()["discover_failed"] == {"searches": 2, "boards": ["Jora", "linkedin"]}
+    info = client.post("/api/jobs/rerun", json={"step": "discover", "dry_run": True}).json()
+    assert info["count"] == 2 and not started
+    client.post("/api/jobs/rerun", json={"step": "discover"})
+    assert started == [["rerun", "discover"]]

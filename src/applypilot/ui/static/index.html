@@ -286,6 +286,8 @@
     <div class="row">
       <label style="margin:0" title="Each step normally skips jobs it has already done. This runs one step again for every job not applied to yet (steps after Score: only jobs at or above the Minimum score). For one job, use Run again on the Apply tab.">Run a step again for jobs already done
         <select id="rerun-step" style="width:auto">
+          <option value="discover" id="rerun-discover">Discover: retry the searches that failed</option>
+          <option value="discover_all">Discover: search every board again</option>
           <option value="enrich">Enrich: get descriptions and links again</option>
           <option value="score">Score again</option>
           <option value="tailor">Tailor: write resume + cover letter again</option>
@@ -294,6 +296,7 @@
           <option value="pdf">Pdf: make the PDFs again</option>
           <option value="ats">ATS check again</option></select></label>
       <button class="btn secondary" id="rerun-all">Run again</button>
+      <span class="muted" id="discover-failed"></span>
     </div>
     <pre class="log" id="pipeline-log"></pre>
     <details class="log-help"><summary>How it works: what each step does</summary>
@@ -328,6 +331,12 @@
         <dd>Jobs with documents appear there. <b>Apply</b> opens a browser, fills the form from your profile and
           saved answers (the AI only for questions it hasn't seen) and uploads your PDFs. You always review and
           press Submit yourself.</dd>
+        <dt>Searching again</dt>
+        <dd>A job board that blocks the app or errors is skipped for the rest of that run, and the searches it
+          missed are remembered. <b>Run a step again → Discover: retry the searches that failed</b> runs just those,
+          on just those boards (a note under Run says how many there are). <b>Discover: search every board again</b>
+          repeats every search, the same as ticking only Discover and pressing Run; jobs already found are skipped
+          either way.</dd>
         <dt>Running a step again</dt>
         <dd>Each step skips jobs it has already done. <b>Run a step again for jobs already done</b> (under Run)
           repeats one step for every job not applied to yet; steps after Score only take jobs at or above the
@@ -348,7 +357,8 @@
           were outside your locations or excluded titles.</dd>
         <dt>"LinkedIn: blocked" or "429 (blocked: use a proxy)"</dt>
         <dd>The job board is limiting how often it can be searched. It's skipped for the rest of the run and
-          the other boards carry on. It usually lifts within a few hours; run again later.</dd>
+          the other boards carry on. It usually lifts within a few hours; then use <b>Run a step again →
+          Discover: retry the searches that failed</b> to search just what was missed.</dd>
         <dt>"5/20 [APPROVED] attempts=1 requests=2"</dt>
         <dd>Job 5 of 20 got a tailored resume and cover letter. <i>Attempts</i> is how many drafts were written;
           <i>requests</i> is how many AI requests that took (each draft is written, then fact-checked).</dd>
@@ -574,6 +584,7 @@ function showTab(name) {
 // ---------- status ----------
 async function refreshStatus() {
   try { status = await api("/api/status"); } catch { return; }
+  showFailedSearches(status.discover_failed || { searches: 0, boards: [] });
   const local = status.engine === "local_playwright";
   const eb = $("#engine-badge");
   eb.textContent = local ? "Browser engine (" + (status.provider_name || "no AI key") + ", " + status.local_model + ")"
@@ -1074,6 +1085,16 @@ async function loadJobs() {
 }
 $("#job-view").addEventListener("change", loadJobs);
 
+// Searches a job board blocked or failed last time: Discover → retry just those
+const BOARD_NAMES = { linkedin: "LinkedIn", indeed: "Indeed", glassdoor: "Glassdoor", zip_recruiter: "ZipRecruiter" };
+function showFailedSearches(f) {
+  const boards = f.boards.map((b) => BOARD_NAMES[b] || b).join(", ");
+  $("#rerun-discover").textContent = "Discover: retry the searches that failed" +
+    (f.searches ? " (" + f.searches + ")" : " (none)");
+  $("#discover-failed").textContent = f.searches ? f.searches + " search(es) on " + boards +
+    " didn't finish last time: pick \"retry the searches that failed\"." : "";
+}
+
 // Run one step again (rerun.py): per job from the Apply list, or for all jobs from Find jobs
 const RERUN_LABEL = {
   enrich: "Get the ad again", score: "Score again", cover: "Cover letter only",
@@ -1090,18 +1111,27 @@ function rerunSteps(j) {
   return steps;
 }
 async function rerunStep(step, job) {
+  if (step === "discover_all") return guarded(async () => {
+    if (!confirm("Search every job board again with all your searches? Jobs already found are skipped; " +
+                 "LinkedIn and Indeed use no AI.")) return;
+    await post("/api/pipeline", { stages: ["discover"], min_score: Number($("#min-score").value || 7) });
+    pollPipeline();
+  });
   await guarded(async () => {
     const body = { step, url: job ? job.url : null, min_score: Number($("#min-score").value || 7),
                    validation: $("#validation").value };
     const info = await post("/api/jobs/rerun", { ...body, dry_run: true });
-    if (!info.count) return toast(job ? "That step can't run for this job yet." : "No jobs for that step yet.", true);
-    const what = job ? "\"" + (job.title || "this job") + "\"" : info.count + " job(s)";
-    if (!confirm(info.what + " for " + what + "?\nAI use: " + info.cost + "." +
+    if (!info.count) return toast(job ? "That step can't run for this job yet."
+      : step === "discover" ? "No failed searches: the last search finished on every board." : "No jobs for that step yet.", true);
+    const what = job ? "\"" + (job.title || "this job") + "\""
+      : step === "discover" ? info.count + " search(es) on " + info.boards.map((b) => BOARD_NAMES[b] || b).join(", ")
+      : info.count + " job(s)";
+    if (!confirm(info.what + (step === "discover" ? ": " : " for ") + what + "?\nAI use: " + info.cost + "." +
                  (step === "review" ? "\nThe documents are kept either way; a job that fails shows what was found." : "")))
       return;
     await post("/api/jobs/rerun", body);
     toast("Running it again. Follow along on the Find jobs tab.");
-    showTab("find"); pollPipeline(); loadJobs();
+    showTab("find"); pollPipeline(); if (step !== "discover") loadJobs();
   });
 }
 $("#rerun-all").addEventListener("click", () => rerunStep($("#rerun-step").value, null));

@@ -94,13 +94,13 @@ class _SiteErrors(logging.Handler):
 
     def __init__(self) -> None:
         super().__init__(logging.WARNING)
-        self.errors: list[tuple[str, str]] = []
+        self.errors: list[tuple[str, str, int]] = []
 
     def emit(self, record: logging.LogRecord) -> None:
         site = record.name.split(".")[1] if record.name.count(".") >= 1 else "jobspy"
-        self.errors.append((site, record.getMessage()))
+        self.errors.append((site, record.getMessage(), record.levelno))
 
-    def take(self) -> list[tuple[str, str]]:
+    def take(self) -> list[tuple[str, str, int]]:
         errors, self.errors = self.errors, []
         return errors
 
@@ -222,6 +222,7 @@ def _run_one_search(
     other_sites = [si for si in sites if si != "glassdoor"]
 
     all_dfs = []
+    failed_sites: list[str] = []  # boards whose request raised (others are reported through logging)
 
     # Run non-Glassdoor sites with original location
     if other_sites:
@@ -246,6 +247,7 @@ def _run_one_search(
             all_dfs.append(df)
         except Exception as e:
             log.error("[%s] (non-gd): %s", label, e)
+            failed_sites += other_sites
 
     # Run Glassdoor separately with simplified location
     if has_glassdoor:
@@ -267,10 +269,12 @@ def _run_one_search(
             all_dfs.append(gd_df)
         except Exception as e:
             log.error("[%s] (glassdoor): %s", label, e)
+            failed_sites.append("glassdoor")
 
     if not all_dfs:
         log.error("[%s]: all sites failed", label)
-        return {"new": 0, "existing": 0, "errors": 1, "filtered": 0, "total": 0, "label": label}
+        return {"new": 0, "existing": 0, "errors": 1, "filtered": 0, "total": 0, "label": label,
+                "failed_sites": failed_sites}
 
     import pandas as pd
     import warnings
@@ -280,7 +284,8 @@ def _run_one_search(
 
     if len(df) == 0:
         log.info("[%s] 0 results", label)
-        return {"new": 0, "existing": 0, "errors": 0, "filtered": 0, "total": 0, "label": label}
+        return {"new": 0, "existing": 0, "errors": 0, "filtered": 0, "total": 0, "label": label,
+                "failed_sites": failed_sites}
 
     # Filter by location before storing
     before = len(df)
@@ -298,7 +303,8 @@ def _run_one_search(
         msg += f", {filtered} filtered (location)"
     log.info(msg)
 
-    return {"new": new, "existing": existing, "errors": 0, "filtered": filtered, "total": before, "label": label}
+    return {"new": new, "existing": existing, "errors": 0, "filtered": filtered, "total": before, "label": label,
+            "failed_sites": failed_sites}
 
 
 # -- Single query search -----------------------------------------------------
@@ -380,8 +386,14 @@ def _full_crawl(
     hours_old: int = 72,
     proxy: str | None = None,
     max_retries: int = 2,
+    searches: list[dict] | None = None,
 ) -> dict:
-    """Run all search queries from search config across all locations."""
+    """Run all search queries from search config across all locations.
+
+    `searches` runs just these instead (each may name its own "sites"),
+    e.g. the ones that failed last time (discovery/retry.py). Whatever
+    can't be searched this time is recorded for the next retry.
+    """
     if sites is None:
         sites = ["indeed", "linkedin", "zip_recruiter"]
 
@@ -397,19 +409,21 @@ def _full_crawl(
     if locations:
         locs = [loc for loc in locs if loc.get("label") in locations]
 
-    searches = []
-    for q in queries:
-        for loc in locs:
-            searches.append({
-                "query": q["query"],
-                "location": loc["location"],
-                "remote": loc.get("remote", False),
-                "tier": q.get("tier", 0),
-            })
+    retrying = searches is not None
+    if searches is None:
+        searches = []
+        for q in queries:
+            for loc in locs:
+                searches.append({
+                    "query": q["query"],
+                    "location": loc["location"],
+                    "remote": loc.get("remote", False),
+                    "tier": q.get("tier", 0),
+                })
 
     proxy_config = parse_proxy(proxy) if proxy else None
 
-    log.info("Full crawl: %d search combinations", len(searches))
+    log.info("%s: %d search combinations", "Retrying failed searches" if retrying else "Full crawl", len(searches))
     log.info("Sites: %s | Results/site: %d | Hours old: %d",
              ", ".join(sites), results_per_site, hours_old)
 
@@ -421,6 +435,7 @@ def _full_crawl(
     total_errors = 0
     completed = 0
     blocked: dict[str, str] = {}  # site -> why it was skipped for the rest of this run
+    failed: list[dict] = []  # searches (and which boards) to retry later
 
     # JobSpy logs each site's failure under its own logger without naming the
     # site; collect them here and report them by name instead.
@@ -429,19 +444,27 @@ def _full_crawl(
     jobspy_log.addHandler(collector)
     propagate = jobspy_log.propagate
     jobspy_log.propagate = False
+    failed_all_logged = False
     try:
         for s in searches:
-            active = [site for site in sites if site not in blocked]
+            wanted = list(s.get("sites") or sites)
+            active = [site for site in wanted if site not in blocked]
             if not active:
-                log.warning("Every job board has blocked this run; stopping early (%d of %d searches done).",
-                            completed, len(searches))
-                break
+                if all(site in blocked for site in sites) and not failed_all_logged:
+                    log.warning("Every job board has blocked this run; stopping early (%d of %d searches done).",
+                                completed, len(searches))
+                    failed_all_logged = True
+                failed.append(_failed_search(s, wanted))
+                continue
             result = _run_one_search(
                 s, active, results_per_site, hours_old,
                 proxy_config, defaults, max_retries,
                 accept_locs, reject_locs, glassdoor_map,
             )
-            for site, message in collector.take():
+            missed = set(result.get("failed_sites") or []) | {site for site in wanted if site in blocked}
+            for site, message, level in collector.take():
+                if level >= logging.ERROR or _BLOCKED_RE.search(message):  # not a one-job warning
+                    missed.add(site)
                 if site in blocked:
                     continue
                 if _BLOCKED_RE.search(message):
@@ -450,6 +473,9 @@ def _full_crawl(
                                 blocked[site], site_name(site))
                 else:
                     log.warning("%s: %s", site_name(site), message)
+            missed &= set(wanted)
+            if missed:
+                failed.append(_failed_search(s, sorted(missed)))
             completed += 1
             total_new += result["new"]
             total_existing += result["existing"]
@@ -471,6 +497,14 @@ def _full_crawl(
     for site, why in blocked.items():
         log.warning("%s was skipped this run (%s). Blocks like this usually lift within a few hours: "
                     "run Find jobs again later (or set a proxy in .env if it keeps happening).", site_name(site), why)
+    from applypilot.discovery import retry
+    retry.save("jobspy", failed)
+    if failed:
+        log.warning("%d search(es) didn't finish on every board. To try just those again later: Find jobs → "
+                    "Run a step again → Discover: retry failed searches (or `applypilot rerun discover`).",
+                    len(failed))
+    elif retrying:
+        log.info("Every search that failed last time worked this time.")
 
     return {
         "new": total_new,
@@ -479,7 +513,13 @@ def _full_crawl(
         "db_total": db_total,
         "queries": len(searches),
         "blocked": blocked,
+        "failed": len(failed),
     }
+
+
+def _failed_search(search: dict, sites: list[str]) -> dict:
+    return {"query": search["query"], "location": search["location"], "remote": bool(search.get("remote")),
+            "tier": search.get("tier", 0), "sites": list(sites)}
 
 
 # -- Public entry point ------------------------------------------------------
@@ -493,7 +533,7 @@ def country_indeed(cfg: dict) -> str:
     return str(value).strip().lower()
 
 
-def run_discovery(cfg: dict | None = None) -> dict:
+def run_discovery(cfg: dict | None = None, retry_failed: bool = False) -> dict:
     """Main entry point for JobSpy-based job discovery.
 
     Loads search queries and locations from the user's search config YAML,
@@ -502,6 +542,7 @@ def run_discovery(cfg: dict | None = None) -> dict:
     Args:
         cfg: Override the search configuration dict. If None, loads from
              the user's searches.yaml file.
+        retry_failed: Only run the searches (and boards) that failed last time.
 
     Returns:
         Dict with stats: new, existing, errors, db_total, queries.
@@ -522,7 +563,16 @@ def run_discovery(cfg: dict | None = None) -> dict:
     tiers = cfg.get("tiers")
     locations = cfg.get("location_labels")
 
+    searches = None
+    if retry_failed:
+        from applypilot.discovery import retry
+        searches = retry.load("jobspy")
+        if not searches:
+            log.info("No failed LinkedIn/Indeed searches to retry.")
+            return {"new": 0, "existing": 0, "errors": 0, "db_total": 0, "queries": 0}
+
     return _full_crawl(
+        searches=searches,
         search_cfg=cfg,
         tiers=tiers,
         locations=locations,
