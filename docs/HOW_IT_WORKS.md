@@ -55,7 +55,11 @@ The prompts are written for engineers (software first, other disciplines too) ap
 
 ## Tailor
 
-For jobs scoring at or above `--min-score` (default 7), the AI rewrites your resume for the role:
+For jobs scoring at or above `--min-score` (default 7), or only the jobs you pick, the AI rewrites your resume for the role.
+
+**Choosing the jobs yourself.** In the web UI, **Find jobs → Let me choose which jobs get tailored** (on by default) leaves the tailor and cover steps out of **Run**, so it stops after scoring. **Choose jobs to tailor** then lists every scored job without documents (best match first, with the scorer's reason). **Tailor ticked jobs** marks the ticked ones and writes just those, whatever their score, the same way **Redo** does (`applypilot redo --pending`). **Skip ticked** sets `tailor_skipped` on a job: it leaves the list and is never tailored automatically, even by `applypilot run`; the **Skipped** view puts it back, and picking a skipped job un-skips it.
+
+The tailoring itself:
 - it reorders, and rewords bullets where the job uses different terms for the same work;
 - it leads with the must-haves the scorer found in your resume;
 - it changes order, emphasis and wording, **never facts**: every title, employer, date, tool, skill, number, qualification and achievement must be in your original resume.

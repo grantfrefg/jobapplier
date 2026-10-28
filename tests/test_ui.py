@@ -395,3 +395,51 @@ def test_own_documents_through_the_api(client, tmp_path):
     [job] = client.get("/api/jobs?view=ready").json()
     assert job["own_resume"] == 0
     assert client.get("/api/jobs/file", params={"url": url, "kind": "resume"}).content.startswith(b"%PDF")
+
+
+def _seed_scored(url, score, reason="Good match"):
+    conn = database.get_connection()
+    conn.execute("""INSERT INTO jobs (url, title, site, location, fit_score, score_reasoning, full_description,
+                    application_url) VALUES (?, 'Analyst', 'linkedin', 'Sydney', ?, ?, 'Python SQL', ?)""",
+                 (url, score, reason, url))
+    conn.commit()
+
+
+def test_choose_which_jobs_get_tailored(client, tmp_path, monkeypatch):
+    _seed_job(tmp_path, "https://example.com/tailored")  # already has documents: not offered
+    _seed_scored("https://example.com/good", 8)
+    _seed_scored("https://example.com/low", 4, "Too senior")
+    _seed_scored("https://example.com/meh", 6)
+    started = []
+    from applypilot.ui import server
+    monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, **kw: started.append(args))
+
+    jobs = client.get("/api/jobs?view=choose").json()
+    assert [j["url"].rsplit("/", 1)[1] for j in jobs] == ["good", "meh", "low"]
+    assert jobs[2]["score_reason"] == "Too senior"
+
+    # Only the ticked jobs are marked and written, whatever their score
+    r = client.post("/api/jobs/tailor", json={"urls": ["https://example.com/low"], "validation": "lenient"})
+    assert r.status_code == 200 and r.json()["marked"] == 1
+    assert started == [["redo", "--pending", "--validation", "lenient"]]
+    marked = {row[0] for row in database.get_connection().execute("SELECT url FROM jobs WHERE redo_requested = 1")}
+    assert marked == {"https://example.com/low"}
+    assert client.post("/api/jobs/tailor", json={"urls": []}).status_code == 400
+
+    # Skipped jobs leave the list and automatic tailoring, and can be put back
+    client.post("/api/jobs/skip", json={"urls": ["https://example.com/good"]})
+    assert "https://example.com/good" not in {j["url"] for j in client.get("/api/jobs?view=choose").json()}
+    assert [j["url"] for j in client.get("/api/jobs?view=skipped").json()] == ["https://example.com/good"]
+    pending = {j["url"] for j in database.get_jobs_by_stage(database.get_connection(), "pending_tailor", min_score=5)}
+    assert pending == {"https://example.com/meh"}
+    client.post("/api/jobs/skip", json={"urls": ["https://example.com/good"], "skip": False})
+    assert client.get("/api/jobs?view=skipped").json() == []
+
+
+def test_choosing_a_skipped_job_unskips_it(client):
+    _seed_scored("https://example.com/good", 8)
+    conn = database.get_connection()
+    database.skip_tailoring(conn, ["https://example.com/good"])
+    assert database.choose_for_tailoring(conn, ["https://example.com/good"]) == 1
+    row = conn.execute("SELECT tailor_skipped, redo_requested FROM jobs").fetchone()
+    assert tuple(row) == (0, 1)
