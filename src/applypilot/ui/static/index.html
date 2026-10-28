@@ -123,18 +123,22 @@
     <div class="card">
       <h2 id="engine-title">How to apply</h2>
       <p class="sub" id="engine-sub">Choose how applications get filled in.</p>
-      <div class="dev-only">
+      <div>
       <label class="choice"><input type="radio" name="engine" value="local_playwright">
         <span><b>Browser engine: you submit</b>
         <small>Fills the form in a visible browser, then waits for you to click Submit. Free with Gemini, or uses your
           OpenAI / Claude key (below). Personal details stay on this computer.</small></span></label>
       <label class="choice"><input type="radio" name="engine" value="claude_code">
         <span><b>Paid: Claude Code</b>
-        <small>Fully automatic and submits for you. Needs the Claude Code CLI, Chrome and Node.js.</small></span></label>
+        <small>Fully automatic and submits for you. Needs the Claude Code CLI (signed in), Chrome or Edge, and
+          Node.js.</small></span></label>
       <label class="choice"><input type="radio" name="engine" value="codex">
         <span><b>Paid: Codex (ChatGPT)</b>
         <small>Like Claude Code, but OpenAI's Codex CLI drives the browser, and it also submits for you. Needs the
-          Codex CLI (signed in with your ChatGPT plan or an OpenAI key), Chrome and Node.js.</small></span></label>
+          Codex CLI (signed in with your ChatGPT plan or an OpenAI key), Chrome or Edge, and Node.js.</small></span></label>
+      <p class="muted" id="agent-help" style="display:none">Install once in a terminal: Node.js from nodejs.org, then
+        <code id="agent-install"></code>. The checklist on the left shows when ApplyPilot can find it. Applications
+        then run from the Apply tab and show in the Find jobs log.</p>
       <div id="codex-model-row" style="display:none">
         <label for="codex-model">Codex model (optional)</label>
         <input type="text" id="codex-model" placeholder="Codex's default">
@@ -533,9 +537,8 @@ async function refreshStatus() {
   $("#quit").style.display = status.desktop ? "" : "none";
   tb.style.display = status.desktop ? "none" : "";
   if (status.desktop) {
-    $("#engine-title").textContent = "AI key";
-    $("#engine-sub").textContent = "ApplyPilot uses it to read job forms and your resume. Gemini is free; " +
-      "OpenAI and Claude use your own paid key.";
+    $("#engine-sub").textContent = "Choose how applications get filled in, and the AI that reads job forms and " +
+      "your resume. Gemini is free; OpenAI and Claude use your own paid key.";
   }
 
   const c = status.checks;
@@ -578,16 +581,28 @@ async function loadSettings() {
     $("#" + id).placeholder = s[key].set ? "Saved " + s[key].hint + " (leave blank to keep)" : "Paste your key";
   }
 }
-$("#save-settings").addEventListener("click", () => guarded(async () => {
+$("#save-settings").addEventListener("click", () => {
+  const engine = ($("input[name=engine]:checked") || {}).value || "claude_code";
+  let confirmAgent = false;
+  if ((engine === "claude_code" || engine === "codex") && status && engine !== status.engine) {
+    confirmAgent = confirm((engine === "codex" ? "Codex" : "Claude Code") + " fills in AND SUBMITS each " +
+      "application by itself: you won't see it before it's sent. Use it only if you're happy with your resume, " +
+      "profile and saved answers.\n\nSwitch to it?");
+    if (!confirmAgent) return;
+  }
+  saveSettings(engine, confirmAgent);
+});
+const saveSettings = (engine, confirmAgent) => guarded(async () => {
   await post("/api/settings", {
-    EXECUTION_ENGINE: ($("input[name=engine]:checked") || {}).value || "claude_code",
+    confirm_agent: confirmAgent,
+    EXECUTION_ENGINE: engine,
     LLM_PROVIDER: $("#provider").value, GEMINI_API_KEY: $("#gemini").value, OPENAI_API_KEY: $("#openai").value,
     ANTHROPIC_API_KEY: $("#anthropic").value, CODEX_MODEL: $("#codex-model").value,
     CAPSOLVER_API_KEY: $("#capsolver").value, LLM_MODEL: $("#model").value,
     GEMINI_DAILY_LIMIT: $("#daily-limit").value, GEMINI_APPLY_RESERVE: $("#apply-reserve").value,
   });
   await loadSettings(); await refreshStatus();
-}, "Settings saved"));
+}, "Settings saved");
 
 // Provider and engine choices show only the fields that apply
 const PROVIDER_INFO = {
@@ -606,6 +621,9 @@ function showProvider() {
 function showEngine() {
   const e = ($("input[name=engine]:checked") || {}).value;
   $("#codex-model-row").style.display = e === "codex" ? "" : "none";
+  $("#agent-help").style.display = e === "codex" || e === "claude_code" ? "" : "none";
+  $("#agent-install").textContent = e === "codex" ? "npm install -g @openai/codex, then codex login"
+    : "npm install -g @anthropic-ai/claude-code, then claude (to sign in)";
 }
 $("#provider").addEventListener("change", () => { $("#model").value = ""; showProvider(); });
 $$("input[name=engine]").forEach((r) => r.addEventListener("change", showEngine));

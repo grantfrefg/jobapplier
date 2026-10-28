@@ -532,6 +532,7 @@ def doctor() -> None:
 
     # --- Tier 3 checks ---
     from applypilot.config import ENGINE_CODEX, ENGINE_LOCAL_PLAYWRIGHT, get_execution_engine, has_playwright
+    from applypilot.config import agent_cli as config_agent_cli
     engine = get_execution_engine()
     results.append(("Apply engine", ok_mark, f"EXECUTION_ENGINE={engine}"))
 
@@ -542,14 +543,14 @@ def doctor() -> None:
             results.append(("Playwright", fail_mark,
                             "pip install playwright && playwright install chromium"))
     elif engine == ENGINE_CODEX:
-        codex_bin = shutil.which("codex")
+        codex_bin = config_agent_cli("codex")
         if codex_bin:
             results.append(("Codex CLI", ok_mark, f"{codex_bin} (signed in? run 'codex login' once)"))
         else:
             results.append(("Codex CLI", fail_mark, "npm install -g @openai/codex, then 'codex login'"))
     else:
         # Claude Code CLI
-        claude_bin = shutil.which("claude")
+        claude_bin = config_agent_cli("claude")
         if claude_bin:
             results.append(("Claude Code CLI", ok_mark, claude_bin))
         else:
