@@ -152,3 +152,40 @@ def test_other_board_errors_are_named_but_not_skipped(monkeypatch, caplog):
         result = js._full_crawl(cfg, sites=["indeed"], max_retries=0)
     assert calls == [["indeed"], ["indeed"]] and result["blocked"] == {}
     assert caplog.text.count("Indeed: API error: something odd") == 2
+
+
+def test_failed_searches_are_recorded_and_retried_alone(monkeypatch):
+    """A board that blocks or errors leaves its searches for `rerun discover`; one-job warnings don't count."""
+    import logging
+
+    import pandas as pd
+
+    from applypilot.discovery import retry
+
+    calls = []
+    linkedin_blocked = [True]
+
+    def fake_scrape(site_name, search_term, **kwargs):
+        calls.append((search_term, list(site_name)))
+        if "linkedin" in site_name and linkedin_blocked[0]:
+            logging.getLogger("jobspy.linkedin").error("response status code 429 (blocked: use a proxy)")
+        logging.getLogger("jobspy.indeed").warning("skipping job: odd card")  # one job, not the search
+        return pd.DataFrame()
+
+    monkeypatch.setattr(js, "scrape_jobs", fake_scrape)
+    cfg = {"queries": [{"query": "A"}, {"query": "B"}], "locations": [{"location": "Sydney, NSW"}]}
+    result = js._full_crawl(cfg, sites=["indeed", "linkedin"], max_retries=0)
+    assert result["failed"] == 2  # A: LinkedIn blocked; B: LinkedIn skipped after that
+    assert [(f["query"], f["sites"]) for f in retry.load("jobspy")] == [("A", ["linkedin"]), ("B", ["linkedin"])]
+    assert retry.summary() == {"searches": 2, "boards": ["linkedin"]}
+
+    # The retry asks only LinkedIn, only for those searches, and clears the list when they work
+    calls.clear()
+    linkedin_blocked[0] = False
+    monkeypatch.setattr(config, "load_search_config", lambda: cfg)
+    js.run_discovery(retry_failed=True)
+    assert calls == [("A", ["linkedin"]), ("B", ["linkedin"])]
+    assert retry.load("jobspy") == [] and not (config.APP_DIR / "discover_failed.json").exists()
+
+    calls.clear()
+    assert js.run_discovery(retry_failed=True)["queries"] == 0 and calls == []  # nothing left to retry
