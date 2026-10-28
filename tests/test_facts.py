@@ -6,12 +6,12 @@ import pytest
 
 from applypilot.scoring import facts, tailor
 
-RESUME = """Grant Feng
+RESUME = """Alex Morgan
 Profile
-Hands-on technical leader with 7 years at Woolworths Group, taking enterprise ML systems from design to
+Hands-on technical leader with 7 years at Harbourline Retail Group, taking enterprise ML systems from design to
 production at national scale. Builds on Google Cloud (Vertex AI, BigQuery). Master of Data Science.
 Experience
-Woolworths Group (WooliesX)
+Harbourline Retail Group (HarbourlineX)
 Senior Data Scientist · Jan 2021 – Present
 • Technical lead for production recommender systems reaching 10 million customers.
 • Rebuilt the recommendation pipelines, cutting running costs by 50%.
@@ -22,10 +22,10 @@ Data Scientist · Sep 2019 – Dec 2020
 Projects
 • Side project: TypeScript API with PostgreSQL via Prisma.
 Education
-University of Technology Sydney, Master of Data Science
+Southern Cross Institute of Technology, Master of Data Science
 """
 PROFILE = {
-    "personal": {"full_name": "Grant Feng"},
+    "personal": {"full_name": "Alex Morgan"},
     "experience": {"current_job_title": "Senior Data Scientist", "target_role": "Lead Data Scientist"},
     # The template's example skills (never treated as real) plus one real extra
     "skills_boundary": {"languages": ["Python", "SQL", "JavaScript"], "devops": ["Docker", "AWS", "CI/CD"],
@@ -36,11 +36,11 @@ GOOD = {
     "focus": "Production ML & LLM Systems",
     "summary": "Senior data scientist with 7 years taking ML systems to production at national scale.",
     "skills": {"Languages": "Python, SQL", "ML": "PyTorch, XGBoost", "Cloud": "Google Cloud (Vertex AI, BigQuery)"},
-    "experience": [{"header": "Senior Data Scientist at Woolworths Group (WooliesX)",
+    "experience": [{"header": "Senior Data Scientist at Harbourline Retail Group (HarbourlineX)",
                     "subtitle": "Jan 2021 - Present | Python, Vertex AI",
                     "bullets": ["Rebuilt the recommendation pipelines, cutting running costs by 50%"]}],
     "projects": [],
-    "education": "University of Technology Sydney | Master of Data Science",
+    "education": "Southern Cross Institute of Technology | Master of Data Science",
 }
 
 
@@ -88,7 +88,7 @@ def test_template_example_skills_are_never_treated_as_real():
 @pytest.mark.parametrize("change, expected", [
     ({"summary": "Senior data scientist who ships models on AWS and Kubernetes."}, "Mentions aws, kubernetes"),
     ({"summary": "Senior data scientist who cut costs by 65%."}, "Numbers not in the resume: 65"),
-    ({"experience": [{"header": "Lead ML Engineer at Woolworths Group", "bullets": []}]},
+    ({"experience": [{"header": "Lead ML Engineer at Harbourline Retail Group", "bullets": []}]},
      "job title 'Lead ML Engineer'"),
     ({"experience": [{"header": "Senior Data Scientist at Google", "bullets": []}]}, "employer 'Google'"),
     ({"summary": "AWS Certified senior data scientist."}, "certified"),
@@ -100,7 +100,7 @@ def test_invented_facts_are_sent_back(change, expected):
 
 
 def test_cover_letter_claims():
-    good = ("Dear Hiring Manager,\n\nAs a Senior Data Scientist at Woolworths I rebuilt our recommendation "
+    good = ("Dear Hiring Manager,\n\nAs a Senior Data Scientist at Harbourline I rebuilt our recommendation "
             "pipelines, cutting running costs by 50%. Your engineers would get the same.\n\nGrant")
     assert check(letter=good)["letter_errors"] == []
     bad = good.replace("As a Senior Data Scientist", "As a machine learning engineer").replace("50%", "60%")

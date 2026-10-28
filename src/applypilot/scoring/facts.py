@@ -346,7 +346,7 @@ def header_problems(header: str, source: Source) -> list[str]:
     if title.strip() and not source.mentions(title.strip()):  # a title must match exactly
         problems.append(f"job title '{title.strip()}'")
     if sep and employer.strip():
-        # "Woolworths Group (WooliesX)": each name must appear as written
+        # "Harbourline Retail Group (HarbourlineX)": each name must appear as written
         names = [n.strip() for n in re.split(r"[()]", employer) if n.strip()]
         if not all(source.names_employer(n) for n in names):
             problems.append(f"employer '{employer.strip()}'")
