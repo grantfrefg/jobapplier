@@ -11,7 +11,6 @@ import logging
 import os
 import platform
 import re
-import shutil
 import signal
 import subprocess
 import sys
@@ -337,7 +336,7 @@ def run_job(job: dict, port: int, worker_id: int = 0,
 
     # Build claude command
     cmd = [
-        "claude",
+        config.agent_cli("claude") or "claude",
         "--model", model,
         "-p",
         "--mcp-config", str(mcp_config_path),
@@ -545,16 +544,17 @@ def codex_command(port: int, last_message: Path, model: str = "") -> list[str]:
     sandbox (it can't change files or run anything that writes), and it never
     stops to ask for approval, since nobody is watching the terminal.
     """
-    mcp_args = json.dumps(["@playwright/mcp@latest", f"--cdp-endpoint=http://localhost:{port}",
-                           f"--viewport-size={config.DEFAULTS['viewport']}"])
+    # TOML literal strings ('...'): no double quotes to survive npm's .cmd wrapper on Windows
+    mcp_args = "[" + ", ".join(f"'{a}'" for a in ("@playwright/mcp@latest", f"--cdp-endpoint=http://localhost:{port}",
+                                                  f"--viewport-size={config.DEFAULTS['viewport']}")) + "]"
     cmd = [
-        shutil.which("codex") or "codex", "exec",
+        config.agent_cli("codex") or "codex", "exec",
         "--json",                     # one JSON event per line
         "--skip-git-repo-check",      # it runs in a scratch folder, not a repository
         "--ephemeral",                # no saved session files
         "--sandbox", "read-only",
-        "-c", 'approval_policy="never"',
-        "-c", 'mcp_servers.playwright.command="npx"',
+        "-c", "approval_policy='never'",
+        "-c", "mcp_servers.playwright.command='npx'",
         "-c", f"mcp_servers.playwright.args={mcp_args}",
         "--output-last-message", str(last_message),
     ]

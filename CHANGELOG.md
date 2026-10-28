@@ -9,6 +9,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **Claude Code and Codex in the desktop app:** Setup offers them there too, after a confirmation that they submit
+  applications by themselves (an engine left in a copied `.env` doesn't count; the app records
+  `AGENT_ENGINE_CONFIRMED`). The app finds `claude`, `codex` and `npx` in their usual install folders, runs npm's
+  `.cmd` shims by full path on Windows, passes Codex settings without double quotes, and drives Edge when Chrome
+  isn't installed. Setup shows the one-line install command for the chosen CLI.
 - **Your own paid AI keys:** choose the AI that scores jobs, writes resumes and cover letters and answers forms:
   Google Gemini (free), OpenAI (`OPENAI_API_KEY`, default `gpt-5-mini`) or Anthropic Claude (`ANTHROPIC_API_KEY`,
   default `claude-opus-5-5`, through the official `anthropic` SDK). Setup has a provider picker with a key field
