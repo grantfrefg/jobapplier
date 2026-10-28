@@ -97,6 +97,17 @@
              vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .guide { max-width: 860px; line-height: 1.55; font-size: 14px; }
+  .guide h3 { font-size: 16px; margin: 28px 0 6px; padding-top: 4px; scroll-margin-top: 12px; }
+  .guide h4 { font-size: 14px; margin: 16px 0 4px; }
+  .guide p { margin: 6px 0; }
+  .guide ol, .guide ul { margin: 6px 0; padding-left: 22px; }
+  .guide li { margin: 3px 0; }
+  .guide a { color: var(--accent); }
+  .guide .toc { display: grid; gap: 4px 20px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0 4px; }
+  .guide .note { border-left: 3px solid var(--accent); padding: 6px 12px; margin: 10px 0; color: var(--muted); }
+  .guide table { font-size: 13px; margin: 8px 0; }
 </style>
 </head>
 <body>
@@ -106,6 +117,7 @@
     <button data-tab="setup" class="active">1. Setup</button>
     <button data-tab="find">2. Find jobs</button>
     <button data-tab="apply">3. Apply</button>
+    <button data-tab="guide">Guide</button>
   </nav>
   <div class="badges"><span class="badge" id="engine-badge">…</span><span class="badge" id="tier-badge">…</span><span class="badge" id="budget-badge" style="display:none"></span>
     <button class="btn secondary" id="quit" style="display:none;padding:2px 12px">Quit</button></div>
@@ -117,6 +129,8 @@
   <div class="card" style="margin-bottom:16px">
     <h2>Checklist</h2>
     <p class="sub">Everything is saved on this computer, in <code id="data-dir"></code>.</p>
+    <p class="sub">New here? The <a href="#" data-goto="guide" style="color:var(--accent)">Guide</a> walks through
+      setting up, finding jobs and applying, step by step.</p>
     <ul class="checklist" id="checklist"></ul>
   </div>
 
@@ -202,6 +216,7 @@
           title="Closes the window for you. Logins from the last 30 seconds may not be saved.">Force close</button>
         <span class="muted" id="login-state"></span>
       </div>
+    </div>
 
     <div class="card">
       <h2>Your resume</h2>
@@ -533,6 +548,224 @@
     <p class="muted" id="jobs-empty"></p>
   </div>
 </section>
+
+<!-- ============================== GUIDE ============================== -->
+<section class="tab" id="tab-guide">
+  <div class="card guide">
+    <h2>How to use ApplyPilot</h2>
+    <p class="sub">A step-by-step guide. The tabs along the top follow the same order: Setup once, then Find jobs and
+      Apply whenever you're job hunting. Links in <a href="#" data-goto="setup">blue</a> take you to that part of the app.</p>
+    <nav class="toc">
+      <a href="#g-what">What ApplyPilot does</a>
+      <a href="#g-setup">1. Set up (once)</a>
+      <a href="#g-find">2. Find jobs</a>
+      <a href="#g-choose">3. Choose jobs to tailor</a>
+      <a href="#g-apply">4. Apply</a>
+      <a href="#g-yourself">Applying yourself instead</a>
+      <a href="#g-redo">Redo, Try again and Run again</a>
+      <a href="#g-more">Getting more jobs tailored</a>
+      <a href="#g-ats">The ATS score</a>
+      <a href="#g-cost">What it costs</a>
+      <a href="#g-files">Where your files are</a>
+      <a href="#g-privacy">Privacy and safety</a>
+      <a href="#g-week">A typical week</a>
+      <a href="#g-trouble">When something goes wrong</a>
+    </nav>
+
+    <h3 id="g-what">What ApplyPilot does</h3>
+    <p>ApplyPilot runs on your computer and does the slow parts of applying for jobs:</p>
+    <ol>
+      <li><b>Finds jobs</b> on LinkedIn, Indeed Australia and Jora that match the titles and places you choose.</li>
+      <li><b>Scores each job</b> 1–10 against your resume, so you see the best matches first.</li>
+      <li><b>Writes a tailored resume and cover letter</b> for the jobs you pick, checked so nothing you haven't done
+        gets in.</li>
+      <li><b>Fills in the application form</b> in a browser window you can watch, uploads your documents, and stops
+        so you can check everything and press <b>Submit</b> yourself.</li>
+    </ol>
+    <p class="note">With the default engine ApplyPilot never presses Submit: every application is sent by you. You can
+      also skip the form-filling completely and just use the documents (see <a href="#g-yourself">Applying yourself
+      instead</a>).</p>
+
+    <h3 id="g-setup">1. Set up (once)</h3>
+    <p>Everything is on the <a href="#" data-goto="setup">Setup</a> tab. Its checklist ticks off as you go.</p>
+    <ol>
+      <li><b>AI key.</b> Under <i>AI for scoring, resumes and form answers</i>, choose a provider. Google Gemini is free:
+        click <i>get one free</i>, sign in with a Google account, create a key and paste it. OpenAI (ChatGPT) or
+        Anthropic (Claude) work too with your own paid key. Press <b>Save</b>, then <b>Test key</b>.</li>
+      <li><b>How to apply.</b> Leave <b>Browser engine: you submit</b> selected unless you want a paid tool to apply
+        and submit for you (Claude Code or Codex; they ask you to confirm first).</li>
+      <li><b>Browser.</b> Press <b>Test browser</b>. If no browser is found, press <b>Install browser</b> (about
+        150 MB, once). Then press <b>Log in to sites</b> and sign in to Google, LinkedIn and SEEK in the window that
+        opens, and close it. The app stays logged in afterwards.</li>
+      <li><b>Your resume.</b> Paste your full resume as plain text (copy it out of Word or your PDF) and press
+        <b>Save resume</b>. The more complete it is, the better: the app only ever uses what's in it.</li>
+      <li><b>What jobs to look for.</b> Your city (e.g. <i>Sydney, NSW</i>), the job titles you want, and words to
+        skip (e.g. <i>Senior, Lead, Intern</i>). Press <b>Save search</b>.</li>
+      <li><b>Your profile.</b> The answers application forms ask for: contact details, work rights, notice period,
+        salary, and your skills. Remove example skills you don't have, tick <b>My skills list is accurate</b>,
+        and press <b>Save profile</b>.</li>
+    </ol>
+    <p>You can change any of this later; new settings apply to the next run.</p>
+
+    <h3 id="g-find">2. Find jobs</h3>
+    <p>On <a href="#" data-goto="find">Find jobs</a>, press <b>Run</b>. You can watch the log while it works; a full
+      run takes from a few minutes to half an hour, depending on how many searches you have.</p>
+    <ol>
+      <li><b>Discover</b> searches the job boards (no AI).</li>
+      <li><b>Enrich</b> opens each job to get the full description and the link to apply.</li>
+      <li><b>Score</b> rates each job 1–10 against your resume and profile, with the reason.</li>
+      <li><b>Tailor</b> and <b>Cover</b> write the documents, and <b>Pdf</b> makes the PDFs you upload.</li>
+    </ol>
+    <p>With <b>Let me choose which jobs get tailored</b> ticked (the default), Run stops after scoring so you can pick
+      the jobs (next step). Untick it to have every job at or above the <b>Minimum score</b> tailored automatically.</p>
+    <p>Each step skips jobs it has already done, so running again only picks up what's new. <b>How it works</b> and
+      <b>What the log means</b> under the log explain each step and each log line.</p>
+
+    <h3 id="g-choose">3. Choose jobs to tailor</h3>
+    <p>Below the log, <a href="#" data-goto="find" data-focus="choose-card">Choose jobs to tailor</a> lists the scored jobs,
+      best match first, with why each scored what it did. Click a title to read the ad.</p>
+    <ul>
+      <li>Jobs at or above the Minimum score start ticked. Tick or untick what you like, or use the <i>all</i> /
+        <i>none</i> links.</li>
+      <li><b>Tailor ticked jobs</b> writes a resume and cover letter for just those (about 2 AI requests each). Follow
+        along in the log; they appear on the Apply tab when ready.</li>
+      <li><b>Skip ticked</b> hides jobs you'll never want. The <i>Skipped</i> view brings them back.</li>
+    </ul>
+
+    <h3 id="g-apply">4. Apply</h3>
+    <p>On <a href="#" data-goto="apply">Apply</a>, <i>Ready to apply</i> lists the jobs with documents. For each job you can
+      open the <b>Resume</b> and <b>Cover letter</b>, and hover the <b>ATS</b> badge for the resume check.</p>
+    <ol>
+      <li>Optional: press <b>Check where to apply</b> once. It notes which site each job applies on (Greenhouse,
+        Workday, SEEK…) and whether it needs an account with the employer. No AI.</li>
+      <li>Press <b>Apply</b> on a job. A browser opens the ad, follows its Apply link, fills in your details and saved
+        answers, uploads your documents and moves through the pages.</li>
+      <li>When it stops, the yellow panel says what's left: a question it couldn't answer, a sign-in, a CAPTCHA.
+        Do that in the browser. If a new page appeared, press <b>Fill this page again</b>.</li>
+      <li>Read everything in the browser and press the site's <b>Submit</b> yourself.</li>
+      <li>Back in the app, press <b>I submitted it</b>. <b>Not yet: save for later</b> keeps the job ready;
+        <b>Never apply to this job</b> removes it.</li>
+    </ol>
+    <p><b>Employer accounts:</b> Workday, PageUp, iCIMS and similar sites need an account with each employer. The app
+      types your email but never a password: sign up or sign in in the browser, then <b>Fill this page again</b>.
+      For "Sign in with Google", use <b>Log in</b> on the job first.</p>
+    <p><b>Saved answers:</b> answers you type or change in the browser before submitting are remembered and reused
+      next time, ahead of the AI's. They're listed (and can be deleted) at the bottom of Setup.</p>
+
+    <h3 id="g-yourself">Applying yourself instead</h3>
+    <p>You never have to use the Apply button. Click the job title to open the ad in your usual browser, download the
+      <b>Resume</b> and <b>Cover letter</b> from the list, apply your own way, then press <b>Mark applied</b> so the
+      job moves to <i>Applied</i>.</p>
+    <p>To send <b>your own</b> resume or letter for a job, use <b>use my own resume</b> / <b>use my own cover
+      letter</b> under its documents (PDF or Word). Apply then uploads yours, and its ATS check reads your file.
+      <b>use generated</b> switches back.</p>
+
+    <h3 id="g-redo">Redo, Try again and Run again</h3>
+    <ul>
+      <li><b>Redo</b> (on a job) rewrites its resume and cover letter, e.g. after you improve your resume or profile.
+        The old ones stay until the new ones pass the checks. <b>Redo all documents</b> does every job not yet
+        applied to.</li>
+      <li><b>Try again</b> appears on a job whose drafts were rejected; it writes new ones now.</li>
+      <li><b>Run again…</b> (menu on a job) repeats one step for that job: get the ad again, score again, write just
+        the cover letter again, fact-check the documents again, remake the PDFs, or redo the ATS check.</li>
+      <li><b>Run a step again for jobs already done</b> (on Find jobs, under Run) does the same for every job not
+        applied to yet. <i>Discover: retry the searches that failed</i> repeats only the searches a job board
+        blocked or failed last time.</li>
+    </ul>
+    <p>Every one of these asks first and says how many AI requests it will use.</p>
+
+    <h3 id="g-more">Getting more jobs tailored</h3>
+    <p>A job gets no documents when every draft failed the fact checks: usually the job asks for more than your
+      resume shows. Apply → <i>All jobs</i> shows the reason when you hover its status. In order of what helps most:</p>
+    <ol>
+      <li>Make your resume and profile complete: add real experience, tools and achievements you left out, list every
+        skill you really use, and tick <b>My skills list is accurate</b>. Then <b>Try again</b>.</li>
+      <li>Press <b>Try again</b>: a borderline job often passes the second time.</li>
+      <li>Set <b>Strictness</b> (Find jobs) to <i>lenient</i>. It skips the AI fact-check; the code checks still
+        remove invented titles, employers, skills and numbers. Read those resumes before you send them.</li>
+      <li>Skip jobs you can't honestly match: add words like <i>Senior</i> to <i>Skip jobs whose title contains</i>,
+        or raise the Minimum score.</li>
+      <li>Or give the job <b>your own resume</b>: it's then ready to apply straight away.</li>
+    </ol>
+
+    <h3 id="g-ats">The ATS score</h3>
+    <p>Most employers put applications through an applicant tracking system (Workday, SuccessFactors, PageUp,
+      JobAdder…) that reads your resume and lets recruiters search it. The <b>ATS</b> badge (out of 100) estimates how
+      well this resume survives that: whether the ad's keywords you really have are there in the ad's own words,
+      whether the PDF reads back cleanly, standard headings, work rights and location shown. 80+ is good. Hover the
+      badge for what to fix. Skills the ad wants that you don't have are listed but never added.</p>
+
+    <h3 id="g-cost">What it costs</h3>
+    <table>
+      <thead><tr><th>Step</th><th>AI requests</th></tr></thead>
+      <tbody>
+        <tr><td>Discover (LinkedIn, Indeed)</td><td>none</td></tr>
+        <tr><td>Discover (Jora)</td><td>about 2 the first time, then none</td></tr>
+        <tr><td>Enrich</td><td>only for pages it can't read otherwise</td></tr>
+        <tr><td>Score</td><td>about 1 per 10 jobs</td></tr>
+        <tr><td>Tailor (resume + cover letter)</td><td>about 2 per job (1 with lenient strictness)</td></tr>
+        <tr><td>Apply (browser engine)</td><td>a few per application, only for questions it hasn't seen</td></tr>
+      </tbody>
+    </table>
+    <p>Gemini's free tier has a daily allowance (the badge at the top shows today's use). It resets at midnight US
+      Pacific time, late afternoon or evening in Australia, and some is always kept for applying. With your own
+      OpenAI or Claude key, requests are billed to that account instead.</p>
+
+    <h3 id="g-files">Where your files are</h3>
+    <ul>
+      <li>Settings, profile, resume and the job list: <code class="data-dir"></code></li>
+      <li>Tailored resumes: <code>tailored_resumes</code> in that folder; cover letters: <code>cover_letters</code>;
+        your own uploaded files: <code>own_documents</code>.</li>
+      <li>The files for the job you're applying to right now: the <code>ApplyPilot uploads</code> folder in your
+        home folder (handy for dragging into a form).</li>
+    </ul>
+
+    <h3 id="g-privacy">Privacy and safety</h3>
+    <ul>
+      <li>Everything is kept on this computer. What leaves it: the job-board searches, the AI requests, and the
+        applications you send.</li>
+      <li>With the browser engine, your name, email, phone, address and ID numbers go to the AI only as placeholders;
+        the real values are typed in on your computer.</li>
+      <li>Passwords are never typed or stored by the app. Logins stay in the app's own browser profile.</li>
+      <li>Resumes and letters are checked against your real resume: titles, employers, dates, skills and numbers you
+        don't have are removed or the draft is rejected.</li>
+    </ul>
+
+    <h3 id="g-week">A typical week</h3>
+    <ol>
+      <li>Monday: <b>Run</b> on Find jobs, tick the jobs you like, <b>Tailor ticked jobs</b>.</li>
+      <li>While that runs, skim the new resumes on Apply and fix anything you'd say differently in your base resume
+        or profile.</li>
+      <li>Apply to a few jobs each day: <b>Apply</b>, check, <b>Submit</b>, <b>I submitted it</b>.</li>
+      <li>Mid-week: <b>Run</b> again for new jobs (only new ones are processed).</li>
+    </ol>
+
+    <h3 id="g-trouble">When something goes wrong</h3>
+    <dl class="log-help" style="margin-top:0">
+      <dt>No jobs found</dt>
+      <dd>Check the city and job titles in Setup → What jobs to look for. Very specific titles find little; add a
+        broader one. Jobs outside your location are filtered out (see the log's "filtered" counts).</dd>
+      <dt>"LinkedIn: blocked" (or 429 / 403) in the log</dt>
+      <dd>The job board is limiting searches. The other boards carry on. Wait a few hours, then use <b>Run a step
+        again → Discover: retry the searches that failed</b>.</dd>
+      <dt>A job shows "No documents"</dt>
+      <dd>Its drafts failed the fact checks. See <a href="#g-more">Getting more jobs tailored</a>.</dd>
+      <dt>"Ready, but the fact-check flagged it"</dt>
+      <dd>A fact-check run again found a problem. Hover the status to read it, then <b>Redo</b> the job or apply with
+        the documents as they are.</dd>
+      <dt>The browser doesn't open, or opens and closes</dt>
+      <dd>Setup → Browser → <b>Test browser</b>; if that fails, <b>Install browser</b>. Close the <i>Log in to
+        sites</i> window first: they share one browser profile.</dd>
+      <dt>"Daily Gemini budget used up"</dt>
+      <dd>Today's free requests are gone. The remaining jobs wait until it resets, or switch to a paid key.</dd>
+      <dt>An application filled something wrong</dt>
+      <dd>Fix it in the browser before submitting: your answer is saved and used next time. Delete a wrong saved
+        answer at the bottom of Setup.</dd>
+      <dt>Something else</dt>
+      <dd>The log on Find jobs has the details. Most steps can be repeated safely with <b>Run again</b>.</dd>
+    </dl>
+  </div>
+</section>
 </main>
 <div id="toast"></div>
 
@@ -581,6 +814,17 @@ function showTab(name) {
   if (name === "setup") loadAnswers().catch(() => {});
 }
 
+// Links that open another tab (Guide → Setup, ...), optionally scrolling to a card
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("[data-goto]");
+  if (!a) return;
+  e.preventDefault();
+  showTab(a.dataset.goto);
+  const target = a.dataset.focus && document.getElementById(a.dataset.focus);
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  else window.scrollTo(0, 0);
+});
+
 // ---------- status ----------
 async function refreshStatus() {
   try { status = await api("/api/status"); } catch { return; }
@@ -594,6 +838,7 @@ async function refreshStatus() {
   tb.textContent = "Tier " + status.tier + ": " + status.tier_label;
   tb.className = "badge " + (status.tier === 3 ? "ok" : "warn");
   $("#data-dir").textContent = status.data_dir;
+  $$(".data-dir").forEach((c) => (c.textContent = status.data_dir));
   const b = status.budget, bb = $("#budget-badge");
   bb.style.display = b ? "" : "none";
   if (b) {
@@ -1285,7 +1530,9 @@ $("#quit").addEventListener("click", () => guarded(async () => {
   await refreshStatus();
   refreshBrowser();
   await Promise.all([loadSettings(), loadResume(), loadSearches(), loadProfile(), loadAnswers()]).catch((e) => toast(e.message, true));
-  let tab = "setup"; try { tab = localStorage.getItem("ap-tab") || tab; } catch {}
+  // First launch (nothing set up, no tab remembered): start with the guide
+  let tab = status && !status.checks.profile && !status.checks.resume_txt ? "guide" : "setup";
+  try { tab = localStorage.getItem("ap-tab") || tab; } catch {}
   showTab(tab);
   pollPipeline(); pollApply();
   setInterval(pollPipeline, 1500);
