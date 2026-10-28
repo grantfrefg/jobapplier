@@ -44,6 +44,11 @@ tailored job (the AI fact-check now always runs), about 20 a day; they're worth 
 | G | Prompts for Australia, ATS and a human voice; Australian spelling and AI-phrasing checks in code | None | **Done** |
 | H | ATS check of every tailored resume | None | **Done** |
 | I | Where each job applies, sign-in pages, normal login window | None | **Done** (#20) |
+| J | Plain-English reasons for rejected jobs, guides to each step, the log and the Apply tab, Mark applied | None | **Done** (#23) |
+| K | Your own resume / cover letter per job (a job with your resume isn't tailored) | Fewer | **Done** (#24) |
+| L | ATS check reads the PDF back; other forms of a term (AWS / Amazon Web Services) | None | **Done** (#25) |
+| M | Prompt review 2: fact-check quotes what it rejects and sees the ad; forms see the job description; super; work type and pay in scoring | None (fewer false rejections) | **Done** (#26) |
+| N | Your own paid OpenAI / Anthropic key for every AI step; Codex engine; Claude Code and Codex in the desktop app | No Gemini budget with a paid key | **Done** (#27, #28) |
 
 ---
 

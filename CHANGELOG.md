@@ -90,6 +90,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - CI on every pull request (Python 3.11–3.13, browser tests under xvfb).
 
 ### Changed
+- **Docs caught up** with recent changes: README (setup, Find jobs and Apply guides, your own documents, Mark
+  applied, engine choice, AI provider, troubleshooting), HOW_IT_WORKS (fact-check, rejected jobs, form AI, scoring
+  inputs, AI usage), CONFIGURATION, DESKTOP_APP, the READ_ME_FIRST files, IMPROVEMENTS and CONTRIBUTING.
 - **Prompt review (2):**
   - Fact-check: checks against the original resume plus your confirmed profile skills (it used only the profile's
     skills list and `real_metrics`, so it could reject skills and numbers that are in your resume); must quote the

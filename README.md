@@ -7,16 +7,17 @@ jobapplier is a fork of [ApplyPilot](https://github.com/Pickle-Pixel/ApplyPilot)
 What's different from the original:
 
 - **Free.** Every AI step runs on your own Google Gemini key (`gemini-3.5-flash-lite`, free tier). Form-filling uses a local browser; there's no paid Claude Code subscription, though that engine is still available. Prefer a paid model? Use your own OpenAI or Anthropic (Claude) API key instead, and Codex can drive the browser like Claude Code.
-- **You submit.** The app fills in the form and stops. Submit/Apply buttons are outlined in red, and you review and click them yourself.
+- **You submit.** The app fills in the form and stops. Submit/Apply buttons are outlined in red, and you review and click them yourself. (If you'd rather it submitted for you, Claude Code or Codex can be switched on in Setup, after a confirmation.)
 - **Private.** Your name, contact details, address and ID numbers are sent to the AI only as placeholders and filled in locally.
 - **Australian job sources.** Indeed Australia, LinkedIn and Jora, filtered to your city and state. Jora ads open the employer's own application form.
 - **One application per role.** The same job on several boards is detected, and you apply once.
 - **Written for engineers in Australia.** Scoring knows your deal-breakers (work rights, security clearance, location, seniority). Resumes and cover letters use Australian English and come out as ATS-friendly A4 PDFs with your location and work rights at the top.
 - **Honest documents.** Every title, skill, tool, number, employer and qualification in a tailored resume or cover letter is checked against your real resume in code, and an AI fact-check reads every one. Nothing you haven't done gets in, including the job's own title.
-- **ATS check.** Every tailored resume gets a score for how Australian employers' systems (Workday, SuccessFactors, PageUp, JobAdder...) will parse and search it, with what to fix.
+- **ATS check.** Every tailored resume gets a score for how Australian employers' systems (Workday, SuccessFactors, PageUp, JobAdder...) will parse and search it, with what to fix. The PDF itself is read back the way a parser reads it.
+- **Your own documents when you want them.** Any job can use a resume or cover letter you wrote (PDF or Word) instead of the generated one.
 - **Knows where each job applies.** Jobs are labelled with the employer's application system and whether it needs an account, so you can do the quick ones first. Sign-in pages and Google sign-in are handled.
 - **Fewer AI requests.** Contact details, uploads and questions you've answered before are filled in without the AI; Greenhouse, Lever and SEEK forms are handled specially; a daily budget keeps you inside the free tier.
-- **No terminal needed.** A web UI covers setup, finding jobs and applying, and there's a double-click desktop app for Windows and Mac.
+- **No terminal needed.** A web UI covers setup, finding jobs and applying, with built-in guides to every step and log line, and there's a double-click desktop app for Windows and Mac.
 
 ---
 
@@ -62,12 +63,17 @@ The web UI has three tabs.
 - **Log in to sites** (under Browser) opens the app's browser as a normal window so you can sign in to Google, LinkedIn and SEEK. Google blocks sign-in in the automated window; close this one when you're done and the app stays logged in.
 - **Saved answers** lists the screening answers the app has remembered (yours win over the AI's); delete any you don't want reused.
 - **Daily request limit** (under the Gemini key) sets the free-tier limit and how many requests to keep for applying. The header shows how many are left today.
+- **How to apply** chooses the engine. The default fills each form and waits for you to submit. **Claude Code** or **Codex** apply and submit by themselves; they need that CLI installed and signed in (Setup shows the one-line install command) and ask you to confirm before switching.
 
 **2. Find jobs**
 - Press **Run**. It searches the job boards, scores each job against your resume, and writes a tailored resume and cover letter for the good matches, with a live log.
+- **How it works** (under the log) explains each step; **What the log means** explains each log line, including blocked job boards and jobs whose drafts were rejected. Hover a step's checkbox for a one-line summary.
+- A job whose drafts all failed the fact checks gets no documents rather than invented ones. **Apply → All jobs** shows why, with **Try again**; "Getting more jobs tailored" in the log guide covers what helps (a fuller resume and skills list, lenient strictness, skipping titles you can't match).
 
 **3. Apply**
-- Each job shows its **ATS** score (hover for what to fix, missing keywords and any skills that were removed).
+- **How to use this tab** and **What the ATS score means** (at the top of the job list) explain everything below.
+- Each job shows its **ATS** score (hover for what to fix, missing keywords, the ad's wording to use and any skills that were removed).
+- **use my own resume / cover letter** under a job swaps in a PDF or Word file you wrote; **use generated** switches back.
 - **Check where to apply** opens each job in the browser and labels where it applies, e.g. "Greenhouse · no account" or "Workday · account needed". The **Ready: no employer account** view lists the quick ones. Jobs needing an account get a **Log in** button.
 - Press **Apply** next to a job. A browser opens, and the app fills the form, uploads your documents and moves through "Next" pages. On a job-board ad (Jora, SEEK, Indeed, LinkedIn) it follows the ad's Apply link to the real form first; for LinkedIn **Easy Apply**, click Easy Apply yourself, then **Fill this page again**.
 - On a sign-in or create-account page it fills in your email (never a password) and tells you what to do.
@@ -78,6 +84,7 @@ The web UI has three tabs.
   - **Fill this page again** (e.g. after you log in to SEEK)
   - **Never apply to this job**
 - **Redo** on a job (or **Redo all documents**) rewrites its resume and cover letter, e.g. after you update your resume, profile or skills list. The old documents stay until the new ones pass the checks.
+- **Mark applied** records a job you applied to yourself, outside the app: open the ad, download the documents from the list, submit, then mark it.
 
 Everything is stored on your computer in `~/.applypilot/`.
 
@@ -93,10 +100,10 @@ Everything is stored on your computer in `~/.applypilot/`.
 | **Score** | Skips titles on your skip list for free, then rates the rest 1–10 against your resume, 10 jobs per request, like an engineering recruiter. Jobs you can't take (citizenship or a clearance you don't hold, onsite elsewhere, far too senior or junior) score 3 or lower | ~1 per 10 jobs |
 | **Tailor + cover letter** | For each good match (score ≥ 7), rewrites your resume and writes a short, specific cover letter in one request, in Australian English, using the ad's own words for skills you have. Code checks every title, skill, tool, number, employer and qualification against your real resume (fixing or rejecting what doesn't match), then an AI fact-check reads it | Usually 2 per job |
 | **PDF** | A4, one-column, ATS-friendly resume (location and work rights in the header, title, employer and dates on one line) and a plain business-letter cover letter | None |
-| **ATS check** | Scores each tailored resume for parsing, Australian knockout facts (work rights, location), the ad's keywords and spelling | None |
-| **Apply** | Fills the form in a visible browser and waits for you to submit. Known fields and saved answers need no AI; Greenhouse, Lever and SEEK forms get site-specific handling | 0–1 per form page |
+| **ATS check** | Scores each tailored resume for parsing (including reading the PDF back), Australian knockout facts (work rights, location), the ad's keywords (another form of a term counts half) and spelling | None |
+| **Apply** | Fills the form in a visible browser and waits for you to submit. Known fields and saved answers need no AI; Greenhouse, Lever and SEEK forms get site-specific handling. Or, if you choose, Claude Code or Codex apply and submit by themselves | 0–1 per form page |
 
-Free-tier limits are per **request per day**: `gemini-3.5-flash-lite` allows about 500. A typical day of about 200 jobs found, about 20 good matches and about 10 applications uses roughly 80–100. Every request is counted (by US Pacific day, when Google resets the quota): finding and preparing jobs stops cleanly when only the apply reserve (50 by default) is left, and picks up where it left off the next day. [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) lists what's been done to cut usage.
+**AI provider:** Google Gemini by default (free); Setup can switch every step to your own paid OpenAI or Anthropic (Claude) API key instead, with no daily limit in the app. Free-tier limits are per **request per day**: `gemini-3.5-flash-lite` allows about 500. A typical day of about 200 jobs found, about 20 good matches and about 10 applications uses roughly 80–100. Every request is counted (by US Pacific day, when Google resets the quota): finding and preparing jobs stops cleanly when only the apply reserve (50 by default) is left, and picks up where it left off the next day. [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) lists what's been done to cut usage.
 
 More detail on each stage, privacy and the safety gate: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
 
@@ -108,13 +115,14 @@ Everything can be set in the web UI, and it's all saved as files in `~/.applypil
 
 | File | What's in it |
 |---|---|
-| `.env` | Gemini key and model, apply engine, daily request limit and apply reserve |
+| `.env` | AI provider, keys and model, apply engine, daily request limit and apply reserve |
 | `searches.yaml` | Country, location, job titles, title skip list, which job sources to use |
 | `profile.json` | Your details and form answers, including work rights, security clearance, notice period, relocation and driver's licence |
 | `resume.txt` / `resume.pdf` | Your master resume |
 | `applypilot.db` | Jobs (with where each applies and its ATS check), saved screening answers and today's Gemini request count |
 | `site_plans/` | How each smart-extract site (Jora) is read; delete a file to make it re-learn |
-| `~/ApplyPilot uploads/` | The current application's resume and cover letter PDFs, for uploading by hand (outside `~/.applypilot`, so file pickers show it) |
+| `own_documents/` | Resumes and cover letters you uploaded for particular jobs |
+| `~/ApplyPilot uploads/` | The current application's resume and cover letter (PDF, or Word if you gave your own), for uploading by hand (outside `~/.applypilot`, so file pickers show it) |
 
 Every setting is listed in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
@@ -157,6 +165,10 @@ With the free engine, `applypilot apply` stops before each Submit and waits in t
 | "This browser or app may not be secure" (Google sign-in) | Use Setup → **Log in to sites**, sign in there and close the window |
 | A job's resume doesn't change after **Redo** | Its new version failed the fact checks, so the old one was kept. The reasons are in `~/.applypilot/tailored_resumes/<job>_REPORT.json` (`validator` and `judge`) |
 | A resume lists a skill you don't have, or drops one you do | Update **Skills boundary** in your profile, tick **My skills list is accurate**, then **Redo** |
+| A job shows "No documents" (`FAILED_JUDGE` in the log) | Hover the status on **Apply → All jobs** for the reason. Press **Try again**, or see "Getting more jobs tailored" under **Find jobs → What the log means**; or give the job your own resume |
+| "Claude Code CLI" / "Codex CLI" isn't ticked in Setup | Install it from a terminal (Setup shows the command), then reopen the app. It's looked for in npm's, Homebrew's and the installer's usual folders |
+| Codex applications fail with `codex_not_signed_in` | Run `codex login` once in a terminal (or set `OPENAI_API_KEY`) |
+| A site won't take your Word (.docx) resume | Use **use my own resume** with the PDF version instead |
 | The page at localhost:8000 won't load (dev container) | Run `python -m applypilot ui` in VS Code's terminal |
 
 ---
