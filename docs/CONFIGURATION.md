@@ -27,7 +27,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `ANTHROPIC_API_KEY` | — | Your own paid Anthropic API key, for Claude (default model `claude-opus-5-5`; `claude-sonnet-5-5` or `claude-haiku-5-5` cost less) |
 | `LLM_PROVIDER` | the first with a key | `gemini`, `openai`, `anthropic` or `local`: which AI scores jobs, writes documents and answers forms (Setup → **AI for scoring, resumes and form answers**) |
 | `LLM_MODEL` | the provider's default | Model for every AI step; ignored if it isn't one of the chosen provider's models |
-| `EXECUTION_ENGINE` | `claude_code` (`local_playwright` in the desktop app) | `local_playwright`: fills forms and **you** click Submit (with any provider above). `claude_code`: paid Claude Code CLI, submits automatically. `codex`: OpenAI's Codex CLI, submits automatically |
+| `EXECUTION_ENGINE` | `claude_code` (`local_playwright` in the desktop app, until you choose and confirm another in Setup) | `local_playwright`: fills forms and **you** click Submit (with any provider above). `claude_code`: paid Claude Code CLI, submits automatically. `codex`: OpenAI's Codex CLI, submits automatically |
 | `CODEX_MODEL` | Codex's default | Model for the `codex` engine |
 | `LLM_URL`, `LLM_API_KEY` | — | Use a local OpenAI-compatible server (llama.cpp, Ollama) instead |
 | `GEMINI_DAILY_LIMIT` | `500` | Gemini requests per day for your model (Google's free-tier limit). Requests are counted per US Pacific day, when Google resets them |

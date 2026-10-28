@@ -1,6 +1,5 @@
 """Your own paid AI keys (OpenAI, Anthropic) and the Codex apply engine."""
 
-import json
 import os
 import stat
 import sys
@@ -142,7 +141,9 @@ def test_codex_command_is_browser_only_and_reads_stdin(tmp_path):
     assert cmd[cmd.index("--sandbox") + 1] == "read-only"
     assert "--dangerously-bypass-approvals-and-sandbox" not in cmd
     args = [c for c in cmd if c.startswith("mcp_servers.playwright.args=")][0]
-    assert "--cdp-endpoint=http://localhost:9222" in json.loads(args.split("=", 1)[1])
+    import tomllib
+    value = tomllib.loads("v = " + args.split("=", 1)[1])["v"]  # Codex parses -c values as TOML
+    assert "--cdp-endpoint=http://localhost:9222" in value and '"' not in " ".join(cmd[1:])  # no " for .cmd shims
     assert cmd[cmd.index("--model") + 1] == "gpt-5-codex"
 
 
@@ -186,3 +187,55 @@ def test_codex_run(tmp_path, monkeypatch, events, last, expected):
     if expected == "applied":
         log = (tmp_path / "worker-0.log").read_text()
         assert ">> navigate https://jobs.example/apply" in log and "Reconnecting" not in log
+
+
+# --- desktop app: Claude Code and Codex are opt-in -------------------------------
+
+def test_agent_clis_are_found_where_installers_put_them(tmp_path, monkeypatch):
+    bin_dir = tmp_path / ".local" / "bin"
+    bin_dir.mkdir(parents=True)
+    fake = bin_dir / "codex"
+    fake.write_text("#!/bin/sh\n")
+    fake.chmod(0o755)
+    monkeypatch.setattr(config.Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("PATH", "/usr/bin")  # a double-clicked app's bare PATH
+    assert config.agent_cli("codex") == str(fake)
+    assert str(bin_dir) in os.environ["PATH"].split(os.pathsep)
+
+
+@pytest.fixture
+def desktop_client(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from applypilot import database
+    for name, value in {"APP_DIR": tmp_path, "ENV_PATH": tmp_path / ".env", "DB_PATH": tmp_path / "t.db",
+                        "PROFILE_PATH": tmp_path / "profile.json", "LOG_DIR": tmp_path / "logs"}.items():
+        monkeypatch.setattr(config, name, value)
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "t.db")
+    monkeypatch.setattr(config, "load_env", lambda: None)
+    monkeypatch.setenv("APPLYPILOT_DESKTOP", "1")
+    monkeypatch.delenv("EXECUTION_ENGINE", raising=False)
+
+    def make():
+        from applypilot.ui.server import create_app
+        return TestClient(create_app())
+    yield make
+    database.close_connection(tmp_path / "t.db")
+
+
+def test_desktop_starts_on_the_engine_where_you_submit(desktop_client):
+    config.ENV_PATH.write_text("EXECUTION_ENGINE=claude_code\n")  # e.g. copied from .env.example
+    client = desktop_client()
+    assert client.get("/api/status").json()["engine"] == "local_playwright"  # not confirmed in this app
+
+
+def test_desktop_agent_engine_needs_confirming_then_sticks(desktop_client):
+    client = desktop_client()
+    r = client.post("/api/settings", json={"EXECUTION_ENGINE": "codex"})
+    assert r.status_code == 400 and "submits applications" in r.json()["detail"]
+    assert client.get("/api/status").json()["engine"] == "local_playwright"
+    assert client.post("/api/settings", json={"EXECUTION_ENGINE": "codex", "confirm_agent": True}).status_code == 200
+    assert "AGENT_ENGINE_CONFIRMED=1" in config.ENV_PATH.read_text()
+    assert desktop_client().get("/api/status").json()["engine"] == "codex"  # after a restart too
+    client.post("/api/settings", json={"EXECUTION_ENGINE": "local_playwright"})  # switching back needs no confirm
+    assert client.get("/api/status").json()["engine"] == "local_playwright"
