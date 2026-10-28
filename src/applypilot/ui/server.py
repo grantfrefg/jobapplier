@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import os
 import queue
-import shutil
 import subprocess
 import sys
 import threading
@@ -338,8 +337,15 @@ def create_app() -> FastAPI:
     init_db()
     desktop = config.is_desktop_app()
     if desktop:
-        # Friend mode: always the free, human-approved engine
-        os.environ["EXECUTION_ENGINE"] = config.ENGINE_LOCAL_PLAYWRIGHT
+        # The desktop app starts on the engine where you click Submit; Claude Code
+        # and Codex (which submit by themselves) are opt-in in Setup.
+        saved = _read_env_file()
+        if saved.get("EXECUTION_ENGINE") not in config.EXECUTION_ENGINES or (
+                saved["EXECUTION_ENGINE"] in config.AGENT_ENGINES and saved.get("AGENT_ENGINE_CONFIRMED") != "1"):
+            # Only an engine chosen (and confirmed) in this app's Setup page counts,
+            # not one left in a .env copied from elsewhere
+            os.environ["EXECUTION_ENGINE"] = config.ENGINE_LOCAL_PLAYWRIGHT
+        config.extend_tool_path()  # a double-clicked app doesn't get the terminal's PATH
 
     app = FastAPI(title="ApplyPilot", docs_url=None, redoc_url=None)
     task = SubprocessTask()
@@ -398,8 +404,8 @@ def create_app() -> FastAPI:
                 "gemini_key": bool(os.environ.get("GEMINI_API_KEY")),
                 "llm_key": provider is not None,
                 "playwright": config.has_playwright(),
-                "claude_cli": shutil.which("claude") is not None,
-                "agent_cli": shutil.which(config.AGENT_ENGINES.get(engine, "claude")) is not None,
+                "claude_cli": config.agent_cli("claude") is not None,
+                "agent_cli": config.agent_cli(config.AGENT_ENGINES.get(engine, "claude")) is not None,
                 "browser": bool(config.find_system_browsers()) or config.has_playwright_chromium(),
             },
             "example_skills": _example_skills_left(),
@@ -422,14 +428,14 @@ def create_app() -> FastAPI:
                 out[key] = {"set": bool(value), "hint": f"…{value[-4:]}" if len(value) > 8 else ""}
             else:
                 out[key] = value
-        out["EXECUTION_ENGINE"] = out["EXECUTION_ENGINE"] or config.ENGINE_CLAUDE_CODE
+        out["EXECUTION_ENGINE"] = out["EXECUTION_ENGINE"] or config.get_execution_engine()
         return out
 
     @app.post("/api/settings")
     def save_settings(body: dict) -> dict:
         updates: dict[str, str] = {}
         for key in ENV_KEYS:
-            if key not in body or (desktop and key == "EXECUTION_ENGINE"):
+            if key not in body:
                 continue
             value = str(body[key] or "").strip()
             if key in SECRET_KEYS and not value:
@@ -438,6 +444,12 @@ def create_app() -> FastAPI:
                 raise HTTPException(400, f"{key} must be a whole number")
             if key == "EXECUTION_ENGINE" and value not in config.EXECUTION_ENGINES:
                 raise HTTPException(400, f"EXECUTION_ENGINE must be one of {config.EXECUTION_ENGINES}")
+            if key == "EXECUTION_ENGINE" and value in config.AGENT_ENGINES:
+                # Submits by itself: the page asks first and sends confirm_agent
+                if value != config.get_execution_engine() and not body.get("confirm_agent"):
+                    raise HTTPException(400, "Confirm first: this engine submits applications without showing "
+                                             "them to you")
+                updates["AGENT_ENGINE_CONFIRMED"] = "1"
             if key == "LLM_PROVIDER" and value and value not in config.PROVIDERS:
                 raise HTTPException(400, f"LLM_PROVIDER must be one of {tuple(config.PROVIDERS)}")
             updates[key] = value

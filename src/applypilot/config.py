@@ -69,6 +69,11 @@ def get_chrome_path() -> str:
         if found:
             return found
 
+    # Edge is Chromium too (and ships with every Windows PC)
+    for c in _edge_candidates():
+        if c.exists():
+            return str(c)
+
     raise FileNotFoundError(
         "Chrome/Chromium not found. Install Chrome or set CHROME_PATH environment variable."
     )
@@ -392,25 +397,57 @@ def find_system_browsers() -> list[str]:
     except FileNotFoundError:
         pass
 
-    system = platform.system()
-    if system == "Windows":
-        candidates = [
-            Path(os.environ.get(var, default)) / "Microsoft/Edge/Application/msedge.exe"
-            for var, default in (("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
-                                 ("PROGRAMFILES", r"C:\Program Files"))
-        ]
-    elif system == "Darwin":
-        candidates = [
-            Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
-            Path.home() / "Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        ]
-    else:
-        candidates = [Path(p) for p in map(shutil.which, ("microsoft-edge", "microsoft-edge-stable")) if p]
-
+    candidates = _edge_candidates()
+    if platform.system() == "Darwin":
+        candidates.append(Path.home() / "Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
     for c in candidates:
         if c.exists() and str(c) not in found:
             found.append(str(c))
     return found
+
+
+def _edge_candidates() -> list[Path]:
+    """Where Microsoft Edge is installed (Chromium, so the engines can drive it)."""
+    system = platform.system()
+    if system == "Windows":
+        return [Path(os.environ.get(var, default)) / "Microsoft/Edge/Application/msedge.exe"
+                for var, default in (("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
+                                     ("PROGRAMFILES", r"C:\Program Files"))]
+    if system == "Darwin":
+        return [Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge")]
+    return [Path(p) for p in map(shutil.which, ("microsoft-edge", "microsoft-edge-stable")) if p]
+
+
+def _tool_dirs() -> list[Path]:
+    """Where installers put the claude / codex / npx commands. A double-clicked app
+    (above all on a Mac) doesn't get the terminal's PATH, so it looks here too."""
+    home = Path.home()
+    dirs = [home / ".local/bin", home / ".claude/local", home / ".npm-global/bin",
+            home / ".volta/bin", home / ".bun/bin"]
+    if platform.system() == "Windows":
+        dirs += [Path(os.environ.get("APPDATA", home / "AppData/Roaming")) / "npm",
+                 Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "nodejs",
+                 Path(os.environ.get("LOCALAPPDATA", home / "AppData/Local")) / "Microsoft/WinGet/Links"]
+    else:
+        dirs += [Path("/opt/homebrew/bin"), Path("/usr/local/bin")]
+    dirs += sorted((home / ".nvm/versions/node").glob("*/bin"), reverse=True)  # nvm: newest Node first
+    return dirs
+
+
+def extend_tool_path() -> None:
+    """Add the usual install folders of claude, codex and npx to PATH (once).
+    Child processes inherit it, so the agents can start npx for the browser too."""
+    current = os.environ.get("PATH", "").split(os.pathsep)
+    extra = [str(d) for d in _tool_dirs() if d.is_dir() and str(d) not in current]
+    if extra:
+        os.environ["PATH"] = os.pathsep.join(current + extra)
+
+
+def agent_cli(name: str) -> str | None:
+    """Full path of an agent CLI ("claude" or "codex"), or None if it isn't installed.
+    A full path matters on Windows, where npm installs them as .cmd files."""
+    extend_tool_path()
+    return shutil.which(name)
 
 
 def is_desktop_app() -> bool:
@@ -455,7 +492,7 @@ def get_tier() -> int:
             return 3
         return 2
 
-    has_agent = shutil.which(AGENT_ENGINES.get(get_execution_engine(), "claude")) is not None
+    has_agent = agent_cli(AGENT_ENGINES.get(get_execution_engine(), "claude")) is not None
     try:
         get_chrome_path()
         has_chrome = True
@@ -490,9 +527,9 @@ def check_tier(required: int, feature: str) -> None:
         if not has_playwright():
             missing.append("Playwright — run [bold]pip install playwright && playwright install chromium[/bold]")
     elif required >= 3:
-        if get_execution_engine() == ENGINE_CODEX and not shutil.which("codex"):
+        if get_execution_engine() == ENGINE_CODEX and not agent_cli("codex"):
             missing.append("Codex CLI — run [bold]npm install -g @openai/codex[/bold], then [bold]codex login[/bold]")
-        elif get_execution_engine() == ENGINE_CLAUDE_CODE and not shutil.which("claude"):
+        elif get_execution_engine() == ENGINE_CLAUDE_CODE and not agent_cli("claude"):
             missing.append("Claude Code CLI — install from [bold]https://claude.ai/code[/bold]")
         try:
             get_chrome_path()
