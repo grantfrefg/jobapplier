@@ -2,8 +2,9 @@
 
 A double-click app for Windows and Mac, so friends can use ApplyPilot without installing Python or using a terminal. It's the same web UI, in **friend mode**:
 
-- **Free engine only.** Forms are filled in; the user clicks Submit.
-- **Simpler Setup page.** Gemini key, browser, resume, job search and profile.
+- **You submit, by default.** Forms are filled in and the user clicks Submit. Claude Code or Codex (which submit by themselves) can be chosen in Setup after a confirmation; the app only honours an engine confirmed there (`AGENT_ENGINE_CONFIRMED`), not one left in a copied `.env`.
+- **Simpler Setup page.** AI key (Gemini free, or the user's own OpenAI / Anthropic key), browser, resume, job search and profile.
+- **Finds installed tools.** A double-clicked app doesn't get the terminal's PATH, so it also looks for `claude`, `codex` and `npx` in their usual install folders (npm, Homebrew, `~/.local/bin`, nvm; `%APPDATA%\npm` on Windows).
 - **Starts and stops itself.** Double-clicking opens the page; opening it again just reopens the page. **Quit** in the page closes the app, and it also exits after 30 idle minutes.
 - **Usually no browser download.** It uses Chrome or Edge if installed (every Windows PC has Edge). Otherwise **Install browser** in Setup downloads Chromium into `~/.applypilot/browsers`.
 - **Data stays on the user's computer**, in `~/.applypilot`.
@@ -52,7 +53,7 @@ Removing the warnings needs a Windows code-signing certificate and an Apple Deve
 |---|---|
 | `packaging/desktop_entry.py` | No arguments → start the app. With arguments → behave like the `applypilot` CLI; the UI runs pipeline stages this way |
 | `src/applypilot/desktop.py` | Picks a free port (8000–8010), starts the web server, opens the browser, makes sure only one copy runs, and exits when idle |
-| `APPLYPILOT_DESKTOP=1` | Friend mode: forces the local engine and hides developer settings |
+| `APPLYPILOT_DESKTOP=1` | Friend mode: starts on the local engine (Claude Code / Codex only once confirmed in Setup), extends PATH for the agent CLIs, hides developer settings |
 | `PLAYWRIGHT_BROWSERS_PATH` | Set to `~/.applypilot/browsers`, so a downloaded browser never goes inside the signed app bundle |
 
 ## Notes

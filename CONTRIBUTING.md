@@ -27,10 +27,7 @@ Don't push directly to `master`.
 xvfb-run -a pytest tests      # full suite; xvfb gives the visible-browser tests a display
 pytest tests                  # without a display, the browser tests are skipped
 
-ruff check --select E,F,W \
-  src/applypilot/ui src/applypilot/desktop.py src/applypilot/__main__.py \
-  src/applypilot/apply/local_engine.py src/applypilot/database.py \
-  packaging tests
+ruff check --select E,F,W src/applypilot/ui packaging tests   # plus the files listed in ci.yml's Lint step
 ```
 
 Lint covers only the modules that are already clean. Older upstream modules still have findings; if you clean one up, add it to the lint step in `ci.yml`.
@@ -48,7 +45,9 @@ src/applypilot/
   cli.py              # `applypilot` commands
   config.py           # paths, .env, engine/model settings, location filter, browser detection
   database.py         # SQLite schema, migrations, stats, cross-site de-duplication, Redo marks
-  llm.py              # LLM client (Gemini / OpenAI / local), JSON mode, readable errors
+  llm.py              # LLM client (Gemini / OpenAI / Anthropic / local), JSON mode, readable errors
+  llm_anthropic.py    # Claude through the official anthropic SDK
+  own_docs.py         # your own resume / cover letter per job (PDF or Word)
   budget.py           # daily Gemini request budget
   browser.py          # starting a background Chromium (falls back when the headless shell is missing)
   profile_options.py  # fixed answers for profile drop-downs (and mapping of old wording)
@@ -63,7 +62,7 @@ src/applypilot/
   apply/              # launcher.py (queue + engine switch), local_engine.py (free engine),
                       # answers.py (standard fields, answer bank), adapters.py (SEEK, Lever),
                       # sites.py (where a job applies), login_browser.py (normal login window),
-                      # chrome.py/prompt.py/dashboard.py (Claude Code engine)
+                      # chrome.py/prompt.py/dashboard.py (Claude Code and Codex engines)
   ui/                 # server.py (FastAPI) + static/index.html (the web UI)
   wizard/             # `applypilot init`, shared search-config builder
   config/             # bundled sites.yaml, employers.yaml, searches.example.yaml

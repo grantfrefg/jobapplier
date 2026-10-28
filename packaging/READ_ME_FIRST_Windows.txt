@@ -11,9 +11,12 @@ ApplyPilot for Windows
    Follow the Setup tab from top to bottom.
 
 You'll need a free Gemini API key: https://aistudio.google.com/apikey
+(or, if you prefer, your own paid OpenAI or Anthropic API key).
 
 ApplyPilot fills in job applications in a browser window, but it never
 clicks Submit. You check the form and press Submit yourself.
+(Setup can switch to Claude Code or Codex, which do submit by themselves;
+it asks you to confirm first.)
 
 To close it: press "Quit" at the top right of the ApplyPilot page.
 Your data is stored in C:\Users\<you>\.applypilot
