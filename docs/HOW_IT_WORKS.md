@@ -49,7 +49,7 @@ Visits each job page and extracts the full description and the application link.
 
 1. **Title skip list (free).** Jobs whose title contains an `exclude_titles` entry get score 0, with the reason recorded and no AI request.
 2. **Batch scoring.** The rest are rated 1–10 against your resume, 10 jobs per request, as structured (JSON) output. A job that doesn't get a valid score stays unscored and is retried on the next run.
-3. **Deal-breakers.** The scorer also sees your target role, years, location, work rights and security clearance from your profile. A job you can't take (citizenship or a clearance you don't hold, onsite elsewhere when you won't relocate, far too senior or junior, a mandatory registration you don't have) scores 3 or lower.
+3. **Deal-breakers.** The scorer also sees your target role, years, location, work rights, security clearance, full-time/contract preference and minimum salary from your profile. A job you can't take (citizenship or a clearance you don't hold, onsite elsewhere when you won't relocate, far too senior or junior, a mandatory registration you don't have) scores 3 or lower; a contract-only role when you don't take contracts, 4 or lower; one whose stated pay is clearly below your minimum, 5 at most.
 
 The prompts are written for engineers (software first, other disciplines too) applying in Australia: Australian English, 2-page resumes, DD/MM/YYYY dates, AUD.
 
@@ -65,12 +65,14 @@ The tailored resume and a short, specific cover letter come from **one AI reques
 Every result is checked against your original resume:
 - **Fixed by code:** the line under your name is always a title you've held (normally your current one, from your profile), optionally followed by a short focus such as "Production ML & LLM Systems". A target-job title like "Forward Deployed AI Engineer" is replaced. Any skill that isn't in your resume (or in your profile's skills list) is removed.
 - **Sent back by code** (the AI tries again; after the last try the document isn't used): the summary or letter calling you by a job title you haven't held; a tool, platform or certification you never mention; a number that isn't in your resume; an employer or job title in Experience that doesn't match; education that doesn't match. Plus banned buzzwords, required sections and format.
-- **AI fact-check ("judge"):** reads every resume and letter (except with `--validation lenient`) for what code can't see, such as invented work or two separate facts joined into a new claim ("cut costs 50% while serving 10 million customers"). If it still rejects the last attempt, the resume isn't used.
+- **AI fact-check ("judge"):** reads every resume and letter (except with `--validation lenient`) for what code can't see, such as invented work or two separate facts joined into a new claim ("cut costs 50% while serving 10 million customers"). It checks against your original resume plus your confirmed skills list, sees an excerpt of the ad (so what the letter says about the employer isn't mistaken for a claim about you), and must quote the exact phrase it rejects; when it can't point to one, it passes. If it still rejects the last attempt, the resume isn't used.
 - A cover letter that keeps claiming things your resume doesn't is dropped rather than saved.
 
 If the resume fails, both documents are regenerated. If only the letter fails, just the letter is retried.
 
-**Australian, ATS-friendly and human.** The prompts ask for the ad's exact wording for skills you really have (ATS searches match literal words), acronyms written out once ("machine learning (ML)"), titles, employers and dates exactly as in your resume, 2 pages, and no photo or date of birth. Must-have skills you have that the AI left out are added to the skills section by code. American spellings in what the AI wrote are changed to Australian ones (never inside names from your resume). Words and phrasings that read as AI-written ("leverage", "thrilled", "not just X but Y", exclamation marks) get the summary or cover letter rewritten. Cover letters are 200-300 words, sign off "Kind regards,", and address selection criteria when the ad asks for them.
+**When no draft passes.** The job gets no documents rather than invented ones. The log says why in plain words (e.g. `The fact-check rejected every draft: <reason>. No resume or cover letter is used for this job; it's tried again on the next run (4 of 5 tries left).`), and **Apply → All jobs** shows "No documents" with the reason on hover and a **Try again** button (which uses the Strictness picked on Find jobs). Each job is tried up to 5 times across runs. The rejected draft is kept as `…_REJECTED.txt`. What helps: a fuller resume and skills list, Try again, lenient strictness (read those resumes before sending), or skipping titles you can't honestly match.
+
+**Australian, ATS-friendly and human.** The prompts ask for the ad's exact wording for skills you really have (ATS searches match literal words, so "AWS" when the ad says AWS even if your resume says Amazon Web Services), acronyms written out once ("machine learning (ML)"), titles, employers and dates exactly as in your resume, 2 pages, and no photo or date of birth. Must-have skills you have that the AI left out are added to the skills section by code. American spellings in what the AI wrote are changed to Australian ones (never inside names from your resume). Words and phrasings that read as AI-written ("leverage", "thrilled", "not just X but Y", exclamation marks) get the summary or cover letter rewritten. Cover letters are 200-300 words, sign off "Kind regards,", address selection criteria when the ad asks for them, answer anything else the ad asks the letter to cover (availability from your profile), and mention sponsorship or relocation in one sentence only when it applies.
 
 **ATS check.** Every tailored resume gets a score out of 100 (the **ATS** badge on the Apply tab; hover for details, or `applypilot ats` in the terminal). Australian employers mostly use Workday or SAP SuccessFactors (banks, miners, retailers), PageUp (government, universities), JobAdder, Greenhouse, Lever and iCIMS, and SEEK applications are usually passed on into the employer's own system. None publish their rules, so the check mirrors what they all do:
 - **Parsing:** standard section headings, email and phone in the header, every job with a readable date range, 1-3 pages.
@@ -125,7 +127,7 @@ Cover letters are written together with the tailored resume (above). The separat
 3. Fills what it already knows **without the AI**: standard fields (name, email, phone, LinkedIn, address, location, current company, resume and cover letter uploads) from your profile, and screening questions from the **answer bank**. Fields that already hold a value are left alone.
    - **Searchable drop-downs** (Greenhouse, location autocompletes) are opened to read their options, and answers are picked by typing and clicking the matching suggestion. It never presses Enter, which could submit the form; if nothing matches, the "Your turn" panel says which field to pick.
    - **Site rules:** on SEEK it chooses "Upload a resumé" and uploads or writes the cover letter; on Lever the cover letter goes in "Additional information" when there's no cover letter field. Fields revealed by a choice are filled in a second pass.
-4. Asks Gemini only about the fields still unanswered (none left means no request). The prompt includes hints for SEEK (e.g. right-to-work questions), Greenhouse, Lever and Workday.
+4. Asks the AI (the provider chosen in Setup) only about the fields still unanswered (none left means no request). It sees an excerpt of the job description, so "Why this role?" and selection-criteria answers are specific to the job, and the job board the ad came from ("How did you hear about us?"). Salary figures in your profile are treated as base excluding super, with the 12% super guarantee added when a form asks for the package. The prompt includes hints for SEEK (e.g. right-to-work questions), Greenhouse, Lever and Workday.
 5. Clicks only **Next / Continue / Save and continue / Review** to move through multi-page forms.
 
 **Uploads.** Each upload box gets the resume or the cover letter from its label, or, when it only says "Upload" or "Attach", from the text of its own row (PageUp, for example); a page's only upload box gets the resume. The resume never goes in two boxes, and a box already showing one of the files isn't filled again. The current job's two PDFs are in a visible folder, `~/ApplyPilot uploads` (set `APPLYPILOT_UPLOAD_DIR` to move it), which holds only that job's files. The "Your turn" panel lists them with their full paths, for uploading by hand.
@@ -148,7 +150,7 @@ Most jobs found on Jora, Indeed and LinkedIn are applied for on the employer's o
 | Workday, iCIMS, Taleo, SuccessFactors, Oracle, PageUp | An account with each employer |
 
 ### Privacy
-- Gemini never sees your name, email, phone, street address, postcode, profile URLs, or any profile field that looks like an ID number (tax file number, licence number, date of birth and so on). It sees `{{PLACEHOLDER}}` tokens, and the real values are filled in on your computer.
+- The AI (Gemini, OpenAI or Claude) never sees your name, email, phone, street address, postcode, profile URLs, or any profile field that looks like an ID number (tax file number, licence number, date of birth and so on). It sees `{{PLACEHOLDER}}` tokens, and the real values are filled in on your computer. (Claude Code and Codex are different: they work from the full application instructions, like the original ApplyPilot.)
 - The same is done to your resume text before it's sent.
 - Your job-site password is never sent.
 - Your city, state, work rights and salary expectations **are** sent, because they're needed to answer eligibility questions.
@@ -165,15 +167,17 @@ Most jobs found on Jora, Indeed and LinkedIn are applied for on the employer's o
 | Never apply to this job | `failed` (reason `user_declined`) | Never offered again |
 | Fill this page again | (no change) | Re-reads and re-fills the current page, e.g. after you log in |
 
+A job you applied to yourself, outside the app, can be recorded with **Mark applied** on the Apply tab.
+
 ### Answer bank
 - Short screening answers (drop-downs, radio buttons, short text such as "Notice period") are saved in the `answers` table and reused when the same question comes up again, on any site.
 - Answers the AI gave are saved as **AI**. Answers you type or change in the browser while the app waits for you are saved as **you**, and an AI answer never replaces one of yours.
 - Long free-text answers ("Why do you want this job?") and anything containing your personal details are never saved.
 - Setup → **Saved answers** lists them; delete any you don't want reused.
 
-## Gemini usage
+## AI usage
 
-Google's free tier limits **requests per day** per model. Everything uses `gemini-3.5-flash-lite` (about 500/day). Approximate usage:
+With Gemini (the default), Google's free tier limits **requests per day** per model. Everything uses `gemini-3.5-flash-lite` (about 500/day). With your own OpenAI or Anthropic key the counts below are the same, billed per use by that provider, with no daily limit in the app. Approximate usage:
 
 | Stage | Requests |
 |---|---|
@@ -188,6 +192,6 @@ ApplyPilot counts every Gemini request against the daily limit (`GEMINI_DAILY_LI
 - Finding and preparing jobs (scoring, tailoring, Jora) stops cleanly when only the apply reserve (`GEMINI_APPLY_RESERVE`, default 50) is left. Jobs it didn't get to are untouched and picked up on the next run. Tailoring works through the highest-scoring jobs first, so the budget goes to your best matches.
 - Applying can use the reserve. When it's all gone, the app tells you on the "Your turn" panel and you can fill the page yourself; pages that need no AI still fill.
 - If Google reports the daily quota is used up (for example the key is also used elsewhere), the app believes Google and stops straight away instead of retrying.
-- OpenAI and local models aren't budgeted.
+- OpenAI, Anthropic and local models aren't budgeted.
 
 [IMPROVEMENTS.md](IMPROVEMENTS.md) is the plan to reduce this further.
