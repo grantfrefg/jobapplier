@@ -67,6 +67,7 @@ The web UI has three tabs.
 
 **2. Find jobs**
 - Press **Run**. It searches the job boards, scores each job against your resume, and writes a tailored resume and cover letter for the good matches, with a live log.
+- **Choose which jobs get tailored** (on by default): Run stops after scoring, and **Choose jobs to tailor** lists the scored jobs best match first, with why each scored what it did. Tick the ones you want (jobs at or above the Minimum score start ticked) and press **Tailor ticked jobs**; only those get a resume and cover letter, whatever their score. **Skip** hides a job for good (the Skipped view brings it back). Untick the option to tailor every good match automatically.
 - **How it works** (under the log) explains each step; **What the log means** explains each log line, including blocked job boards and jobs whose drafts were rejected. Hover a step's checkbox for a one-line summary.
 - A job whose drafts all failed the fact checks gets no documents rather than invented ones. **Apply → All jobs** shows why, with **Try again**; "Getting more jobs tailored" in the log guide covers what helps (a fuller resume and skills list, lenient strictness, skipping titles you can't match).
 

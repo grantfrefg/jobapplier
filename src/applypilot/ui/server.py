@@ -621,13 +621,18 @@ def create_app() -> FastAPI:
                      "AND COALESCE(apply_status, '') NOT IN ('applied', 'in_progress')",
             "applied": "applied_at IS NOT NULL",
             "all": "1 = 1",
+            # Find jobs → Choose jobs to tailor: scored, no documents yet
+            "choose": f"NOT {HAS_RESUME} AND fit_score IS NOT NULL AND applied_at IS NULL "
+                      "AND duplicate_of IS NULL AND COALESCE(tailor_skipped, 0) = 0 "
+                      "AND COALESCE(apply_status, '') NOT IN ('applied', 'in_progress')",
+            "skipped": "COALESCE(tailor_skipped, 0) = 1 AND applied_at IS NULL AND duplicate_of IS NULL",
         }.get(view)
         if view == "ready" and quick:
             where += " AND apply_account IN ('no', 'board')"
         if where is None:
-            raise HTTPException(400, "view must be ready, applied or all")
+            raise HTTPException(400, "view must be ready, applied, all, choose or skipped")
         rows = get_connection().execute(f"""
-            SELECT url, title, company, site, location, fit_score, application_url, apply_status,
+            SELECT url, title, company, site, location, salary, fit_score, application_url, apply_status,
                    apply_error, applied_at, duplicate_of, redo_requested, tailor_status, tailor_issues,
                    COALESCE(tailor_attempts, 0) AS tailor_attempts,
                    apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
@@ -652,7 +657,10 @@ def create_app() -> FastAPI:
             job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
                                                                 "missing_gap", "issues", "removed_skills",
                                                                 "unreadable", "other_form")}
-            for k in ("tailored_resume_path", "score_reasoning", "full_description"):
+            reason = job.pop("score_reasoning", None)
+            if view in ("choose", "skipped"):  # why it scored what it did, to help you pick
+                job["score_reason"] = (reason or "")[:500]
+            for k in ("tailored_resume_path", "full_description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})
         return out
@@ -709,6 +717,32 @@ def create_app() -> FastAPI:
                 args += ["--validation", body["validation"]]  # the Strictness picked on Find jobs
             task.start("Redo resumes and cover letters", args)
         return {"cleared": marked, "marked": marked, **task.snapshot()}
+
+    @app.post("/api/jobs/tailor")
+    def tailor_chosen(body: dict) -> dict:
+        """Tailor the jobs ticked in Find jobs → Choose jobs to tailor (and only those)."""
+        from applypilot.database import choose_for_tailoring
+        urls = [str(u) for u in body.get("urls") or [] if u]
+        if not urls:
+            raise HTTPException(400, "Tick at least one job")
+        if task.running:
+            raise HTTPException(409, f"'{task.label}' is still running; try again when it finishes")
+        applying_now = (session.job or {}).get("url") if session.busy else None
+        marked = choose_for_tailoring(get_connection(), urls, applying_now=applying_now)
+        if marked:
+            args = ["redo", "--pending"]
+            if body.get("validation") in ("strict", "normal", "lenient"):
+                args += ["--validation", body["validation"]]
+            task.start("Tailor chosen jobs", args)
+        return {"marked": marked, **task.snapshot()}
+
+    @app.post("/api/jobs/skip")
+    def skip_jobs(body: dict) -> dict:
+        """Leave jobs out of tailoring (skip: true) or put them back (skip: false)."""
+        from applypilot.database import skip_tailoring
+        urls = [str(u) for u in body.get("urls") or [] if u]
+        skip_tailoring(get_connection(), urls, skip=body.get("skip", True) is not False)
+        return {"ok": True, "count": len(urls)}
 
     @app.get("/api/jobs/file")
     def job_file(url: str, kind: str = "resume") -> FileResponse:
