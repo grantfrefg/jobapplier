@@ -9,6 +9,7 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Added
+- **Guide tab:** a user guide inside the web UI: what the app does, setting up, finding and choosing jobs, applying (with the app or yourself), Redo / Try again / Run again, getting more jobs tailored, the ATS score, costs, where files are, privacy, a typical week and troubleshooting. Links jump to the right tab; it opens first on a new install, and Setup links to it.
 - **Retry failed searches:** discovery remembers the searches a board blocked or failed (LinkedIn and Indeed per board, Jora per page), and **Run a step again → Discover: retry the searches that failed** (`applypilot rerun discover`) runs just those; Find jobs says how many are waiting. **Discover: search every board again** repeats every search.
 - **Run any step again:** **Run again…** on a job (Apply tab), **Run a step again for jobs already done** on Find jobs, or `applypilot rerun STEP [--url URL]`, for enrich, score, tailor, cover (letter only), review (the AI fact-check of the current documents), pdf and ats. A job keeps what it has until the new version is ready; a job the fact-check flags keeps its documents and shows what was found.
 - **Choose which jobs get tailored:** after discovering and scoring, Find jobs lists the scored jobs (best match first, with the scorer's reason); tick the ones you want and **Tailor ticked jobs** writes a resume and cover letter for just those, whatever their score. On by default (**Let me choose which jobs get tailored**), which leaves tailoring out of **Run**. **Skip ticked** keeps a job out of tailoring for good, including automatic runs (`tailor_skipped`); the Skipped view puts it back.
@@ -115,6 +116,7 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed
+- **Setup layout:** the Browser card was never closed, so the Resume and job-search cards were drawn inside it.
 - Drop-downs (Greenhouse country, location, screening questions) were sometimes left empty on a busy computer: the
   click waited for the box to stop moving and gave up after 3 seconds. It now clicks anyway. The apply log also says
   why an action failed.

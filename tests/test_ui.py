@@ -488,3 +488,18 @@ def test_retry_failed_searches(client, monkeypatch):
     assert info["count"] == 2 and not started
     client.post("/api/jobs/rerun", json={"step": "discover"})
     assert started == [["rerun", "discover"]]
+
+
+def test_guide_tab_links_all_lead_somewhere(client):
+    import re
+    html = client.get("/").text
+    assert 'data-tab="guide"' in html and 'id="tab-guide"' in html
+    guide = html[html.index('id="tab-guide"'):html.index("</section>", html.index('id="tab-guide"'))]
+    anchors = re.findall(r'href="#(g-[\w-]+)"', guide)
+    assert len(anchors) >= 14 and all(f'id="{a}"' in guide for a in anchors)
+    tabs = set(re.findall(r'data-goto="(\w+)"', html))
+    assert tabs <= {"setup", "find", "apply", "guide"} and all(f'id="tab-{t}"' in html for t in tabs)
+    assert all(f'id="{f}"' in html for f in re.findall(r'data-focus="([\w-]+)"', html))
+    # Every Setup card is closed (an unclosed one nested the next cards inside it)
+    setup = html[html.index('id="tab-setup"'):html.index('id="tab-find"')]
+    assert len(re.findall(r"<div\b", setup)) == setup.count("</div>")

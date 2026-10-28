@@ -52,7 +52,7 @@ applypilot ui        # opens the web UI at http://localhost:8000
 
 ## Using it
 
-The web UI has three tabs.
+The web UI has three tabs, plus a **Guide** tab: a step-by-step user guide inside the app (setting up, finding and choosing jobs, applying, redoing steps, costs, where files are, privacy and troubleshooting). It opens first on a new install.
 
 **1. Setup**
 - Paste your free [Gemini API key](https://aistudio.google.com/apikey) and press **Test key**. To use your own paid key instead, pick OpenAI or Anthropic (Claude) under **AI for scoring, resumes and form answers**, paste that key and press **Test key**. Paid API keys are billed per use by OpenAI or Anthropic, separately from a ChatGPT or Claude subscription.

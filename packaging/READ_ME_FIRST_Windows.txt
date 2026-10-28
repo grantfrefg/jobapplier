@@ -8,7 +8,8 @@ ApplyPilot for Windows
    Click "More info", then "Run anyway". (The app isn't code-signed;
    this only happens once.)
 4. ApplyPilot opens in your web browser at http://localhost:8000.
-   Follow the Setup tab from top to bottom.
+   It opens on the Guide tab: read it, then follow the Setup tab
+   from top to bottom. The Guide is there any time you need it.
 
 You'll need a free Gemini API key: https://aistudio.google.com/apikey
 (or, if you prefer, your own paid OpenAI or Anthropic API key).
