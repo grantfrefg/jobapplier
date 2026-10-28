@@ -323,6 +323,33 @@ def redo(
 
 
 @app.command()
+def rerun(
+    step: str = typer.Argument(..., help="enrich, score, tailor, cover, review, pdf or ats."),
+    url: Optional[list[str]] = typer.Option(None, "--url", help="Only this job (repeat for more)."),
+    min_score: Optional[int] = typer.Option(None, "--min-score",
+                                            help="With no --url: only jobs scoring at least this (steps after score)."),
+    validation: str = typer.Option("normal", "--validation", help="strict, normal or lenient."),
+) -> None:
+    """Run one step again for jobs that already went through it (all jobs not applied to, or --url).
+
+    review = the AI fact-check of the documents a job has now; cover = just the
+    cover letter; tailor = resume and cover letter (same as redo). What a job
+    has is kept until the new version is ready.
+    """
+    _bootstrap()
+    from applypilot import rerun as rerun_mod
+    from applypilot.config import check_tier
+
+    if step not in rerun_mod.STEPS:
+        console.print(f"[red]Unknown step '{step}'.[/red] Use one of: {', '.join(rerun_mod.STEPS)}")
+        raise typer.Exit(code=1)
+    if step in ("score", "tailor", "cover", "review"):
+        check_tier(2, "AI " + step)
+    done = rerun_mod.run(step, urls=url or None, min_score=min_score, validation=validation)
+    console.print(f"Done: '{step}' ran again for {done} job(s).")
+
+
+@app.command()
 def ats(
     url: Optional[str] = typer.Option(None, "--url", help="Only this job."),
 ) -> None:

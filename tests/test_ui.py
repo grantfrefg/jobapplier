@@ -443,3 +443,31 @@ def test_choosing_a_skipped_job_unskips_it(client):
     assert database.choose_for_tailoring(conn, ["https://example.com/good"]) == 1
     row = conn.execute("SELECT tailor_skipped, redo_requested FROM jobs").fetchone()
     assert tuple(row) == (0, 1)
+
+
+def test_run_a_step_again(client, tmp_path, monkeypatch):
+    _seed_job(tmp_path, "https://example.com/job/1")
+    _seed_scored("https://example.com/low", 4)
+    started = []
+    from applypilot.ui import server
+    monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, **kw: started.append(args))
+
+    # The page asks how many jobs first (steps after scoring: only those at or above the minimum)
+    info = client.post("/api/jobs/rerun", json={"step": "review", "min_score": 7, "dry_run": True}).json()
+    assert info["count"] == 1 and info["cost"] == "1 request per job" and not started
+    assert client.post("/api/jobs/rerun", json={"step": "score", "dry_run": True}).json()["count"] == 1
+
+    client.post("/api/jobs/rerun", json={"step": "score", "url": "https://example.com/low", "validation": "strict"})
+    assert started[-1] == ["rerun", "score", "--url", "https://example.com/low", "--validation", "strict"]
+    client.post("/api/jobs/rerun", json={"step": "ats", "min_score": 8})
+    assert started[-1] == ["rerun", "ats", "--min-score", "8"]
+    # Rewriting the documents is marked here, so the list shows it at once
+    database.get_connection().execute("UPDATE jobs SET full_description = 'Python' WHERE url LIKE '%/job/1'")
+    database.get_connection().commit()
+    client.post("/api/jobs/rerun", json={"step": "tailor", "url": "https://example.com/job/1"})
+    assert started[-1] == ["redo", "--pending"]
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert job["redo_requested"] == 1
+
+    assert client.post("/api/jobs/rerun", json={"step": "review", "url": "https://example.com/low"}).status_code == 400
+    assert client.post("/api/jobs/rerun", json={"step": "nope"}).status_code == 400
