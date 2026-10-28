@@ -22,6 +22,9 @@ log = logging.getLogger(__name__)
 
 # step -> (what it does, AI requests per job, which jobs it can run on)
 STEPS: dict[str, tuple[str, str, str]] = {
+    # Not per job: the job-board searches that failed or were blocked last time (discovery/retry.py)
+    "discover": ("Retry the job-board searches that failed or were blocked last time",
+                 "none for LinkedIn and Indeed; Jora pages only when it has to re-learn the page", ""),
     "enrich": ("Get the job's description and application link again", "AI only for pages it can't read",
                "1 = 1"),
     "score": ("Score the job against your resume again", "about 1 request per 10 jobs",
@@ -46,6 +49,8 @@ def targets(conn, step: str, urls: list[str] | None = None, min_score: int | Non
     """The jobs a step would run on: the named ones, else every job not applied to yet."""
     if step not in STEPS:
         raise ValueError(f"step must be one of {', '.join(STEPS)}")
+    if step == "discover":
+        raise ValueError("discover isn't per job: see discovery.retry.summary()")
     where = f"applied_at IS NULL AND duplicate_of IS NULL AND {STEPS[step][2]}"
     params: list = []
     if urls:
@@ -64,8 +69,10 @@ def targets(conn, step: str, urls: list[str] | None = None, min_score: int | Non
 
 def run(step: str, urls: list[str] | None = None, min_score: int | None = None,
         validation: str = "normal") -> int:
-    """Run `step` again; returns the number of jobs it ran on."""
+    """Run `step` again; returns the number of jobs (for discover: searches) it ran on."""
     from applypilot.database import get_connection, mark_duplicates
+    if step == "discover":
+        return _discover()
     conn = get_connection()
     mark_duplicates(conn)
     jobs = targets(conn, step, urls, min_score)
@@ -79,6 +86,27 @@ def run(step: str, urls: list[str] | None = None, min_score: int | None = None,
 
 
 # -- steps -------------------------------------------------------------------
+
+def _discover() -> int:
+    from applypilot.discovery import retry
+    count = retry.summary()["searches"]
+    if not count:
+        log.info("No failed searches to retry: the last search finished on every board. "
+                 "To search everything again, run Find jobs with only Discover ticked (applypilot run discover).")
+        return 0
+    log.info("%s: %d search(es) on %s", STEPS["discover"][0], count,
+             ", ".join(retry.summary()["boards"]))
+    from applypilot.discovery.jobspy import run_discovery
+    from applypilot.discovery.smartextract import run_smart_extract
+    if retry.load("jobspy"):
+        run_discovery(retry_failed=True)
+    if retry.load("smartextract"):
+        run_smart_extract(retry_failed=True)
+    left = retry.summary()["searches"]
+    log.info("%d of %d now worked%s", count - left, count,
+             f"; {left} still failing (try again later)" if left else "")
+    return count
+
 
 def _enrich(conn, jobs: list[dict], validation: str) -> None:
     from applypilot.enrichment.detail import SITE_DELAYS, scrape_site_batch

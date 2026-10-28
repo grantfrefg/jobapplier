@@ -278,6 +278,12 @@ def _budget_status() -> dict | None:
     except Exception:  # the database isn't ready yet
         return None
 
+def _discover_failed() -> dict:
+    """The job-board searches that failed or were blocked last time (Run a step again → Discover)."""
+    from applypilot.discovery import retry
+    return retry.summary()
+
+
 def _deep_merge(base: dict, override: dict) -> dict:
     out = dict(base)
     for k, v in override.items():
@@ -412,6 +418,7 @@ def create_app() -> FastAPI:
             "stats": {k: stats.get(k, 0) for k in
                       ("total", "scored", "tailored", "with_cover_letter", "applied", "ready_to_apply")},
             "budget": _budget_status(),
+            "discover_failed": _discover_failed(),
             "vnc_url": os.environ.get("APPLYPILOT_VNC_URL", ""),
             "data_dir": str(config.APP_DIR),
         }
@@ -731,6 +738,17 @@ def create_app() -> FastAPI:
             raise HTTPException(400, f"step must be one of {', '.join(rerun.STEPS)}")
         url = body.get("url") or None
         min_score = None if url else int(body.get("min_score", 7))
+        if step == "discover":  # the searches that failed last time, not jobs
+            from applypilot.discovery import retry
+            failed = retry.summary()
+            info = {"step": step, "count": failed["searches"], "boards": failed["boards"],
+                    "what": rerun.STEPS[step][0], "cost": rerun.STEPS[step][1]}
+            if body.get("dry_run"):
+                return info
+            if not failed["searches"]:
+                raise HTTPException(400, "No failed searches to retry: the last search finished on every board")
+            task.start("Retry failed searches", ["rerun", "discover"])
+            return {**info, **task.snapshot()}
         jobs = rerun.targets(get_connection(), step, [url] if url else None, min_score)
         info = {"step": step, "count": len(jobs), "what": rerun.STEPS[step][0], "cost": rerun.STEPS[step][1]}
         if body.get("dry_run"):

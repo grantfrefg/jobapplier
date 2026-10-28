@@ -1097,8 +1097,12 @@ def _run_all(
     total_new = 0
     total_existing = 0
 
+    failed: list[dict] = []  # targets to retry later (discovery/retry.py)
+
     def _process_result(r: dict, target: dict) -> None:
         nonlocal total_new, total_existing
+        if r["status"] not in ("PASS", "PARTIAL"):
+            failed.append({k: target[k] for k in ("name", "url", "query") if k in target})
         jobs = r.get("jobs", [])
         if jobs:
             new, existing = _store_jobs_filtered(conn, jobs, target["name"],
@@ -1146,7 +1150,7 @@ def _run_all(
     log.info("%d/%d PASS (%d used a saved plan, no AI requests)", passed, len(results), reused)
 
     return {"total_new": total_new, "total_existing": total_existing,
-            "passed": passed, "total": len(results)}
+            "passed": passed, "total": len(results), "failed": failed}
 
 
 # -- Public entry point ------------------------------------------------------
@@ -1154,6 +1158,7 @@ def _run_all(
 def run_smart_extract(
     sites: list[dict] | None = None,
     workers: int = 1,
+    retry_failed: bool = False,
 ) -> dict:
     """Main entry point for AI-powered smart extraction.
 
@@ -1163,6 +1168,7 @@ def run_smart_extract(
     Args:
         sites: Override the site list. If None, loads from YAML.
         workers: Number of parallel threads for site scraping. Default 1 (sequential).
+        retry_failed: Only the pages that found nothing or failed last time.
 
     Returns:
         Dict with stats: total_new, total_existing, passed, total.
@@ -1178,7 +1184,14 @@ def run_smart_extract(
         if allow is not None:
             sites = [s for s in sites if str(s.get("name", "")).lower() in allow]
 
-    targets = build_scrape_targets(sites=sites, search_cfg=search_cfg)
+    from applypilot.discovery import retry
+    if retry_failed:
+        targets = retry.load("smartextract")
+        if not targets:
+            log.info("No failed Jora (smart extract) searches to retry.")
+            return {"total_new": 0, "total_existing": 0, "passed": 0, "total": 0}
+    else:
+        targets = build_scrape_targets(sites=sites, search_cfg=search_cfg)
 
     if not targets:
         log.warning("No scrape targets configured. Create config/sites.yaml and searches.yaml.")
@@ -1189,4 +1202,10 @@ def run_smart_extract(
     log.info("Sites: %d searchable, %d static | Total targets: %d (workers=%d)",
              search_sites, static_sites, len(targets), workers)
 
-    return _run_all(targets, accept_locs, reject_locs, workers=workers)
+    result = _run_all(targets, accept_locs, reject_locs, workers=workers)
+    failed = result.get("failed") or []
+    retry.save("smartextract", failed)
+    if failed:
+        log.warning("%d page(s) found nothing or failed. To try just those again later: Find jobs → Run a step "
+                    "again → Discover: retry failed searches (or `applypilot rerun discover`).", len(failed))
+    return result

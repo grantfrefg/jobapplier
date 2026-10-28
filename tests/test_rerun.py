@@ -119,3 +119,18 @@ def test_ats_and_pdf_again(conn, monkeypatch):
     conn.commit()
     rerun.run("ats", min_score=7)
     assert conn.execute("SELECT ats_score FROM jobs WHERE url = 'https://ex.com/ready'").fetchone()[0] == score
+
+
+def test_discover_again_retries_only_the_failed_searches(conn, monkeypatch):
+    from applypilot.discovery import jobspy, retry, smartextract
+    calls = []
+    monkeypatch.setattr(jobspy, "run_discovery", lambda retry_failed=False: calls.append(("jobspy", retry_failed)))
+    monkeypatch.setattr(smartextract, "run_smart_extract",
+                        lambda retry_failed=False: calls.append(("jora", retry_failed)))
+    assert rerun.run("discover") == 0 and calls == []  # nothing failed last time
+
+    retry.save("jobspy", [{"query": "A", "location": "Sydney", "sites": ["linkedin"]}])
+    assert rerun.run("discover") == 1
+    assert calls == [("jobspy", True)]  # Jora had no failures, so it isn't searched
+    with pytest.raises(ValueError):
+        rerun.targets(conn, "discover")

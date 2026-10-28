@@ -324,7 +324,8 @@ def redo(
 
 @app.command()
 def rerun(
-    step: str = typer.Argument(..., help="enrich, score, tailor, cover, review, pdf or ats."),
+    step: str = typer.Argument(..., help="discover (failed searches), enrich, score, tailor, cover, review, "
+                                          "pdf or ats."),
     url: Optional[list[str]] = typer.Option(None, "--url", help="Only this job (repeat for more)."),
     min_score: Optional[int] = typer.Option(None, "--min-score",
                                             help="With no --url: only jobs scoring at least this (steps after score)."),
@@ -332,6 +333,8 @@ def rerun(
 ) -> None:
     """Run one step again for jobs that already went through it (all jobs not applied to, or --url).
 
+    discover = only the job-board searches that failed or were blocked last time
+    (to search everything again: applypilot run discover).
     review = the AI fact-check of the documents a job has now; cover = just the
     cover letter; tailor = resume and cover letter (same as redo). What a job
     has is kept until the new version is ready.

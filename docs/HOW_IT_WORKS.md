@@ -21,6 +21,8 @@ For other countries, every bundled source is used: ZipRecruiter, Canadian/US job
 - **APS Jobs:** its listings don't render for automated browsers.
 - **Glassdoor:** it blocks automated searches, and Glassdoor applications go through Glassdoor accounts.
 
+**When a board blocks or fails:** a board that answers HTTP 429/403 is skipped for the rest of the run (the other boards carry on), and every search it missed, or that errored, is remembered with the boards involved. Jora pages that find nothing or fail are remembered the same way. **Run a step again → Discover: retry the searches that failed** (`applypilot rerun discover`) runs just those later; running Discover again repeats every search. Jobs already found are never stored twice.
+
 **Location filter:** a job is kept if its location matches one of the `location_accept` patterns, or it's remote. The setup generates those patterns from your city: "Sydney, NSW" becomes Sydney, NSW and New South Wales. Matching is whole-word, so "WA" doesn't match "Warsaw". With no patterns configured, everything that isn't explicitly rejected is kept.
 
 ## De-duplicate
@@ -100,10 +102,11 @@ It uses no AI requests. It's a guide, not a prediction of any one vendor's ranki
 - `normal` (default): banned words are warnings.
 - `lenient`: banned words are ignored and the AI fact-check is skipped. The code fact checks always run.
 
-**Running one step again.** Each stage skips jobs it has already done, so `applypilot run` never repeats work. To repeat a single step, use **Run again…** on a job's row (Apply tab), **Find jobs → Run a step again for jobs already done** for every job not applied to yet, or `applypilot rerun STEP [--url URL] [--min-score N]`. Without a job named, steps after scoring only take jobs at or above the minimum score. What a job has is kept until the new version is ready:
+**Running one step again.** Each stage skips jobs it has already done, so `applypilot run` never repeats work. To repeat a single step, use **Run again…** on a job's row (Apply tab), **Find jobs → Run a step again for jobs already done** for every job not applied to yet, or `applypilot rerun STEP [--url URL] [--min-score N]`. Without a job named, steps after scoring only take jobs at or above the minimum score. `discover` isn't per job. What a job has is kept until the new version is ready:
 
 | Step | What runs again | AI requests |
 |---|---|---|
+| `discover` | Only the job-board searches that failed or were blocked last time, on just those boards (recorded in `~/.applypilot/discover_failed.json`; a search that works is taken off the list). To repeat every search, run Discover on its own (`applypilot run discover`) | none for LinkedIn and Indeed; Jora only to re-learn a page |
 | `enrich` | Reads the ad's page again for the description and application link; a page that fails keeps the description it had | only for pages it can't read |
 | `score` | Scores the job again; the old score stays if the request fails | about 1 per 10 jobs |
 | `tailor` | Resume and cover letter, the same as **Redo** | about 2 per job |
