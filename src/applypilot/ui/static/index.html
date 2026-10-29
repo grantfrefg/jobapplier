@@ -97,6 +97,9 @@
              vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 14px; }
+  fieldset > p.why { margin: 2px 0 6px; font-size: 13px; color: var(--muted); }
+  fieldset.key { border-color: var(--accent); }
+  .fields small.help { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
   .guide { max-width: 860px; line-height: 1.55; font-size: 14px; }
   .guide h3 { font-size: 16px; margin: 28px 0 6px; padding-top: 4px; scroll-margin-top: 12px; }
   .guide h4 { font-size: 14px; margin: 16px 0 4px; }
@@ -253,7 +256,10 @@
 
   <div class="card" style="margin-top:16px">
     <h2>Your profile</h2>
-    <p class="sub">The answers used to fill application forms. With the free engine, your name, contact details, address and any ID numbers are sent to the AI only as placeholders.</p>
+    <p class="sub">Used to fill application forms, to score jobs and to keep tailored resumes honest. Each part
+      says what it's for; <a href="#" data-goto="guide" data-focus="g-profile" style="color:var(--accent)">Guide →
+      Your profile</a> explains more. With the browser engine, your name, contact details, address and any ID
+      numbers are sent to the AI only as placeholders.</p>
     <form id="profile-form"></form>
     <label class="choice"><input type="checkbox" id="skills-confirmed">
       <span><b>My skills list is accurate</b>
@@ -559,6 +565,9 @@
       <a href="#g-what">What ApplyPilot does</a>
       <a href="#g-setup">1. Set up (once)</a>
       <a href="#g-find">2. Find jobs</a>
+      <a href="#g-profile">Your profile, and why it's asked</a>
+      <a href="#g-skills">Skills: better tailored resumes</a>
+      <a href="#g-salary">Salary</a>
       <a href="#g-choose">3. Choose jobs to tailor</a>
       <a href="#g-apply">4. Apply</a>
       <a href="#g-yourself">Applying yourself instead</a>
@@ -602,10 +611,93 @@
       <li><b>What jobs to look for.</b> Your city (e.g. <i>Sydney, NSW</i>), the job titles you want, and words to
         skip (e.g. <i>Senior, Lead, Intern</i>). Press <b>Save search</b>.</li>
       <li><b>Your profile.</b> The answers application forms ask for: contact details, work rights, notice period,
-        salary, and your skills. Remove example skills you don't have, tick <b>My skills list is accurate</b>,
-        and press <b>Save profile</b>.</li>
+        salary, and your skills. Replace the example values, take the time to fill in the <b>skills</b> list
+        properly (it makes tailored resumes better; <a href="#g-skills">see why</a>), tick <b>My skills list is
+        accurate</b>, and press <b>Save profile</b>.</li>
     </ol>
     <p>You can change any of this later; new settings apply to the next run.</p>
+
+    <h3 id="g-profile">Your profile, and why it's asked</h3>
+    <p>Each part of the profile does a specific job. Under every section in Setup a short note says what it's
+      for; in more detail:</p>
+    <table>
+      <thead><tr><th>Section</th><th>What it's used for</th></tr></thead>
+      <tbody>
+        <tr><td><b>Personal</b></td><td>Typed into application forms. Your name, city and state, email, phone and
+          LinkedIn / GitHub head every resume; your preferred name signs cover letters. The street address is only
+          typed into forms that ask for it. With the browser engine the AI sees placeholders such as
+          <code>{{EMAIL}}</code>, never the real values. The <b>password</b> is only for the Claude Code and Codex
+          engines (to sign in to or create employer accounts); leave it blank with the browser engine.</td></tr>
+        <tr><td><b>Work authorisation</b></td><td>The first thing Australian employers screen on. It answers the
+          work-rights questions on forms, appears on your resume ("Australian Citizen", "Permanent Resident"), and
+          makes jobs you can't take score 3 or lower: citizens-only roles if you're not a citizen, clearances you
+          don't hold, sponsorship you need but isn't offered. If you need sponsorship, cover letters say so in one
+          plain sentence rather than leaving it to a surprise later.</td></tr>
+        <tr><td><b>Availability</b></td><td>Answers notice-period, start-date, relocation and driver's licence
+          questions. <i>Full time</i> and <i>contract</i> feed the score (a contract-only role scores 4 or lower if
+          you don't want contracts). <i>Willing to relocate</i> decides whether jobs in other cities count, and a
+          cover letter mentions relocating when the job is elsewhere.</td></tr>
+        <tr><td><b>Compensation</b></td><td>See <a href="#g-salary">Salary</a>.</td></tr>
+        <tr><td><b>Experience</b></td><td>Years of experience and target role tell the scorer your level, so
+          jobs far too senior or junior score low. <i>Current job title</i> is the only title a tailored resume's
+          headline may use (never the job's title, which would be a claim you haven't earned). <i>Education
+          level</i> goes on the resume's education line and answers education questions. <i>Current company</i>
+          answers "current employer" questions.</td></tr>
+        <tr><td><b>Skills boundary</b></td><td>The skills and tools a tailored resume or cover letter may name. See
+          <a href="#g-skills">Skills</a> below: it's the part worth the most care.</td></tr>
+        <tr><td><b>Resume facts</b></td><td>Checks on every tailored resume. Employers and the university listed
+          must appear (a draft that drops one is rejected and written again); projects and real numbers listed can
+          be quoted. Only put things that are in your resume; clear the examples if you're unsure.</td></tr>
+        <tr><td><b>EEO voluntary</b></td><td>Optional diversity questions some forms ask (gender, Aboriginal or
+          Torres Strait Islander, disability). "Prefer not to say" is always fine. They're only used to answer
+          those questions, never for scoring or documents.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="g-skills">Skills: the key to better tailored resumes</h3>
+    <p>When ApplyPilot tailors a resume it rewrites and reorders it for the ad, but it may only name a skill or tool
+      that's <b>in your resume</b> or <b>in your profile's skills list</b>. Anything else is removed by the code
+      checks, and drafts that lean on it are rejected. So the skills list decides how well a resume can match:</p>
+    <ul>
+      <li><b>Add skills your resume leaves out.</b> Resumes are short, so plenty of real skills never make it in.
+        If you've used Terraform, Tableau or Kafka at work, list it: the next resume for an ad that asks for it can
+        put it in the skills section, in the ad's own words. That's what applicant tracking systems search for,
+        so the <a href="#g-ats">ATS score</a> goes up too.</li>
+      <li><b>Use the names employers use.</b> "Amazon Web Services (AWS)", "Power BI", "CI/CD". Short and long
+        forms of common terms are matched anyway, but the ad's exact word counts most.</li>
+      <li><b>Only list what you could talk about in an interview.</b> The list is the boundary of what you claim.
+        A skill here can appear on any resume.</li>
+      <li><b>Remove the template's examples</b> (JavaScript, Docker, AWS, CI/CD, MongoDB, Git, Linux…) unless they're
+        really yours, then tick <b>My skills list is accurate</b>. Until it's ticked, those examples are ignored so
+        they can't end up on a resume by accident.</li>
+      <li><b>After changing it</b>, use <b>Redo</b> on jobs you haven't applied to (or <b>Redo all documents</b>) to
+        get resumes that use the new list. Hovering the ATS badge shows skills an ad wanted that you didn't list:
+        if you do have one, add it here.</li>
+    </ul>
+    <p>The categories (languages, frameworks, tools…) are only for your own tidiness: every skill counts the same,
+      and engineers in other disciplines can put CAD tools, PLCs or standards in any of them.</p>
+
+    <h3 id="g-salary">Salary</h3>
+    <p>The <b>Compensation</b> part of your profile, all <b>base salary in AUD, excluding super</b>:</p>
+    <ul>
+      <li><b>Salary range min</b>: your minimum, the lowest base you'd accept. It's the one number every part of
+        the app treats as your floor.</li>
+      <li><b>Salary expectation</b>: what to ask for when an ad doesn't say what it pays.</li>
+      <li><b>Salary range max</b>: the top of the range, for forms that ask for one.</li>
+    </ul>
+    <p>They're used in two places only:</p>
+    <ol>
+      <li><b>Scoring.</b> An ad that clearly pays less than your minimum scores 5 at most, so it isn't picked by
+        default. Pay is compared like with like: a package "including super" is about base × 1.12, and a day rate
+        about the annual salary ÷ 230. Most ads don't state pay; then pay is ignored.</li>
+      <li><b>Salary questions on forms.</b> Your expected salary is given, never less than your minimum; a range
+        question gets min–max. If the form asks for a package or "including super", 12% super is added (e.g.
+        $120,000 base becomes $134,400). Free text says e.g. "$120,000 plus super". The Claude Code and Codex
+        engines also answer with the midpoint when the ad shows a range above your minimum, and work out
+        hourly and day rates for contracts.</li>
+    </ol>
+    <p>Salary never appears on a resume or cover letter. The minimum must be no more than the expected salary and the
+      maximum; Setup won't save figures that contradict each other.</p>
 
     <h3 id="g-find">2. Find jobs</h3>
     <p>On <a href="#" data-goto="find">Find jobs</a>, press <b>Run</b>. You can watch the log while it works; a full
@@ -726,7 +818,9 @@
         applications you send.</li>
       <li>With the browser engine, your name, email, phone, address and ID numbers go to the AI only as placeholders;
         the real values are typed in on your computer.</li>
-      <li>Passwords are never typed or stored by the app. Logins stay in the app's own browser profile.</li>
+      <li>The browser engine never types or sends a password: you sign in yourself, and logins stay in the app's
+        own browser profile. The profile's password field is only used by the Claude Code and Codex engines;
+        leave it blank otherwise.</li>
       <li>Resumes and letters are checked against your real resume: titles, employers, dates, skills and numbers you
         don't have are removed or the draft is rejected.</li>
     </ul>
@@ -992,6 +1086,56 @@ $("#save-yaml").addEventListener("click", () => guarded(async () => {
 
 // ---------- setup: profile (form generated from the template's shape) ----------
 const REQUIRED = new Set(["personal.full_name", "personal.email", "personal.phone"]);
+// What each part of the profile is for, and why it's asked (shown in the form; the Guide says more)
+const PROFILE_SECTIONS = {
+  personal: "Typed into application forms. Your name, city and state, email, phone and LinkedIn / GitHub also " +
+    "head every resume. With the browser engine the AI only ever sees placeholders for your name, contact " +
+    "details and address; the real values are typed in on this computer.",
+  work_authorization: "Australian employers screen on this first. It answers the work-rights questions on forms, " +
+    "goes on your resume (e.g. \"Australian Citizen\"), and makes jobs you can't take (citizens only, a " +
+    "clearance you don't hold, sponsorship not offered) score low, so you don't waste time on them. If you " +
+    "need sponsorship, cover letters say so in one plain sentence.",
+  availability: "Answers notice-period, start-date, relocation and driver's licence questions. Full-time / " +
+    "contract and relocation also feed the score: e.g. a contract-only role scores low if you don't want " +
+    "contracts. A cover letter mentions your notice period or start date only when the ad asks, and says in " +
+    "one plain sentence if you'd relocate for a role in another city.",
+  compensation: "Base salary in AUD, excluding super. Answers salary questions and marks down ads that pay less " +
+    "than your minimum. Never put on your resume or cover letter. See Guide → Salary.",
+  experience: "Tells the scorer what level you're aiming at (far too senior or junior scores low). Your current " +
+    "job title is the only title a resume headline may use, and the education level goes on the resume's " +
+    "education line.",
+  skills_boundary: "The most important list for tailoring. A tailored resume or cover letter may only name a " +
+    "skill or tool that is in your resume or in this list. Add every one you really use, including ones " +
+    "your resume doesn't mention, so tailored resumes can show them in the ad's own words (that's what " +
+    "ATS keyword searches look for). Leave out anything you couldn't talk about in an interview.",
+  resume_facts: "Checks that keep tailored resumes honest. Employers and the university listed here must " +
+    "appear in every tailored resume (a draft that drops one is rejected); projects and real numbers " +
+    "(\"cut costs 30%\") can be quoted. Use only what's in your resume; clear the examples if unsure.",
+  eeo_voluntary: "Optional diversity questions some forms ask. \"Prefer not to say\" is always fine; these are " +
+    "only used to answer those questions.",
+};
+const PROFILE_FIELDS = {
+  "personal.password": "Only for the Claude Code and Codex engines, to sign in to or create employer accounts. " +
+    "The browser engine never sends or types it: leave it blank if you use that one.",
+  "personal.preferred_name": "Signs your cover letters, and answers \"preferred name\" questions.",
+  "personal.address": "Only typed into forms that ask for it; never on your resume.",
+  "personal.city": "With the state, goes on your resume and decides which jobs count as local.",
+  "work_authorization.work_permit_type": "Shown on your resume, e.g. \"Australian Citizen\" or \"Permanent Resident\".",
+  "work_authorization.security_clearance": "Jobs needing a clearance you don't hold score low. " +
+    "\"Willing to obtain\" is answered yes only for citizens.",
+  "availability.earliest_start_date": "e.g. Immediately, or a date (DD/MM/YYYY).",
+  "compensation.salary_expectation": "What you ask for when the ad gives no pay.",
+  "compensation.salary_range_min": "Your minimum: the lowest base salary you'd accept. Never answered below this, " +
+    "and ads paying less score 5 at most.",
+  "compensation.salary_range_max": "The top of the range, when a form asks for one.",
+  "compensation.currency_conversion_note": "Optional: how to handle ads in another currency.",
+  "experience.years_of_experience_total": "Answers \"years of experience\" and sets the seniority you're scored for.",
+  "experience.current_job_title": "Your real current title. Resume headlines use this, never the job's title.",
+  "experience.target_role": "The kind of role you want, e.g. Senior Data Engineer. Guides scoring.",
+  "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
+};
+const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
+
 async function loadProfile() {
   const { profile, options = {}, numbers = [], skills_confirmed = false } = await api("/api/profile");
   $("#skills-confirmed").checked = skills_confirmed;
@@ -1019,9 +1163,12 @@ async function loadProfile() {
                               "data-list": isList ? "1" : false, min: numbers.includes(path) ? "0" : false,
                               value: isList ? value.join(", ") : String(value ?? "") });
       }
-      box.append(el("div", {}, label, input));
+      box.append(el("div", {}, label, input,
+        PROFILE_FIELDS[path] ? el("small", { class: "help" }, PROFILE_FIELDS[path]) : ""));
     }
-    form.append(el("fieldset", {}, el("legend", {}, human(section)), box));
+    form.append(el("fieldset", { class: PROFILE_KEY_SECTIONS.has(section) ? "key" : "" },
+      el("legend", {}, human(section) + (section === "skills_boundary" ? " (improves tailored resumes)" : "")),
+      PROFILE_SECTIONS[section] ? el("p", { class: "why" }, PROFILE_SECTIONS[section]) : "", box));
   }
 }
 $("#save-profile").addEventListener("click", () => guarded(async () => {

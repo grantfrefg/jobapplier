@@ -519,8 +519,9 @@ Screening questions (the applicant is an engineer applying in Australia):
   adjacent tools.
 - "Years of experience with X": count from the resume's dates for roles that used X; round
   down; 0 (or the lowest option) if X isn't in the resume.
-- Salary: AUD, from compensation (use salary_range_min-salary_range_max for a range). These
-  figures are BASE salary, excluding superannuation. If the question asks for a package or
+- Salary: AUD, from compensation. Give salary_expectation; never less than salary_range_min (their
+  minimum); for a range, salary_range_min-salary_range_max. These figures are BASE salary,
+  excluding superannuation. If the question asks for a package or
   "including super" (total remuneration), add the 12% super guarantee (e.g. 120000 base ->
   134400 including super). In free text, write e.g. "$120,000 plus super".
 - "How did you hear about this job?": the job board in FOUND ON (pick the matching option, e.g.

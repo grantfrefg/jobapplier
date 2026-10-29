@@ -8,6 +8,15 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Added
+- **Profile explained:** every section of Setup → Your profile says what it's used for and why it's asked, with notes on the fields that need one (password, salary, current title...). The skills section is highlighted as the one that improves tailored resumes. The Guide has new **Your profile**, **Skills** and **Salary** sections.
+
+### Changed
+- **One salary minimum everywhere:** scoring, the browser engine and the Claude Code / Codex engines all treat `salary_range_min` as your minimum (the expected salary when there's no minimum). The agent engines used to treat the expected salary as the floor. Forms answer with the expected salary, never below the minimum. Setup refuses a minimum above the expected salary or the maximum.
+
+### Fixed
+- The Guide said passwords are never typed; the profile's password is used by the Claude Code and Codex engines (the browser engine never sends or types it). It now says so, in the Guide and next to the field.
+
 ## [0.5.0] - 2026-10-28
 
 The first public release of jobapplier. Covers everything since the original ApplyPilot, including what was
