@@ -52,15 +52,22 @@ def _location(profile: dict) -> str:
     return ", ".join(x for x in (p.get("city"), p.get("province_state")) if x) or "Australia"
 
 
-def candidate_brief(profile: dict) -> str:
-    """The facts a recruiter screens on before reading the resume."""
+def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
+    """The facts a recruiter screens on before reading the resume.
+
+    `local_areas` are the places the candidate searches in (searches.yaml): jobs there, or in any
+    suburb of the same city, are local to them even when their home is a suburb the AI doesn't know.
+    """
     auth = profile.get("work_authorization", {})
     avail = profile.get("availability", {})
     comp = profile.get("compensation", {})
     yrs = years(profile)
     lines = [
         f"Target role: {target_role(profile)}" + (f", about {yrs} years of experience" if yrs else ""),
-        f"Based in: {_location(profile)}. Willing to relocate: {avail.get('willing_to_relocate') or 'No'}",
+        f"Based in: {_location(profile)}"
+        + (f" (searching in: {'; '.join(local_areas)}; jobs there and in any of their suburbs are local)"
+           if local_areas else "")
+        + f". Willing to relocate: {avail.get('willing_to_relocate') or 'No'}",
         "Work rights: " + "; ".join(x for x in (
             f"authorised to work: {auth.get('legally_authorized_to_work') or 'unknown'}",
             f"needs sponsorship: {auth.get('require_sponsorship') or 'unknown'}",

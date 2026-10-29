@@ -421,6 +421,13 @@ def test_choose_which_jobs_get_tailored(client, tmp_path, monkeypatch):
     jobs = client.get("/api/jobs?view=choose").json()
     assert [j["url"].rsplit("/", 1)[1] for j in jobs] == ["good", "meh", "low"]
     assert jobs[2]["score_reason"] == "Too senior"
+    # The reason is sent whole, apart from the matched must-haves (stored on the first line)
+    long_reason = "Strong match on Python and SQL. " * 30
+    database.get_connection().execute("UPDATE jobs SET score_reasoning = ? WHERE url = ?",
+                                      ("Python, SQL\n" + long_reason, "https://example.com/good"))
+    database.get_connection().commit()
+    good = next(j for j in client.get("/api/jobs?view=choose").json() if j["url"].endswith("/good"))
+    assert good["score_reason"] == long_reason.strip() and good["score_keywords"] == "Python, SQL"
 
     # Only the ticked jobs are marked and written, whatever their score
     r = client.post("/api/jobs/tailor", json={"urls": ["https://example.com/low"], "validation": "lenient"})
