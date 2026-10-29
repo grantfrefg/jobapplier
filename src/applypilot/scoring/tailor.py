@@ -20,7 +20,7 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import finish_redo, get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
-from applypilot.scoring import facts
+from applypilot.scoring import facts, voice
 from applypilot.scoring.context import AU_STYLE, current_title, location_line, work_rights
 from applypilot.scoring.cover_letter import (
     COVER_LETTER_DIR,
@@ -202,9 +202,15 @@ def _resume_shape(profile: dict) -> str:
     )
 
 
+def _style_rules() -> str:
+    """Light touch (TAILOR_STYLE=light): keep the candidate's own wording (scoring/voice.py)."""
+    from applypilot.scoring import voice
+    return "\n\n" + voice.LIGHT_TOUCH_RULES if voice.style() == "light" else ""
+
+
 def _build_tailor_prompt(profile: dict) -> str:
     """Resume-only tailoring prompt (rules + output format)."""
-    return (_tailor_rules(profile)
+    return (_tailor_rules(profile) + _style_rules()
             + '\n\n## OUTPUT: Return ONLY valid JSON. No markdown fences. No commentary. No "here is" preamble.\n\n'
             + _resume_shape(profile))
 
@@ -216,7 +222,7 @@ def _build_application_prompt(profile: dict) -> str:
     together costs one LLM request instead of two or more.
     """
     return (
-        _tailor_rules(profile)
+        _tailor_rules(profile) + _style_rules()
         + "\n\n## COVER LETTER\nAlso write a cover letter for this job, consistent with the tailored resume.\n\n"
         + cover_letter_rules(profile)
         + "\n\n## OUTPUT: Return ONLY a JSON object with exactly two keys:\n"
@@ -639,6 +645,8 @@ def tailor_application(
         checked = check_facts(resume, candidate, resume_text, profile, job)
         resume = checked["resume"]
         validation["errors"] += checked["errors"]
+        if voice.style() == "light":
+            validation["errors"] += voice.light_touch_problems(resume, resume_text)
         validation["passed"] = not validation["errors"]
         report["validator"] = validation
         report["dropped_skills"], report["title_replaced"] = checked["dropped_skills"], checked["title_replaced"]
@@ -648,12 +656,15 @@ def tailor_application(
         # Cover letter: keep the best one seen (a valid one wins)
         if candidate and not letter_ok:
             cover_check = validate_cover_letter(candidate, mode=validation_mode, original_text=resume_text)
-            cover_check["errors"] += checked["letter_errors"]
+            same = voice.repeated_opening(candidate, voice.recent_openings())
+            opening_errors = ([f'Cover letter opens like a recent one ("{same[:80]}"): open differently.']
+                              if same else [])
+            cover_check["errors"] += checked["letter_errors"] + opening_errors
             cover_check["passed"] = not cover_check["errors"]
             report["cover_validator"] = cover_check
             letter, letter_ok = candidate, cover_check["passed"]
             if not letter_ok:
-                avoid_notes.extend(f"Cover letter: {e}" for e in checked["letter_errors"])
+                avoid_notes.extend(f"Cover letter: {e}" for e in checked["letter_errors"] + opening_errors)
 
         if not validation["passed"]:
             avoid_notes.extend(validation["errors"])

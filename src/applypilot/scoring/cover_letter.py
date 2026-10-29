@@ -15,6 +15,7 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import COVER_LETTER_DIR, RESUME_PATH, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
+from applypilot.scoring import voice
 from applypilot.scoring.context import AU_STYLE, current_title, years
 from applypilot.scoring.validator import (
     BANNED_WORDS,
@@ -137,7 +138,7 @@ FABRICATION = INSTANT REJECTION (code checks every one of these against the resu
 - Don't join separate facts into a new claim, and don't claim experience the resume doesn't show.
 
 Start with "Dear <name>," if the job ad names the contact person, otherwise "Dear Hiring Manager,".
-End with "Kind regards," on its own line, then "{name}"."""
+End with "Kind regards," on its own line, then "{name}".{voice.letter_voice_rules()}"""
 
 
 def _build_cover_letter_prompt(profile: dict) -> str:
@@ -245,6 +246,9 @@ def generate_cover_letter(
         validation = validate_cover_letter(letter, mode=validation_mode, original_text=resume_text)
         fact_errors = _fact_errors(letter, resume_text, profile, job.get("full_description") or "")
         validation["errors"] += fact_errors
+        same = voice.repeated_opening(letter, voice.recent_openings())
+        if same:  # a style problem: retried, but never a reason to drop the letter
+            validation["errors"].append(f'Opens like a recent letter ("{same[:80]}"): open differently.')
         if not validation["errors"]:
             return letter
 

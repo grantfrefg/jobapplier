@@ -34,6 +34,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `LLM_URL`, `LLM_API_KEY` | — | Use a local OpenAI-compatible server (llama.cpp, Ollama) instead |
 | `GEMINI_DAILY_LIMIT` | `500` | Gemini requests per day for your model (Google's free-tier limit). Requests are counted per US Pacific day, when Google resets them |
 | `GEMINI_APPLY_RESERVE` | `50` | Requests kept for applying: finding and preparing jobs stops when only this many are left |
+| `TAILOR_STYLE` | `full` | `full` rewrites bullets and the summary for each ad (best keyword match); `light` keeps your bullets word for word, only swapping in the ad's terms and reordering (Find jobs → **Tailoring style**) |
 | `CAPSOLVER_API_KEY` | — | CAPTCHA solving, `claude_code` engine only |
 | `CHROME_PATH` | auto-detected | Browser for the apply engines (Chrome, Edge or Chromium) |
 
@@ -120,3 +121,7 @@ What the AI sees (Gemini, OpenAI or Claude): everything except the password. Ide
 | `sites.yaml` | Smart-extract sites, including Jora, plus the original Canadian/US boards; blocked sites; base URLs; ATSs that need manual applying |
 | `employers.yaml` | Workday employers (the original set is Canadian/US) |
 | `searches.example.yaml` | The original example search config |
+
+## Your writing (`writing_sample.txt`)
+
+Optional. A cover letter or a few paragraphs you wrote yourself, saved from Setup → **Your writing** to `~/.applypilot/writing_sample.txt` (up to 4,000 characters). Cover letters follow its voice (tone, sentence length, how it opens and closes); its facts are never used. It's sent to the AI with each letter.

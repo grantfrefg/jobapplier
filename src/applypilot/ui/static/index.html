@@ -231,6 +231,17 @@
     </div>
 
     <div class="card">
+      <h2>Your writing <span class="muted">(optional)</span></h2>
+      <p class="sub">Paste something you wrote yourself: ideally a cover letter, or a few paragraphs of a work
+        email or LinkedIn post. Cover letters then follow your tone, sentence length and way of opening and
+        closing, so they sound like you rather than an AI. Its facts are never used, only its voice. It's sent
+        to the AI with each letter, so leave out anything private.</p>
+      <textarea id="writing-sample" placeholder="Paste a cover letter or a few paragraphs you wrote…"></textarea>
+      <div class="row"><button class="btn" id="save-writing">Save</button>
+        <span class="muted" id="writing-state"></span></div>
+    </div>
+
+    <div class="card">
       <h2>What jobs to look for</h2>
       <p class="sub">Used by "Find jobs" to search job boards.</p>
       <label for="s-country">Country</label>
@@ -298,6 +309,10 @@
         <select id="validation" style="width:auto">
           <option value="normal">normal</option><option value="lenient">lenient (fewest API calls)</option>
           <option value="strict">strict</option></select></label>
+      <label style="margin:0" title="Full rewrite rewords bullets and the summary for each ad (best keyword match). Light touch keeps your own bullets word for word, only swapping in the ad's terms and reordering, so the resume reads like you wrote it.">Tailoring style
+        <select id="tailor-style" style="width:auto">
+          <option value="full">full rewrite (best keyword match)</option>
+          <option value="light">light touch (keeps your own words)</option></select></label>
     </div>
     <div class="row">
       <button class="btn" id="run-pipeline">Run</button>
@@ -513,6 +528,10 @@
         <dd>Repeats one step for that job: get the ad again, score again, write just the cover letter again,
           fact-check the documents again, make the PDFs again, or redo the ATS check. The confirmation says how many
           AI requests it uses. To rewrite the resume and letter together, use <b>Redo</b>.</dd>
+        <dt>Edit and Reads human</dt>
+        <dd><b>edit resume</b> / <b>edit cover letter</b> under a job's documents opens the text: change it in your own
+          words and the PDF is made again. The <b>Reads human</b> badge flags what may make the documents sound
+          AI-written; hover it for details. See Guide → Sounding like you, not an AI.</dd>
         <dt>Redo and Try again</dt>
         <dd><b>Redo</b> rewrites a job's resume and cover letter (for example after you update your resume or
           profile); the old ones stay until the new ones pass the checks. <b>Redo all documents</b> does it for
@@ -573,6 +592,7 @@
       <a href="#g-yourself">Applying yourself instead</a>
       <a href="#g-redo">Redo, Try again and Run again</a>
       <a href="#g-more">Getting more jobs tailored</a>
+      <a href="#g-human">Sounding like you, not an AI</a>
       <a href="#g-ats">The ATS score</a>
       <a href="#g-cost">What it costs</a>
       <a href="#g-files">Where your files are</a>
@@ -782,6 +802,28 @@
       <li>Or give the job <b>your own resume</b>: it's then ready to apply straight away.</li>
     </ol>
 
+    <h3 id="g-human">Sounding like you, not an AI</h3>
+    <p>Recruiters read a lot of generated applications, and what puts them off is text that's generic, samey or
+      obviously copied from the ad. Four things help:</p>
+    <ul>
+      <li><b>Tailoring style</b> (Find jobs, next to Strictness). <i>Full rewrite</i> rewords bullets and the summary
+        for each ad: the best keyword match. <i>Light touch</i> keeps your bullets word for word, only swapping in the
+        ad's term for the same thing and reordering, and changes at most one sentence of your summary. Resumes then
+        read like you wrote them, because you did. A light-touch draft that rewrote too much is sent back.</li>
+      <li><b>Your writing</b> (Setup). Paste a cover letter or a few paragraphs you wrote, and cover letters follow
+        your tone, sentence length and way of opening and closing. Its facts are never used. Each new letter is also
+        checked against your recent ones, so they don't all open the same way.</li>
+      <li><b>Reads human</b> (the badge next to ATS on the Apply tab). A check with no AI for the patterns that make
+        text read as generated: stock phrases ("proven track record"), "not just X but Y", long dashes, the same
+        verb starting bullet after bullet, every bullet the same length, strings of "X, Y and Z", most letter
+        sentences starting with "I", long phrases copied from the ad, and a letter opening like another recent one.
+        Hover it to see what to change, and how much of the resume is in your own words.</li>
+      <li><b>Edit</b> (<i>edit resume</i> / <i>edit cover letter</i> under a job's documents). Change any line in your
+        own words and the PDF is made again, with the ATS and Reads human checks. One sentence that only you would
+        write often does more than any setting. Your edits aren't fact-checked, so keep them true.</li>
+    </ul>
+    <p>Settings apply to documents written from then on; use <b>Redo</b> for ones you already have.</p>
+
     <h3 id="g-ats">The ATS score</h3>
     <p>Most employers put applications through an applicant tracking system (Workday, SuccessFactors, PageUp,
       JobAdder…) that reads your resume and lets recruiters search it. The <b>ATS</b> badge (out of 100) estimates how
@@ -983,6 +1025,7 @@ async function loadSettings() {
   $("#provider").value = s.LLM_PROVIDER || (s.GEMINI_API_KEY.set ? "gemini" : s.OPENAI_API_KEY.set ? "openai"
     : s.ANTHROPIC_API_KEY.set ? "anthropic" : "gemini");
   $("#model").value = s.LLM_MODEL || "";
+  $("#tailor-style").value = s.TAILOR_STYLE || "full";
   $("#codex-model").value = s.CODEX_MODEL || "";
   showProvider(); showEngine();
   $("#daily-limit").value = s.GEMINI_DAILY_LIMIT || "";
@@ -1185,6 +1228,20 @@ $("#save-profile").addEventListener("click", () => guarded(async () => {
   await post("/api/profile", out); await refreshStatus();
 }, "Profile saved"));
 
+// ---------- setup: your writing ----------
+async function loadWriting() {
+  const w = await api("/api/writing-sample");
+  $("#writing-sample").value = w.text;
+  $("#writing-state").textContent = w.text ? "Cover letters follow this voice." : "";
+}
+$("#save-writing").addEventListener("click", () => guarded(async () => {
+  await post("/api/writing-sample", { text: $("#writing-sample").value }); await loadWriting();
+}, "Saved"));
+$("#tailor-style").addEventListener("change", () => guarded(() =>
+  post("/api/settings", { TAILOR_STYLE: $("#tailor-style").value }),
+  $("#tailor-style").value === "light" ? "Light touch: resumes keep your own words (applies to the next tailoring)"
+                                       : "Full rewrite (applies to the next tailoring)"));
+
 // ---------- setup: saved answers ----------
 async function loadAnswers() {
   const rows = await api("/api/answers");
@@ -1384,6 +1441,50 @@ function atsBadge(a) {
   return el("span", { class: "badge " + tone, title: lines.join("\n"), style: "cursor:help" }, "ATS " + a.score);
 }
 
+// "Reads human": patterns that make documents read as AI-written (scoring/voice.py, no AI)
+function humanBadge(h) {
+  const lines = ["Reads human: a check for what makes a resume or letter sound AI-written (no AI used)."];
+  if (h.own_words != null) lines.push("", h.own_words + "% of the resume's bullets are in your own words.");
+  if (h.issues.length) lines.push("", "To look at:", ...h.issues.map((i) => "- " + i),
+    "", "Fix: Edit the text, Redo with Tailoring style = light touch, or add Your writing in Setup.");
+  else lines.push("", "Nothing stands out.");
+  return el("span", { class: "badge " + (h.issues.length ? "warn" : "ok"), title: lines.join("\n"),
+    style: "cursor:help" }, h.issues.length ? "Reads human: " + h.issues.length + " to look at" : "Reads human");
+}
+
+// Quick edit: change a generated resume or letter yourself; the PDF is made again
+function editLinks(j) {
+  const out = [];
+  for (const [kind, label, has] of [["resume", "resume", j.generated_resume && !j.own_resume],
+                                    ["cover", "cover letter", j.generated_cover && !j.own_cover]]) {
+    if (has) out.push(" · ", el("a", { href: "#", title: "Change the generated " + label + " in your own words; its PDF is made again",
+      onclick: (e) => { e.preventDefault(); editDoc(j, kind, label); } }, "edit " + label));
+  }
+  return out;
+}
+async function editDoc(j, kind, label) {
+  let doc; try { doc = await api("/api/jobs/text?kind=" + kind + "&url=" + encodeURIComponent(j.url)); }
+  catch (e) { return toast(e.message, true); }
+  const box = el("textarea", { style: "min-height:55vh;width:100%" }); box.value = doc.text;
+  const dialog = el("dialog", { style: "width:min(900px,95vw);border:1px solid var(--border);border-radius:12px;" +
+                                       "background:var(--panel);color:var(--text)" },
+    el("h2", { style: "margin-top:0" }, "Edit " + label + ": " + (j.title || "")),
+    el("p", { class: "sub" }, kind === "resume"
+      ? "Keep the section headings (SUMMARY, TECHNICAL SKILLS, EXPERIENCE, PROJECTS, EDUCATION) and \"- \" at the start " +
+        "of each bullet. Your changes aren't fact-checked: keep them true. The PDF, ATS score and Reads human check " +
+        "are made again when you save."
+      : "Keep \"Dear ...,\" at the top and \"Kind regards,\" and your name at the end. The PDF is made again when you save."),
+    box,
+    el("div", { class: "row" },
+      el("button", { class: "btn", onclick: () => guarded(async () => {
+        await post("/api/jobs/text", { url: j.url, kind, text: box.value });
+        dialog.close(); dialog.remove(); loadJobs();
+      }, "Saved: the " + label + " PDF was made again") }, "Save and remake PDF"),
+      el("button", { class: "btn secondary", onclick: () => { dialog.close(); dialog.remove(); } }, "Cancel")));
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
 const TAILOR_FAILED = {
   failed_judge: "the fact-check rejected the drafts",
   failed_validation: "the drafts broke a resume rule",
@@ -1415,9 +1516,11 @@ async function loadJobs() {
     if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank",
       title: j.own_resume ? "Your own file, used instead of the generated resume" : "" }, j.own_resume ? "Your resume" : "Resume"));
     if (j.ats) docs.push(" · ", atsBadge(j.ats));
+    if (j.human) docs.push(" · ", humanBadge(j.human));
     if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank",
       title: j.own_cover ? "Your own file, used instead of the generated cover letter" : "" }, j.own_cover ? "Your cover letter" : "Cover letter"));
-    if (!j.applied_at && !j.duplicate_of) docs.push(el("div", { class: "own-docs" }, ownDocLinks(j)));
+    if (!j.applied_at && !j.duplicate_of) docs.push(el("div", { class: "own-docs" }, ownDocLinks(j),
+      ...editLinks(j)));
     const statusText = j.redo_requested ? (j.tailored ? "Rewriting documents…" : "Writing documents…")
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
@@ -1679,7 +1782,7 @@ $("#quit").addEventListener("click", () => guarded(async () => {
 (async () => {
   await refreshStatus();
   refreshBrowser();
-  await Promise.all([loadSettings(), loadResume(), loadSearches(), loadProfile(), loadAnswers()]).catch((e) => toast(e.message, true));
+  await Promise.all([loadSettings(), loadResume(), loadWriting(), loadSearches(), loadProfile(), loadAnswers()]).catch((e) => toast(e.message, true));
   // First launch (nothing set up, no tab remembered): start with the guide
   let tab = status && !status.checks.profile && !status.checks.resume_txt ? "guide" : "setup";
   try { tab = localStorage.getItem("ap-tab") || tab; } catch {}
