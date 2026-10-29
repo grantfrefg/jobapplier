@@ -14,6 +14,7 @@ What's different from the original:
 - **Australian job sources.** Indeed Australia, LinkedIn and Jora, filtered to your city and state. Jora ads open the employer's own application form.
 - **One application per role.** The same job on several boards is detected, and you apply once.
 - **Written for engineers in Australia.** Scoring knows your deal-breakers (work rights, security clearance, location, seniority). Resumes and cover letters use Australian English and come out as ATS-friendly A4 PDFs with your location and work rights at the top.
+- **Sounds like you.** A light-touch tailoring style keeps your own bullets word for word, cover letters can follow a sample of your own writing and never open like a recent one, a **Reads human** check flags what makes text sound AI-written, and you can edit any generated resume or letter in the app.
 - **Honest documents.** Every title, skill, tool, number, employer and qualification in a tailored resume or cover letter is checked against your real resume in code, and an AI fact-check reads every one. Nothing you haven't done gets in, including the job's own title.
 - **ATS check.** Every tailored resume gets a score for how Australian employers' systems (Workday, SuccessFactors, PageUp, JobAdder...) will parse and search it, with what to fix. The PDF itself is read back the way a parser reads it.
 - **Your own documents when you want them.** Any job can use a resume or cover letter you wrote (PDF or Word) instead of the generated one.

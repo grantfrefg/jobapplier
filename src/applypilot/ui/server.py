@@ -34,7 +34,8 @@ STATIC_DIR = Path(__file__).parent / "static"
 PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
 
 ENV_KEYS = ("EXECUTION_ENGINE", "LLM_PROVIDER", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE")
+            "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE",
+            "TAILOR_STYLE")
 NUMBER_KEYS = {"GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE"}
 SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CAPSOLVER_API_KEY"}
 VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
@@ -254,6 +255,36 @@ def _fill_ats(job: dict) -> None:
     job["ats_score"], job["ats_report"] = report["score"], json.dumps(report)
 
 
+def _letter_openings() -> dict[str, str]:
+    """First sentence of every generated cover letter, by file (for "opens like another letter")."""
+    from applypilot.scoring import voice
+    out = {}
+    for f in sorted(config.COVER_LETTER_DIR.glob("*_CL.txt")) if config.COVER_LETTER_DIR.exists() else []:
+        try:
+            out[str(f.resolve())] = voice.opening(f.read_text(encoding="utf-8"))
+        except OSError:
+            pass
+    return out
+
+
+def _human_check(job: dict, original: str, openings: dict[str, str]) -> dict | None:
+    """The "reads human" report for a job's generated documents (no AI; a few milliseconds)."""
+    from applypilot.scoring import voice
+    try:
+        resume = Path(job["tailored_resume_path"]).read_text(encoding="utf-8")
+    except (OSError, TypeError):
+        return None
+    letter, mine = "", ""
+    if job.get("cover_letter_path"):
+        try:
+            mine = str(Path(job["cover_letter_path"]).resolve())
+            letter = Path(job["cover_letter_path"]).read_text(encoding="utf-8")
+        except OSError:
+            pass
+    others = [o for path, o in openings.items() if path != mine and o]
+    return voice.check(resume, letter, job.get("full_description") or "", original, others)
+
+
 def _example_skills_left() -> list[str]:
     """Example skills from the profile template that the user never replaced (and doesn't
     mention in their resume). Tailoring ignores them; Setup asks the user to fix the list."""
@@ -457,6 +488,8 @@ def create_app() -> FastAPI:
                     raise HTTPException(400, "Confirm first: this engine submits applications without showing "
                                              "them to you")
                 updates["AGENT_ENGINE_CONFIRMED"] = "1"
+            if key == "TAILOR_STYLE" and value not in ("", "full", "light"):
+                raise HTTPException(400, "TAILOR_STYLE must be full or light")
             if key == "LLM_PROVIDER" and value and value not in config.PROVIDERS:
                 raise HTTPException(400, f"LLM_PROVIDER must be one of {tuple(config.PROVIDERS)}")
             updates[key] = value
@@ -510,6 +543,19 @@ def create_app() -> FastAPI:
                 raise HTTPException(400, "That file isn't a PDF")
             config.RESUME_PDF_PATH.write_bytes(data)
         return get_resume()
+
+    # -- your own writing (cover letters follow its voice) --------------------
+
+    @app.get("/api/writing-sample")
+    def get_writing_sample() -> dict:
+        from applypilot.scoring import voice
+        return {"text": voice.writing_sample(), "max": voice.MAX_SAMPLE_CHARS}
+
+    @app.post("/api/writing-sample")
+    def save_writing_sample(body: dict) -> dict:
+        from applypilot.scoring import voice
+        voice.save_writing_sample(str(body.get("text") or ""))
+        return get_writing_sample()
 
     # -- profile -----------------------------------------------------------
 
@@ -647,7 +693,7 @@ def create_app() -> FastAPI:
                    apply_error, applied_at, duplicate_of, redo_requested, tailor_status, tailor_issues,
                    COALESCE(tailor_attempts, 0) AS tailor_attempts,
                    apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
-                   tailored_resume_path, score_reasoning, full_description,
+                   tailored_resume_path, cover_letter_path, score_reasoning, full_description,
                    tailored_resume_path IS NOT NULL AS generated_resume,
                    full_description IS NOT NULL AS has_description,
                    cover_letter_path IS NOT NULL AS generated_cover,
@@ -661,10 +707,13 @@ def create_app() -> FastAPI:
             LIMIT 500
         """).fetchall()
         out = []
+        original = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
+        openings = _letter_openings()
         for r in rows:
             job = dict(r)
             if job["tailored_resume_path"] and job["ats_score"] is None and not job["own_resume"]:
                 _fill_ats(job)  # resumes written before the ATS check existed
+            job["human"] = _human_check(job, original, openings) if job["generated_resume"] else None
             report = json.loads(job.pop("ats_report") or "null")
             job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
                                                                 "missing_gap", "issues", "removed_skills",
@@ -673,7 +722,7 @@ def create_app() -> FastAPI:
             keywords, _, reason = (job.pop("score_reasoning", None) or "").partition("\n")
             job["score_reason"] = (reason or keywords).strip()
             job["score_keywords"] = keywords.strip() if reason else ""
-            for k in ("tailored_resume_path", "full_description"):
+            for k in ("tailored_resume_path", "cover_letter_path", "full_description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})
         return out
@@ -802,6 +851,56 @@ def create_app() -> FastAPI:
         urls = [str(u) for u in body.get("urls") or [] if u]
         skip_tailoring(get_connection(), urls, skip=body.get("skip", True) is not False)
         return {"ok": True, "count": len(urls)}
+
+    def _generated_text_path(url: str, kind: str) -> Path:
+        if kind not in ("resume", "cover"):
+            raise HTTPException(400, "kind must be resume or cover")
+        row = get_connection().execute("SELECT tailored_resume_path, cover_letter_path FROM jobs WHERE url = ?",
+                                       (url,)).fetchone()
+        if not row:
+            raise HTTPException(404, "No such job")
+        path = row[0] if kind == "resume" else row[1]
+        if not path or not Path(path).exists():
+            raise HTTPException(404, "This job has no generated " + ("resume" if kind == "resume" else "cover letter"))
+        return Path(path)
+
+    @app.get("/api/jobs/text")
+    def job_text(url: str, kind: str = "resume") -> dict:
+        """The text of a generated resume or cover letter, for editing."""
+        path = _generated_text_path(url, kind)
+        return {"text": path.read_text(encoding="utf-8"), "name": path.name}
+
+    @app.post("/api/jobs/text")
+    def save_job_text(body: dict) -> dict:
+        """Save your edits to a generated resume or cover letter and make its PDF again.
+
+        The edit is yours: it isn't fact-checked again (the ATS and reads-human checks are).
+        """
+        url, kind, text = body.get("url") or "", body.get("kind") or "", str(body.get("text") or "").strip()
+        if not text:
+            raise HTTPException(400, "The text is empty")
+        if session.busy and (session.job or {}).get("url") == url:
+            raise HTTPException(409, "You're applying to this job right now; finish that first")
+        path = _generated_text_path(url, kind)
+        from applypilot.scoring.pdf import convert_to_pdf
+        draft = path.with_name(path.stem + ".edit.txt")
+        draft.write_text(text + "\n", encoding="utf-8")
+        try:  # make the PDF from the edit first, so a failure leaves the old documents as they were
+            convert_to_pdf(draft, output_path=draft.with_suffix(".pdf"))
+        except Exception as e:
+            draft.unlink(missing_ok=True)
+            raise HTTPException(400, f"Couldn't make the PDF from that text: {e}") from e
+        draft.replace(path)
+        draft.with_suffix(".pdf").replace(path.with_suffix(".pdf"))
+        if kind == "resume":
+            job = dict(get_connection().execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone())
+            if not job.get("own_resume_path"):
+                _fill_ats(job)
+                conn = get_connection()
+                conn.execute("UPDATE jobs SET ats_score = ?, ats_report = ? WHERE url = ?",
+                             (job["ats_score"], job["ats_report"], url))
+                conn.commit()
+        return {"ok": True}
 
     @app.get("/api/jobs/file")
     def job_file(url: str, kind: str = "resume") -> FileResponse:
