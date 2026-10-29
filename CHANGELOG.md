@@ -8,6 +8,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-29
+
 ### Added
 - **Profile explained:** every section of Setup → Your profile says what it's used for and why it's asked, with notes on the fields that need one (password, salary, current title...). The skills section is highlighted as the one that improves tailored resumes. The Guide has new **Your profile**, **Skills** and **Salary** sections.
 
