@@ -165,3 +165,21 @@ def without_placeholders(profile: dict) -> dict:
         out[section] = {k: v if k not in keys else [x for x in v if not is_placeholder(x)] if isinstance(v, list)
                         else ("" if is_placeholder(v) else v) for k, v in fields.items()}
     return out
+
+
+def salary_problems(profile: dict) -> list[str]:
+    """Salary figures that contradict each other (minimum above expected or maximum)."""
+    comp = profile.get("compensation") or {}
+
+    def num(key):
+        digits = "".join(ch for ch in str(comp.get(key) or "") if ch.isdigit())
+        return int(digits) if digits else None
+    low, ask, high = num("salary_range_min"), num("salary_expectation"), num("salary_range_max")
+    problems = []
+    if low and ask and low > ask:
+        problems.append("the salary range minimum is more than your expected salary")
+    if low and high and low > high:
+        problems.append("the salary range minimum is more than the maximum")
+    if ask and high and ask > high:
+        problems.append("your expected salary is more than the range maximum")
+    return problems

@@ -29,6 +29,24 @@ def years(profile: dict) -> str:
     return str(profile.get("experience", {}).get("years_of_experience_total") or "").strip()
 
 
+def _whole(value) -> int | None:
+    digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return int(digits) if digits else None
+
+
+def salary_floor(profile: dict) -> int | None:
+    """The lowest base salary (excluding super) the candidate accepts: the range minimum,
+    else the expected salary. Scoring and every form engine use this same number."""
+    comp = profile.get("compensation", {})
+    return _whole(comp.get("salary_range_min")) or _whole(comp.get("salary_expectation"))
+
+
+def salary_ask(profile: dict) -> int | None:
+    """What to ask for when the ad gives no pay: the expected salary, never below the floor."""
+    floor, ask = salary_floor(profile), _whole(profile.get("compensation", {}).get("salary_expectation"))
+    return max(x for x in (floor, ask) if x) if (floor or ask) else None
+
+
 def _location(profile: dict) -> str:
     p = profile.get("personal", {})
     return ", ".join(x for x in (p.get("city"), p.get("province_state")) if x) or "Australia"
@@ -57,8 +75,8 @@ def candidate_brief(profile: dict) -> str:
     if yes or no:
         lines.append("Work type: " + "; ".join(([f"wants {' or '.join(yes)}"] if yes else [])
                                                + ([f"not {' or '.join(no)}"] if no else [])))
-    if comp.get("salary_range_min"):
-        lines.append(f"Minimum salary: {comp['salary_range_min']} {comp.get('salary_currency') or 'AUD'} "
+    if salary_floor(profile):
+        lines.append(f"Minimum salary: {salary_floor(profile)} {comp.get('salary_currency') or 'AUD'} "
                      "base, excluding super")
     return "\n".join(lines)
 
