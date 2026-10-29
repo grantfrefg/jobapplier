@@ -669,9 +669,10 @@ def create_app() -> FastAPI:
             job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
                                                                 "missing_gap", "issues", "removed_skills",
                                                                 "unreadable", "other_form")}
-            reason = job.pop("score_reasoning", None)
-            if view in ("choose", "skipped"):  # why it scored what it did, to help you pick
-                job["score_reason"] = (reason or "")[:500]
+            # Why it scored what it did (stored as "<matched must-haves>\n<reasoning>")
+            keywords, _, reason = (job.pop("score_reasoning", None) or "").partition("\n")
+            job["score_reason"] = (reason or keywords).strip()
+            job["score_keywords"] = keywords.strip() if reason else ""
             for k in ("tailored_resume_path", "full_description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})

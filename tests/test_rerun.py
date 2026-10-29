@@ -60,7 +60,7 @@ def test_score_again_keeps_the_old_score_until_a_new_one_comes(conn, monkeypatch
     monkeypatch.setattr(scorer, "load_search_config", lambda: {})
     monkeypatch.setattr(scorer, "RESUME_PATH", config.RESUME_PATH)
     monkeypatch.setattr(scorer, "load_profile", config.load_profile)
-    monkeypatch.setattr(scorer, "score_batch", lambda resume, jobs, profile: {
+    monkeypatch.setattr(scorer, "score_batch", lambda resume, jobs, profile, areas=None: {
         j["url"]: {"score": 8, "keywords": "Excel", "reasoning": "Better now"} for j in jobs})
     assert rerun.run("score", ["https://ex.com/scored"]) == 1
     assert conn.execute("SELECT fit_score FROM jobs WHERE url = 'https://ex.com/scored'").fetchone()[0] == 8

@@ -17,6 +17,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - **One salary minimum everywhere:** scoring, the browser engine and the Claude Code / Codex engines all treat `salary_range_min` as your minimum (the expected salary when there's no minimum). The agent engines used to treat the expected salary as the floor. Forms answer with the expected salary, never below the minimum. Setup refuses a minimum above the expected salary or the maximum.
 
 ### Fixed
+- **Suburbs counted as another city:** a candidate in a suburb (e.g. Wentworthville) who won't relocate had Sydney CBD jobs scored as a location dealbreaker. The scorer now gets the places you search in (Setup → What jobs to look for) as your local area, and its rule says every suburb of a city is local. Use **Run a step again → Score again** to re-score jobs scored before this fix.
+- **"Why this score" cut off:** the Choose jobs list shows the whole reason (and the must-haves the resume matched), and hovering a score on the Apply tab shows it too.
 - The Guide said passwords are never typed; the profile's password is used by the Claude Code and Codex engines (the browser engine never sends or types it). It now says so, in the Guide and next to the field.
 
 ## [0.5.0] - 2026-10-28
