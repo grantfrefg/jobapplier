@@ -36,7 +36,7 @@ def _sample_path() -> Path:
 def writing_sample() -> str:
     try:
         return _sample_path().read_text(encoding="utf-8").strip()[:MAX_SAMPLE_CHARS]
-    except OSError:
+    except (OSError, ValueError):
         return ""
 
 
@@ -74,7 +74,7 @@ def recent_openings(limit: int = 6, skip: Path | None = None) -> list[str]:
             continue
         try:
             first = opening(f.read_text(encoding="utf-8"))
-        except OSError:
+        except (OSError, ValueError):
             continue
         if first and first not in out:
             out.append(first)
