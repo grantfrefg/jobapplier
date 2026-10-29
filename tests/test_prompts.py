@@ -168,3 +168,27 @@ def test_one_salary_minimum_everywhere():
                                                 "salary_range_max": "110000"}}) == [
         "the salary range minimum is more than your expected salary",
         "the salary range minimum is more than the maximum"]
+
+
+def test_a_suburb_is_local_to_its_city(monkeypatch):
+    """A candidate in Wentworthville who won't relocate was scored as a location dealbreaker for a
+    Sydney CBD job. The scorer now knows where they search, and that suburbs are part of the city."""
+    sent = {}
+
+    class Fake:
+        def chat_json(self, messages, **kw):
+            sent["messages"] = messages
+            return {"results": [{"id": "j1", "score": 8, "keywords": "Python", "reasoning": "Good fit."}]}
+
+    cfg = {"defaults": {"location": "Sydney, NSW"},
+           "locations": [{"location": "Sydney, NSW", "remote": False}, {"location": "Australia", "remote": True}]}
+    assert scorer.search_areas(cfg) == ["Sydney, NSW"] and scorer.search_areas(None) == []
+    monkeypatch.setattr(scorer, "get_client", lambda: Fake())
+    profile = {**PROFILE, "personal": {**PROFILE["personal"], "city": "Wentworthville"}}
+    job = {"url": "u", "title": "Backend Engineer", "location": "Sydney NSW", "full_description": "Onsite."}
+    scorer.score_batch("resume", [job], profile, scorer.search_areas(cfg))
+    system, user = sent["messages"][0]["content"], sent["messages"][1]["content"]
+    assert ("Based in: Wentworthville, NSW (searching in: Sydney, NSW; jobs there and in any of their suburbs "
+            "are local). Willing to relocate: No") in user
+    assert "every suburb" in system and "Same city is never a location dealbreaker" in system
+    assert "Based in: Wentworthville, NSW. Willing" in candidate_brief(profile)  # no search config: unchanged

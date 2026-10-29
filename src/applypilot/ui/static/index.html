@@ -635,8 +635,10 @@
           plain sentence rather than leaving it to a surprise later.</td></tr>
         <tr><td><b>Availability</b></td><td>Answers notice-period, start-date, relocation and driver's licence
           questions. <i>Full time</i> and <i>contract</i> feed the score (a contract-only role scores 4 or lower if
-          you don't want contracts). <i>Willing to relocate</i> decides whether jobs in other cities count, and a
-          cover letter mentions relocating when the job is elsewhere.</td></tr>
+          you don't want contracts). <i>Willing to relocate</i> decides whether jobs in other cities count. Your local
+          area is your whole city and the places you search in (Setup → What jobs to look for), so a suburb like
+          Wentworthville is local to a job in the Sydney CBD. A cover letter mentions relocating when the job is
+          elsewhere.</td></tr>
         <tr><td><b>Compensation</b></td><td>See <a href="#g-salary">Salary</a>.</td></tr>
         <tr><td><b>Experience</b></td><td>Years of experience and target role tell the scorer your level, so
           jobs far too senior or junior score low. <i>Current job title</i> is the only title a tailored resume's
@@ -1294,8 +1296,8 @@ async function loadChoose() {
         el("div", { class: "muted" }, [j.company, j.site, j.location, j.salary].filter(Boolean).join(" · ")),
         notes.length ? el("div", { class: "muted", title: TAILOR_FAILED[j.tailor_status] ? tailorHelp(j) : "" },
           notes.join(" · ")) : ""),
-      el("td", { class: "muted", title: j.score_reason || "" },
-        (j.score_reason || "").length > 160 ? j.score_reason.slice(0, 160) + "…" : j.score_reason || ""));
+      el("td", { class: "muted" }, j.score_reason || "",
+        j.score_keywords ? el("div", { style: "margin-top:4px" }, el("b", {}, "Matches: "), j.score_keywords) : ""));
   }));
   $("#choose-empty").textContent = chooseJobs.length ? "" : view === "skipped" ? "No skipped jobs."
     : "Nothing to choose from yet. Run the Discover, Enrich and Score steps above first.";
@@ -1460,7 +1462,8 @@ async function loadJobs() {
         await post("/api/jobs/reset", { url: j.url }); loadJobs(); }, "Job reset") }, "Reset"));
     }
     return el("tr", {},
-      el("td", { class: "score" }, j.fit_score ?? "–"),
+      el("td", { class: "score", title: j.score_reason ? "Why this score: " + j.score_reason : "",
+        style: j.score_reason ? "cursor:help" : "" }, j.fit_score ?? "–"),
       el("td", {}, el("a", { href: link, target: "_blank", rel: "noopener" }, j.title || link),
         el("div", { class: "muted" }, [j.company, j.site, j.location].filter(Boolean).join(" · ")),
         j.apply_site_name ? el("div", { class: "muted", title: ACCOUNT_HELP[j.apply_account] || "" },

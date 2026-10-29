@@ -33,7 +33,11 @@ Score every posting independently against the candidate, not against each other.
   doesn't have, or offers no sponsorship when the candidate needs it.
 - Security clearance: the posting requires a clearance (Baseline, NV1, NV2, PV) the candidate
   doesn't hold. "Must be able to obtain" is fine only for Australian citizens.
-- Location: onsite or hybrid outside the candidate's area and they won't relocate. Remote is fine.
+- Location: onsite or hybrid in another city or region than the candidate's, and they won't relocate.
+  Their area is the whole metropolitan area around their home, including every suburb, and every place
+  they're searching in: a candidate in Wentworthville or Parramatta is local to a job in the Sydney CBD,
+  North Sydney or Macquarie Park. Same city is never a location dealbreaker; remote is fine. If you
+  can't tell whether a place is in their area, don't treat it as a dealbreaker.
 - Seniority far off: e.g. Principal/Head of for a 2-year engineer, Graduate for a 10-year one.
 - Mandatory registration or licence the resume doesn't show (e.g. CPEng, RPEQ, NER, electrical licence).
 - Work type: the role is contract-only (or only full-time) and the candidate facts say they don't
@@ -97,7 +101,17 @@ def _job_block(job_id: str, job: dict) -> str:
     )
 
 
-def score_batch(resume_text: str, jobs: list[dict], profile: dict | None = None) -> dict[str, dict]:
+def search_areas(search_cfg: dict | None) -> list[str]:
+    """The non-remote places the candidate searches in (searches.yaml), for the scorer's location rule."""
+    cfg = search_cfg or {}
+    areas = [str(loc.get("location") or "").strip() for loc in cfg.get("locations") or []
+             if isinstance(loc, dict) and not loc.get("remote")]
+    areas.append(str((cfg.get("defaults") or {}).get("location") or "").strip())
+    return list(dict.fromkeys(a for a in areas if a))
+
+
+def score_batch(resume_text: str, jobs: list[dict], profile: dict | None = None,
+                local_areas: list[str] | None = None) -> dict[str, dict]:
     """Score several jobs in one LLM request.
 
     Returns {url: {"score", "keywords", "reasoning"}} for every job the model
@@ -108,7 +122,7 @@ def score_batch(resume_text: str, jobs: list[dict], profile: dict | None = None)
     postings = "\n\n".join(_job_block(job_id, job) for job_id, job in ids.items())
     messages = [
         {"role": "system", "content": SCORE_PROMPT},
-        {"role": "user", "content": (f"CANDIDATE FACTS:\n{candidate_brief(profile or {})}\n\n"
+        {"role": "user", "content": (f"CANDIDATE FACTS:\n{candidate_brief(profile or {}, local_areas)}\n\n"
                                      f"RESUME:\n{resume_text}\n\n---\n\nJOB POSTINGS ({len(ids)}):\n\n{postings}")},
     ]
     # ~150 output tokens per job is plenty for score + keywords + reasoning
@@ -231,7 +245,7 @@ def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = 
     scored = errors = 0
     for n, batch in enumerate(batches, 1):
         try:
-            results = score_batch(resume_text, batch, profile)
+            results = score_batch(resume_text, batch, profile, search_areas(search_cfg))
         except BudgetExhausted as e:
             left = sum(len(b) for b in batches[n - 1:])
             log.warning("%s Stopping: %d jobs left unscored for the next run.", e, left)
