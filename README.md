@@ -2,6 +2,8 @@
 
 **Find Australian jobs, tailor your resume for each one, and have the application form filled in for you, then check it and click Submit yourself.** Free to run, on your own computer.
 
+**[⬇ Download the desktop app](https://github.com/grantfrefg/jobapplier/releases/latest)** for Windows or Mac: no installs needed. See [Getting started](#getting-started).
+
 jobapplier is a fork of [ApplyPilot](https://github.com/Pickle-Pixel/ApplyPilot) by Pickle-Pixel, reworked for Australian job hunting and for running on Google Gemini's free tier. The app and its commands are still called **ApplyPilot**.
 
 What's different from the original:
@@ -26,10 +28,13 @@ What's different from the original:
 Pick the option that suits you.
 
 ### 1. Desktop app (easiest, no installs)
-Download the zip for your computer, unzip it, and double-click **ApplyPilot**. The page opens in your browser.
+Download the zip for your computer from the [latest release](https://github.com/grantfrefg/jobapplier/releases/latest), unzip it, and double-click **ApplyPilot**. The page opens in your browser.
 
-- **Windows:** `ApplyPilot-Windows.zip`
-- **Mac:** `ApplyPilot-Mac-AppleSilicon.zip` or `ApplyPilot-Mac-Intel.zip`
+- **Windows:** [ApplyPilot-Windows.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/ApplyPilot-Windows.zip)
+- **Mac with an M1–M4 chip:** [ApplyPilot-Mac-AppleSilicon.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/ApplyPilot-Mac-AppleSilicon.zip)
+- **Older Intel Mac:** [ApplyPilot-Mac-Intel.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/ApplyPilot-Mac-Intel.zip)
+
+Not sure which Mac you have? Apple menu → **About This Mac**: "Chip: Apple M…" means Apple Silicon; "Processor: Intel…" means Intel.
 
 The first time, your computer warns that the app isn't verified. The `READ_ME_FIRST` file in the zip shows the one-time click-through. To build the zips, see [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md).
 
