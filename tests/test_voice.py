@@ -42,8 +42,9 @@ def test_writing_sample_and_recent_openings_shape_the_letter():
     voice.save_writing_sample("Hi Sam,\nShort and plain is how I write. Cheers, Jane")
     folder = config.COVER_LETTER_DIR
     folder.mkdir(parents=True)
-    (folder / "A_Backend_CL.txt").write_text("Dear Hiring Manager,\n\nThe payments API you're rebuilding is the "
-                                             "kind of system I have run for three years. More here.\n")
+    letter = ("Dear Hiring Manager,\n\nThe payments API you're rebuilding is the kind of system I have run "
+              "for three years. More here.\n")
+    (folder / "A_Backend_CL.txt").write_text(letter, encoding="utf-8")
     rules = cover_letter.cover_letter_rules(PROFILE)
     assert "OWN VOICE" in rules and "Short and plain is how I write." in rules
     assert "Open this one differently" in rules and "The payments API you're rebuilding" in rules

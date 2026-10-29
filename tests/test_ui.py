@@ -531,9 +531,13 @@ def test_tailoring_style_writing_sample_reads_human_and_edit(client, tmp_path, m
     # The job list carries the reads-human report for generated documents
     _seed_job(tmp_path, "https://example.com/job/1")
     resume_txt = tmp_path / "tailored" / "acme.txt"
-    resume_txt.write_text(RESUME + "\n- Spearheaded robust synergy — not just code but culture\n")
+    resume_txt.write_text(RESUME + "\n- Spearheaded robust synergy — not just code but culture\n", encoding="utf-8")
     [job] = client.get("/api/jobs?view=ready").json()
     assert any("Stock phrases" in i for i in job["human"]["issues"])
+    resume_txt.write_bytes(RESUME.encode() + b"\n- Built it \x97 fast\n")  # Windows-1252, not UTF-8
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert job["human"] is None
+    resume_txt.write_text(RESUME, encoding="utf-8")
 
     # Edit: the text is saved and the PDF made again; a failed PDF leaves the old documents alone
     from applypilot.scoring import pdf
@@ -544,7 +548,7 @@ def test_tailoring_style_writing_sample_reads_human_and_edit(client, tmp_path, m
     assert client.get("/api/jobs/text", params={"url": url, "kind": "resume"}).json()["text"].startswith(RESUME[:10])
     r = client.post("/api/jobs/text", json={"url": url, "kind": "resume", "text": RESUME})
     assert r.status_code == 200 and made == ["acme.edit.txt"]
-    assert resume_txt.read_text().strip() == RESUME.strip()
+    assert resume_txt.read_text(encoding="utf-8").strip() == RESUME.strip()
     assert resume_txt.with_suffix(".pdf").read_bytes() == b"%PDF-1.4 edited"
     assert not (tmp_path / "tailored" / "acme.edit.txt").exists()
 
@@ -552,6 +556,6 @@ def test_tailoring_style_writing_sample_reads_human_and_edit(client, tmp_path, m
         raise ValueError("no sections")
     monkeypatch.setattr(pdf, "convert_to_pdf", broken)
     r = client.post("/api/jobs/text", json={"url": url, "kind": "resume", "text": "just one line"})
-    assert r.status_code == 400 and resume_txt.read_text().strip() == RESUME.strip()
+    assert r.status_code == 400 and resume_txt.read_text(encoding="utf-8").strip() == RESUME.strip()
     assert client.post("/api/jobs/text", json={"url": url, "kind": "cover", "text": "x"}).status_code == 404
     assert client.post("/api/jobs/text", json={"url": url, "kind": "resume", "text": " "}).status_code == 400
