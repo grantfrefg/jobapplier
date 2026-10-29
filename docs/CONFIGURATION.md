@@ -102,7 +102,7 @@ Sections, each a set of fields shown as a form on the Setup page. Fields with on
 | `personal` | Name, email, phone, address, LinkedIn/GitHub/portfolio URLs, job-site password. **Required:** `full_name`, `email`, `phone` |
 | `work_authorization` | Right to work, sponsorship, `work_permit_type` (e.g. Australian citizen, Permanent resident: shown in the resume header), `security_clearance` (Baseline, NV1, NV2, PV; blank = none). Add fields such as `tax_file_number` if forms ask; ID-like values are never sent to the AI |
 | `availability` | Start date, notice period, full-time/contract, `willing_to_relocate`, `drivers_licence` |
-| `compensation` | Salary expectation, currency and range: **base salary, excluding super** (forms asking for a package get 12% super added) |
+| `compensation` | All **base salary, excluding super**. `salary_range_min` is your minimum: scoring marks down ads paying less, and no form answer goes below it (with no minimum, the expected salary is the minimum). `salary_expectation` is what forms answer when the ad gives no pay; `salary_range_max` tops a range. Forms asking for a package get 12% super added. The minimum can't be above the expected salary or the maximum |
 | `experience` | Years, education, current title/company, target role (the prompts write for this role and seniority) |
 | `skills_boundary` | Extra skills the tailor may mention when your resume doesn't name them. Template example values are ignored until `skills_confirmed` is true (Setup: **My skills list is accurate**). Skills in your resume are always allowed, in any common short or long form |
 | `resume_facts` | Employers, projects, school and real metrics the tailor must keep exactly |

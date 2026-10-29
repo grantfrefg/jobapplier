@@ -539,6 +539,10 @@ def create_app() -> FastAPI:
         if examples:
             raise HTTPException(400, "Replace or clear the example values in: "
                                 + ", ".join(f.split(".", 1)[1].replace("_", " ") for f in examples))
+        salary = po.salary_problems(body)
+        if salary:
+            raise HTTPException(400, "Check your salary: " + "; ".join(salary)
+                                + " (all base salary, excluding super)")
         bad = po.invalid_choices(body)
         if bad:
             raise HTTPException(400, "Pick one of the listed options for: "

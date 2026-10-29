@@ -70,6 +70,10 @@ def test_profile_resume_searches(client):
     assert saved["exists"] and saved["profile"]["personal"]["full_name"] == "Jane Quinn Doe"
     # Missing template keys are filled in for the form
     assert "eeo_voluntary" in saved["profile"]
+    # A salary minimum above the expected salary is refused, with the reason
+    mixed = {**PROFILE, "compensation": {"salary_expectation": "100000", "salary_range_min": "120000"}}
+    r = client.post("/api/profile", json=mixed)
+    assert r.status_code == 400 and "minimum is more than your expected salary" in r.json()["detail"]
 
     r = client.post("/api/resume", data={"text": RESUME},
                     files={"pdf": ("cv.pdf", b"%PDF-1.4 x", "application/pdf")})

@@ -62,7 +62,9 @@ def _build_profile_summary(profile: dict) -> str:
 
     # Compensation
     currency = comp.get("salary_currency", "AUD")
-    lines.append(f"Salary Expectation: ${comp['salary_expectation']} {currency}")
+    from applypilot.scoring.context import salary_ask, salary_floor
+    if salary_ask(p):
+        lines.append(f"Salary Expectation: ${salary_ask(p)} {currency} base (minimum ${salary_floor(p)})")
 
     # Experience
     if exp.get("years_of_experience_total"):
@@ -124,19 +126,20 @@ def _build_salary_section(profile: dict) -> str:
 
     Adapts floor, range, and currency from the profile's compensation section.
     """
+    from applypilot.scoring.context import salary_ask, salary_floor
     comp = profile["compensation"]
     currency = comp.get("salary_currency", "AUD")
-    floor = comp["salary_expectation"]
-    range_max = comp.get("salary_range_max", str(int(floor) + 20000) if floor.isdigit() else floor)
+    floor = salary_floor(profile)
+    ask = salary_ask(profile)
+    if floor is None:
+        return ("== SALARY ==\nNo salary in the profile: give the posted midpoint if there is one, "
+                "else leave it to the candidate.")
+    range_max = "".join(ch for ch in str(comp.get("salary_range_max") or "") if ch.isdigit()) or str(ask + 20000)
     conversion_note = comp.get("currency_conversion_note", "")
 
     # Australian full-time hours (38 a week) and working days for hourly / day rates
     hours, days = 38 * 52, 230
-    try:
-        floor_int = int(floor)
-        hourly_line = f"${floor_int // 1000}K = ${floor_int // hours}/hr = ${floor_int // days}/day"
-    except (ValueError, TypeError):
-        hourly_line = f"divide the annual figure by {hours} for hourly, {days} for a day rate"
+    hourly_line = f"${ask // 1000}K = ${ask // hours}/hr = ${ask // days}/day; never below ${floor // hours}/hr"
 
     # Currency conversion guidance
     if conversion_note:
@@ -145,12 +148,13 @@ def _build_salary_section(profile: dict) -> str:
         convert_line = "Posting is in a different currency? -> Target midpoint of their range. Convert if needed."
 
     return f"""== SALARY (think, don't just copy) ==
-${floor} {currency} BASE (excluding superannuation) is the FLOOR. Never go below it. But don't always use it either.
+${floor} {currency} BASE (excluding superannuation) is the MINIMUM. Never go below it.
+${ask} {currency} is what to ask for when the ad gives no pay.
 
 Decision tree:
-1. Job posting shows a range above the floor (e.g. "$130K-$150K")? -> Answer with the MIDPOINT ($140K), never below the floor.
+1. Job posting shows a range (e.g. "$130K-$150K")? -> Answer with the MIDPOINT ($140K), never below ${floor}.
 2. {convert_line}
-3. No salary info anywhere? -> Use ${floor} {currency}.
+3. No salary info anywhere? -> Use ${ask} {currency}.
 4. Asked for a range? -> "${floor}-${range_max} {currency}"
    (or the posted midpoint -10% to +10% if that is higher).
 5. Base vs package: these figures are base. If the question asks for a package / "including super" /

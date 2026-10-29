@@ -145,3 +145,26 @@ def test_claude_code_salary_is_australian():
                                                                    "salary_range_max": "140000"}})
     assert "AUD BASE (excluding superannuation)" in section and "x 1.12" in section
     assert "2080" not in section and "$110K" not in section and "$60/hr" in section
+
+
+def test_one_salary_minimum_everywhere():
+    from applypilot import profile_options as po
+    from applypilot.scoring.context import candidate_brief, salary_ask, salary_floor
+    comp = {"salary_expectation": "130000", "salary_range_min": "115,000", "salary_range_max": "145000"}
+    profile = {**PROFILE, "compensation": comp}
+    assert (salary_floor(profile), salary_ask(profile)) == (115000, 130000)
+    assert "Minimum salary: 115000 AUD base" in candidate_brief(profile)  # scoring
+    section = apply_prompt._build_salary_section(profile)  # Claude Code / Codex
+    assert "$115000 AUD BASE (excluding superannuation) is the MINIMUM" in section
+    assert "No salary info anywhere? -> Use $130000" in section and '"$115000-$145000 AUD"' in section
+    # Only an expected salary: that's the minimum too
+    only = {**PROFILE, "compensation": {"salary_expectation": "120000"}}
+    assert (salary_floor(only), salary_ask(only)) == (120000, 120000)
+    assert "Minimum salary: 120000" in candidate_brief(only)
+    assert salary_floor({"compensation": {}}) is None and "Minimum salary" not in candidate_brief({})
+    # Figures that contradict each other are refused when the profile is saved
+    assert po.salary_problems({"compensation": comp}) == []
+    assert po.salary_problems({"compensation": {"salary_expectation": "100000", "salary_range_min": "120000",
+                                                "salary_range_max": "110000"}}) == [
+        "the salary range minimum is more than your expected salary",
+        "the salary range minimum is more than the maximum"]
