@@ -25,7 +25,7 @@ Each build:
 3. **smoke-tests the packaged app** (`packaging/smoke_test.py`): CLI mode, desktop mode, a pipeline stage run from the app, and Quit;
 4. zips it with a `READ_ME_FIRST` file.
 
-Push a version tag (e.g. `git tag v0.5.0 && git push origin v0.5.0`) to also attach the zips to a GitHub Release.
+Push a version tag (e.g. `git tag v0.5.0 && git push origin v0.5.0`) to also attach the zips to a GitHub Release. To rebuild a release's zips from a branch (e.g. after a fix), run the workflow manually with **release_tag** set to that release's tag (e.g. `v0.5.2`): the build's zips replace the ones attached to it.
 
 ### Building locally
 ```bash

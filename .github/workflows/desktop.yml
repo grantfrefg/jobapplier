@@ -4,9 +4,16 @@ name: Desktop app
 #   - Run manually: Actions tab > "Desktop app" > Run workflow
 #     (download the zips from the run's "Artifacts" section)
 #   - Push a tag like v0.4.0 to also publish them on a GitHub Release
+#   - Or run it manually with "release_tag" (e.g. v0.5.2) to build this branch and attach
+#     the zips to that existing release (replacing any with the same names)
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Attach the zips to this existing release (e.g. v0.5.2); leave empty for artifacts only"
+        required: false
+        default: ""
   push:
     tags: ["v*"]
 
@@ -83,7 +90,7 @@ jobs:
           retention-days: 30
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -93,5 +100,6 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           files: dist/*.zip
-          generate_release_notes: true
+          generate_release_notes: ${{ inputs.release_tag == '' }}
