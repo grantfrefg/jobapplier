@@ -262,7 +262,7 @@ def _letter_openings() -> dict[str, str]:
     for f in sorted(config.COVER_LETTER_DIR.glob("*_CL.txt")) if config.COVER_LETTER_DIR.exists() else []:
         try:
             out[str(f.resolve())] = voice.opening(f.read_text(encoding="utf-8"))
-        except OSError:
+        except (OSError, ValueError):
             pass
     return out
 
@@ -272,14 +272,14 @@ def _human_check(job: dict, original: str, openings: dict[str, str]) -> dict | N
     from applypilot.scoring import voice
     try:
         resume = Path(job["tailored_resume_path"]).read_text(encoding="utf-8")
-    except (OSError, TypeError):
+    except (OSError, TypeError, ValueError):  # missing, or not UTF-8 (e.g. edited in another program)
         return None
     letter, mine = "", ""
     if job.get("cover_letter_path"):
         try:
             mine = str(Path(job["cover_letter_path"]).resolve())
             letter = Path(job["cover_letter_path"]).read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, ValueError):
             pass
     others = [o for path, o in openings.items() if path != mine and o]
     return voice.check(resume, letter, job.get("full_description") or "", original, others)
