@@ -514,3 +514,44 @@ def test_guide_tab_links_all_lead_somewhere(client):
     # Every Setup card is closed (an unclosed one nested the next cards inside it)
     setup = html[html.index('id="tab-setup"'):html.index('id="tab-find"')]
     assert len(re.findall(r"<div\b", setup)) == setup.count("</div>")
+
+
+def test_tailoring_style_writing_sample_reads_human_and_edit(client, tmp_path, monkeypatch):
+    # Tailoring style is a saved setting; anything but full / light is refused
+    assert client.post("/api/settings", json={"TAILOR_STYLE": "light"}).json()["TAILOR_STYLE"] == "light"
+    assert os.environ["TAILOR_STYLE"] == "light"
+    assert client.post("/api/settings", json={"TAILOR_STYLE": "loud"}).status_code == 400
+    client.post("/api/settings", json={"TAILOR_STYLE": ""})
+
+    # Your writing: saved, read back, cleared
+    assert client.post("/api/writing-sample", json={"text": "Hi Sam, short and plain."}).json()["text"] == \
+        "Hi Sam, short and plain."
+    assert client.post("/api/writing-sample", json={"text": ""}).json()["text"] == ""
+
+    # The job list carries the reads-human report for generated documents
+    _seed_job(tmp_path, "https://example.com/job/1")
+    resume_txt = tmp_path / "tailored" / "acme.txt"
+    resume_txt.write_text(RESUME + "\n- Spearheaded robust synergy — not just code but culture\n")
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert any("Stock phrases" in i for i in job["human"]["issues"])
+
+    # Edit: the text is saved and the PDF made again; a failed PDF leaves the old documents alone
+    from applypilot.scoring import pdf
+    made = []
+    monkeypatch.setattr(pdf, "convert_to_pdf", lambda path, output_path=None: (
+        made.append(path.name), output_path.write_bytes(b"%PDF-1.4 edited")))
+    url = "https://example.com/job/1"
+    assert client.get("/api/jobs/text", params={"url": url, "kind": "resume"}).json()["text"].startswith(RESUME[:10])
+    r = client.post("/api/jobs/text", json={"url": url, "kind": "resume", "text": RESUME})
+    assert r.status_code == 200 and made == ["acme.edit.txt"]
+    assert resume_txt.read_text().strip() == RESUME.strip()
+    assert resume_txt.with_suffix(".pdf").read_bytes() == b"%PDF-1.4 edited"
+    assert not (tmp_path / "tailored" / "acme.edit.txt").exists()
+
+    def broken(path, output_path=None):
+        raise ValueError("no sections")
+    monkeypatch.setattr(pdf, "convert_to_pdf", broken)
+    r = client.post("/api/jobs/text", json={"url": url, "kind": "resume", "text": "just one line"})
+    assert r.status_code == 400 and resume_txt.read_text().strip() == RESUME.strip()
+    assert client.post("/api/jobs/text", json={"url": url, "kind": "cover", "text": "x"}).status_code == 404
+    assert client.post("/api/jobs/text", json={"url": url, "kind": "resume", "text": " "}).status_code == 400

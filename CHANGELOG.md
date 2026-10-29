@@ -8,6 +8,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Added
+- **Tailoring style** (Find jobs; `TAILOR_STYLE`): *light touch* keeps your bullets word for word, only swapping in the ad's term for the same thing and reordering, and changes at most one sentence of your summary; a light-touch draft that rewrote most bullets is sent back. *Full rewrite* (the default) is unchanged.
+- **Your writing** (Setup): paste a cover letter or a few paragraphs you wrote, and cover letters follow your voice (never its facts).
+- **Letters don't repeat themselves:** each cover letter is told how recent letters opened, and one that opens like a recent one is written again.
+- **Reads human** badge (Apply tab, no AI): flags stock phrases, AI-sounding constructions, long dashes, the same verb starting most bullets, bullets all the same length, strings of "X, Y and Z", letters where most sentences start with "I", long phrases copied from the ad, and a letter opening like another; hover for details and the share of bullets in your own words.
+- **Edit** a generated resume or cover letter in the app (*edit resume* / *edit cover letter* under a job): the PDF, ATS score and Reads human check are made again. A text the PDF can't be made from leaves the old documents untouched.
+- Guide: **Sounding like you, not an AI**.
+
 ## [0.5.1] - 2026-10-29
 
 ### Added
