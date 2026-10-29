@@ -8,6 +8,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-29
+
 ### Added
 - **Tailoring style** (Find jobs; `TAILOR_STYLE`): *light touch* keeps your bullets word for word, only swapping in the ad's term for the same thing and reordering, and changes at most one sentence of your summary; a light-touch draft that rewrote most bullets is sent back. *Full rewrite* (the default) is unchanged.
 - **Your writing** (Setup): paste a cover letter or a few paragraphs you wrote, and cover letters follow your voice (never its facts).
