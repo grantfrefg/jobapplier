@@ -8,6 +8,15 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-30
+
+### Changed
+- **You submit, with every engine.** Claude Code and Codex now fill in the whole application (accounts and all) and stop at the final Submit with `RESULT:READY`, instead of submitting by themselves; an email-only ad is left for you too. The launcher leaves their Chrome window open until you close it (up to an hour): check it, submit it yourself, then press **Mark applied**. The job shows as *Saved for later* until then. Setup's engine descriptions, the confirmation, the Guide and the docs say so.
+
+### Fixed
+- **OpenAI or Claude without API credit** was retried as if it were a rate limit (OpenAI answers HTTP 429 `insufficient_quota`). The run now stops at once with what to do (add billing or prepaid credit; a ChatGPT or Claude subscription doesn't include API credit), and **Test key** says so straight away.
+- **Rate-limit messages named Gemini whatever the provider.** They now name the provider in use with a tip for it, and wait as long as OpenAI's reset headers say (up to a minute). Claude's rate limit after the SDK's retries gets a plain message too. The apply log no longer says "Gemini" for other providers.
+
 ## [0.5.2] - 2026-10-29
 
 ### Added
