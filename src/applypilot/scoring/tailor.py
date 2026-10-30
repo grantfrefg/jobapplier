@@ -20,7 +20,7 @@ from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import finish_redo, get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
-from applypilot.scoring import facts, voice
+from applypilot.scoring import facts, look, voice
 from applypilot.scoring.context import AU_STYLE, current_title, location_line, work_rights
 from applypilot.scoring.cover_letter import (
     COVER_LETTER_DIR,
@@ -354,7 +354,7 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
     lines.append(sanitize_text(data.get("title") or current_title(profile)))
 
     # Location and work rights: Australian recruiters screen on both first
-    details = [d for d in (location_line(profile), work_rights(profile)) if d]
+    details = [d for d in (location_line(profile), look.shown_work_rights(work_rights(profile))) if d]
     if details:
         lines.append(" | ".join(details))
 
@@ -560,7 +560,7 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
     title = facts.real_title(wanted, source, current_title(profile))
     replaced = wanted if title != wanted else None
     focus = str(fixed.pop("focus", "") or "").strip()
-    if focus and not facts.focus_problems(focus, source) and len(focus.split()) <= 8:
+    if look.tagline() and focus and not facts.focus_problems(focus, source) and len(focus.split()) <= 8:
         title = f"{title} · {focus}"
     fixed["title"] = title
 
