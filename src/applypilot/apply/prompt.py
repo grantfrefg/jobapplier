@@ -408,8 +408,8 @@ browser_evaluate function: () => {{{{
 }}}}
 
 After injecting: browser_wait_for time: 2, then snapshot.
-- Widget gone or green check -> success. Click Submit if needed.
-- No change -> click Submit/Verify/Continue button (some sites need it).
+- Widget gone or green check -> success. Click Verify/Continue if needed (never the final application Submit).
+- No change -> click the Verify/Continue button (some sites need it).
 - Still stuck -> token may have expired (~2 min lifetime). Re-run from STEP 1.
 
 --- MANUAL FALLBACK ---
@@ -434,7 +434,7 @@ def build_prompt(job: dict, tailored_resume: str,
              application_url, fit_score, tailored_resume_path).
         tailored_resume: Plain-text content of the tailored resume.
         cover_letter: Optional plain-text cover letter content.
-        dry_run: If True, tell the agent not to click Submit.
+        dry_run: Kept for callers; the agent never clicks the final Submit anyway (the candidate does).
 
     Returns:
         Complete prompt string for the AI agent.
@@ -502,13 +502,16 @@ def build_prompt(job: dict, tailored_resume: str,
     last_name = full_name.split()[-1] if " " in full_name else ""
     display_name = f"{preferred_name} {last_name}".strip()
 
-    # Dry-run: override submit instruction
-    if dry_run:
-        submit_instruction = "IMPORTANT: Do NOT click the final Submit/Apply button. Review the form, verify all fields, then output RESULT:APPLIED with a note that this was a dry run."
-    else:
-        submit_instruction = "BEFORE clicking Submit/Apply, take a snapshot and review EVERY field on the page. Verify all data matches the APPLICANT PROFILE and TAILORED RESUME -- name, email, phone, location, work auth, resume uploaded, cover letter if applicable. If anything is wrong or missing, fix it FIRST. Only click Submit after confirming everything is correct."
+    # The candidate always clicks the final Submit themselves (dry_run is the same thing now)
+    submit_instruction = (
+        "STOP at the final Submit/Apply/Send button. Take a snapshot and review EVERY field on the page and on "
+        "earlier pages you can return to. Verify all data matches the APPLICANT PROFILE and TAILORED RESUME -- "
+        "name, email, phone, location, work auth, resume uploaded, cover letter if applicable. If anything is "
+        "wrong or missing, fix it. Then STOP: do NOT click the button that sends the application (on the last "
+        "page, usually Submit, Submit application, Send, Finish or Complete; on a one-page form it may say "
+        "Apply), even if it's the only step left. The candidate checks the form and clicks it themselves.")
 
-    prompt = f"""You are an autonomous job application agent. Your ONE mission: get this candidate an interview. You have all the information and tools. Think strategically. Act decisively. Submit the application.
+    prompt = f"""You are a job application agent. Your ONE mission: get this candidate's application completely filled in and checked, so they only have to review it and click Submit themselves. You have all the information and tools. Think strategically. Act decisively. NEVER click the final Submit.
 
 == JOB ==
 URL: {job.get('application_url') or job['url']}
@@ -530,9 +533,9 @@ Cover Letter PDF (upload if asked): {cl_upload_path or "N/A"}
 {profile_summary}
 
 == YOUR MISSION ==
-Submit a complete, accurate application. Use the profile and resume as source data -- adapt to fit each form's format.
+Fill in a complete, accurate application, up to (not including) the button that sends it. Use the profile and resume as source data -- adapt to fit each form's format.
 
-If something unexpected happens and these instructions don't cover it, figure it out yourself. You are autonomous. Navigate pages, read content, try buttons, explore the site. The goal is always the same: submit the application. Do whatever it takes to reach that goal.
+If something unexpected happens and these instructions don't cover it, figure it out yourself. Navigate pages, read content, try buttons, explore the site. The goal is always the same: reach the final page with everything filled in and checked. The Apply button that opens the form, and buttons that go to the next page, save a draft, upload a file or create an account are fine. The final button that sends the application belongs to the candidate: NEVER click it.
 
 {hard_rules}
 
@@ -557,8 +560,7 @@ If something unexpected happens and these instructions don't cover it, figure it
 2. browser_snapshot to read the page. Then run CAPTCHA DETECT (see CAPTCHA section). If a CAPTCHA is found, solve it before continuing.
 3. LOCATION CHECK. Read the page for location info. If not eligible, output RESULT and stop.
 4. Find and click the Apply button. If email-only (page says "email resume to X"):
-   - send_email with subject "Application for {job['title']} -- {display_name}", body = 2-3 sentence pitch + contact info, attach resume PDF: ["{pdf_path}"]
-   - Output RESULT:APPLIED. Done.
+   - Don't send it: emailing the application is the candidate's job. Output RESULT:FAILED:apply_by_email and stop.
    After clicking Apply: browser_snapshot. Run CAPTCHA DETECT -- many sites trigger CAPTCHAs right after the Apply click. If found, solve before continuing.
 5. Login wall?
    5a. FIRST: check the URL. If you landed on {', '.join(blocked_sso)}, or any SSO/OAuth page -> STOP. Output RESULT:FAILED:sso_required. Do NOT try to sign in to Google/Microsoft/SSO.
@@ -576,11 +578,11 @@ If something unexpected happens and these instructions don't cover it, figure it
    - Compare every other field to the APPLICANT PROFILE. Fix mismatches. Fill empty fields.
 9. Answer screening questions using the rules above.
 10. {submit_instruction}
-11. After submit: browser_snapshot. Run CAPTCHA DETECT -- submit buttons often trigger invisible CAPTCHAs. If found, solve it (the form will auto-submit once the token clears, or you may need to click Submit again). Then check for new tabs (browser_tabs action: "list"). Switch to newest, close old. Snapshot to confirm submission. Look for "thank you" or "application received".
+11. Leave the browser on that final page with the form filled in (don't close the tab or navigate away): the candidate reviews it there.
 12. Output your result.
 
 == RESULT CODES (output EXACTLY one) ==
-RESULT:APPLIED -- submitted successfully
+RESULT:READY -- everything filled in and checked; stopped at the final Submit button for the candidate
 RESULT:EXPIRED -- job closed or no longer accepting applications
 RESULT:CAPTCHA -- blocked by unsolvable captcha
 RESULT:LOGIN_ISSUE -- could not sign in or create account
@@ -604,7 +606,7 @@ RESULT:FAILED:reason -- any other failure (brief reason)
 - Checkbox won't check via fill_form? Use browser_click on it instead. Snapshot to verify.
 - Phone field with country prefix: just type digits {phone_digits}
 - Date fields: {datetime.now().strftime('%d/%m/%Y')} (DD/MM/YYYY) unless the placeholder shows another format
-- Validation errors after submit? Take BOTH snapshot AND screenshot. Snapshot shows text errors, screenshot shows red-highlighted fields. Fix all, retry.
+- Validation errors after Next/Continue? Take BOTH snapshot AND screenshot. Snapshot shows text errors, screenshot shows red-highlighted fields. Fix all, retry.
 - Honeypot fields (hidden, "leave blank"): skip them.
 - Format-sensitive fields: read the placeholder text, match it exactly.
 

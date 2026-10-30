@@ -9,7 +9,7 @@ jobapplier is a fork of [ApplyPilot](https://github.com/Pickle-Pixel/ApplyPilot)
 What's different from the original:
 
 - **Free.** Every AI step runs on your own Google Gemini key (`gemini-3.5-flash-lite`, free tier). Form-filling uses a local browser; there's no paid Claude Code subscription, though that engine is still available. Prefer a paid model? Use your own OpenAI or Anthropic (Claude) API key instead, and Codex can drive the browser like Claude Code.
-- **You submit.** The app fills in the form and stops. Submit/Apply buttons are outlined in red, and you review and click them yourself. (If you'd rather it submitted for you, Claude Code or Codex can be switched on in Setup, after a confirmation.)
+- **You submit.** The app fills in the form and stops. Submit/Apply buttons are outlined in red, and you review and click them yourself. That holds for every engine, including Claude Code and Codex.
 - **Private.** Your name, contact details, address and ID numbers are sent to the AI only as placeholders and filled in locally.
 - **Australian job sources.** Indeed Australia, LinkedIn and Jora, filtered to your city and state. Jora ads open the employer's own application form.
 - **One application per role.** The same job on several boards is detected, and you apply once.
@@ -69,7 +69,7 @@ The web UI has three tabs, plus a **Guide** tab: a step-by-step user guide insid
 - **Log in to sites** (under Browser) opens the app's browser as a normal window so you can sign in to Google, LinkedIn and SEEK. Google blocks sign-in in the automated window; close this one when you're done and the app stays logged in.
 - **Saved answers** lists the screening answers the app has remembered (yours win over the AI's); delete any you don't want reused.
 - **Daily request limit** (under the Gemini key) sets the free-tier limit and how many requests to keep for applying. The header shows how many are left today.
-- **How to apply** chooses the engine. The default fills each form and waits for you to submit. **Claude Code** or **Codex** apply and submit by themselves; they need that CLI installed and signed in (Setup shows the one-line install command) and ask you to confirm before switching.
+- **How to apply** chooses the engine. The default fills each form and waits for you to submit. **Claude Code** or **Codex** fill in whole applications by themselves (accounts and all) and stop for you to submit; they need that CLI installed and signed in (Setup shows the one-line install command) and ask you to confirm before switching.
 
 **2. Find jobs**
 - Press **Run**. It searches the job boards, scores each job against your resume, and writes a tailored resume and cover letter for the good matches, with a live log.
@@ -110,7 +110,7 @@ Everything is stored on your computer in `~/.applypilot/`.
 | **Tailor + cover letter** | For each good match (score ≥ 7), rewrites your resume and writes a short, specific cover letter in one request, in Australian English, using the ad's own words for skills you have. Code checks every title, skill, tool, number, employer and qualification against your real resume (fixing or rejecting what doesn't match), then an AI fact-check reads it | Usually 2 per job |
 | **PDF** | A4, one-column, ATS-friendly resume (location and work rights in the header, title, employer and dates on one line) and a plain business-letter cover letter | None |
 | **ATS check** | Scores each tailored resume for parsing (including reading the PDF back), Australian knockout facts (work rights, location), the ad's keywords (another form of a term counts half) and spelling | None |
-| **Apply** | Fills the form in a visible browser and waits for you to submit. Known fields and saved answers need no AI; Greenhouse, Lever and SEEK forms get site-specific handling. Or, if you choose, Claude Code or Codex apply and submit by themselves | 0–1 per form page |
+| **Apply** | Fills the form in a visible browser and waits for you to submit. Known fields and saved answers need no AI; Greenhouse, Lever and SEEK forms get site-specific handling. Or, if you choose, Claude Code or Codex fill in whole applications by themselves; you still submit | 0–1 per form page |
 
 **AI provider:** Google Gemini by default (free); Setup can switch every step to your own paid OpenAI or Anthropic (Claude) API key instead, with no daily limit in the app. Free-tier limits are per **request per day**: `gemini-3.5-flash-lite` allows about 500. A typical day of about 200 jobs found, about 20 good matches and about 10 applications uses roughly 80–100. Every request is counted (by US Pacific day, when Google resets the quota): finding and preparing jobs stops cleanly when only the apply reserve (50 by default) is left, and picks up where it left off the next day. [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) lists what's been done to cut usage.
 
