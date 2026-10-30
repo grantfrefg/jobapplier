@@ -21,8 +21,8 @@ If you don't have Google Chrome or Microsoft Edge, press
 
 ApplyPilot fills in job applications in a browser window, but it never
 clicks Submit. You check the form and press Submit yourself.
-(Setup can switch to Claude Code or Codex, which do submit by themselves;
-it asks you to confirm first.)
+(Setup can switch to Claude Code or Codex, which fill in the whole
+application by themselves; they also stop for you to submit.)
 
 To close it: press "Quit" at the top right of the ApplyPilot page.
 Your data is stored in your home folder, in .applypilot

@@ -2,7 +2,7 @@
 
 A double-click app for Windows and Mac, so friends can use ApplyPilot without installing Python or using a terminal. It's the same web UI, in **friend mode**:
 
-- **You submit, by default.** Forms are filled in and the user clicks Submit. Claude Code or Codex (which submit by themselves) can be chosen in Setup after a confirmation; the app only honours an engine confirmed there (`AGENT_ENGINE_CONFIRMED`), not one left in a copied `.env`.
+- **You submit, always.** Forms are filled in and the user clicks Submit. Claude Code or Codex (which fill in whole applications by themselves, then stop for the user to submit) can be chosen in Setup after a confirmation; the app only honours an engine confirmed there (`AGENT_ENGINE_CONFIRMED`), not one left in a copied `.env`.
 - **Simpler Setup page.** AI key (Gemini free, or the user's own OpenAI / Anthropic key), browser, resume, job search and profile.
 - **Finds installed tools.** A double-clicked app doesn't get the terminal's PATH, so it also looks for `claude`, `codex` and `npx` in their usual install folders (npm, Homebrew, `~/.local/bin`, nvm; `%APPDATA%\npm` on Windows).
 - **Starts and stops itself.** Double-clicking opens the page; opening it again just reopens the page. **Quit** in the page closes the app, and it also exits after 30 idle minutes.

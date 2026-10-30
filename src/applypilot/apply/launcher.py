@@ -499,7 +499,7 @@ def _outcome(output: str, job: dict, worker_id: int, start: float, agent: str) -
     def _clean_reason(s: str) -> str:
         return re.sub(r'[*`"]+$', '', s).strip()
 
-    for result_status in ["APPLIED", "EXPIRED", "CAPTCHA", "LOGIN_ISSUE"]:
+    for result_status in ["READY", "APPLIED", "EXPIRED", "CAPTCHA", "LOGIN_ISSUE"]:
         if f"RESULT:{result_status}" in output:
             add_event(f"[W{worker_id}] {result_status} ({elapsed}s): {job['title'][:30]}")
             update_state(worker_id, status=result_status.lower(),
@@ -685,9 +685,46 @@ def _is_permanent_failure(result: str) -> bool:
     )
 
 
+REVIEW_TIMEOUT = 3600  # seconds the filled-in form stays open for you to check and submit
+
+
+def wait_for_review(port: int, worker_id: int = 0, timeout: int = REVIEW_TIMEOUT) -> None:
+    """Keep the agent's Chrome open until you close its window (or the timeout).
+
+    Claude Code and Codex stop at the final Submit button; you check the form and
+    submit it yourself. Watches Chrome's debugging port, since closing the last
+    window doesn't quit Chrome on a Mac.
+    """
+    import urllib.request
+    msg = ("Ready for you: the application is filled in, in the Chrome window that's open. Check every page, "
+           "click Submit yourself if you're happy, then close that window. Then press Mark applied on the Apply "
+           "tab (or `applypilot apply --mark-applied URL`).")
+    add_event(f"[W{worker_id}] Ready: check and submit it yourself, then close the window")
+    update_state(worker_id, status="waiting", last_action="waiting for you to submit")
+    logger.info(msg)
+    print(msg, flush=True)
+    end = time.time() + timeout
+    while time.time() < end and not _stop_event.is_set():
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/json", timeout=3) as resp:
+                targets = json.loads(resp.read().decode("utf-8"))
+        except (OSError, ValueError):
+            return  # Chrome quit
+        if not [t for t in targets if t.get("type") == "page" and not str(t.get("url", "")).startswith(
+                ("chrome://", "devtools://", "edge://"))]:
+            return  # every window closed
+        if _stop_event.wait(timeout=2):
+            return
+    logger.info("Stopped waiting after %d minutes; the job is saved for later.", timeout // 60)
+
+
 def record_result(job: dict, result: str, duration_ms: int | None = None) -> None:
     """Persist a run_job result (anything but 'skipped') to the database."""
-    if result == "manual":
+    if result == "ready":
+        # Claude Code / Codex filled it in and stopped before Submit: you submit it
+        mark_result(job["url"], "manual", "filled in by the agent: check it, submit it yourself, then Mark applied",
+                    duration_ms=duration_ms)
+    elif result == "manual":
         # Local engine: user reviewed but did not submit — park it
         # so the queue moves on (--reset-failed brings it back).
         mark_result(job["url"], "manual", "left for manual submission",
@@ -772,11 +809,14 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
                 add_event(f"[W{worker_id}] Skipped: {job['title'][:30]}")
                 continue
             record_result(job, result, duration_ms)
+            if result == "ready" and chrome_proc and not headless:
+                # Recorded first, so stopping the run while you're checking loses nothing
+                wait_for_review(port, worker_id)  # you check and submit in the open window
             if result == "applied":
                 applied += 1
                 update_state(worker_id, jobs_applied=applied,
                              jobs_done=applied + failed)
-            elif result != "manual":
+            elif result not in ("manual", "ready"):
                 failed += 1
                 update_state(worker_id, jobs_failed=failed,
                              jobs_done=applied + failed)

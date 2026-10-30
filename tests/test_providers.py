@@ -167,8 +167,8 @@ def _fake_codex(tmp_path, events, last_message):
     ([{"type": "thread.started"},
       {"type": "item.started", "item": {"type": "mcp_tool_call", "tool": "browser_navigate",
                                         "arguments": {"url": "https://jobs.example/apply"}}},
-      {"type": "item.completed", "item": {"type": "agent_message", "text": "Filled and submitted."}}],
-     "RESULT:APPLIED", "applied"),
+      {"type": "item.completed", "item": {"type": "agent_message", "text": "Filled in; stopped at Submit."}}],
+     "RESULT:READY", "ready"),
     ([{"type": "error", "message": "Reconnecting... 2/5 (unexpected status 401 Unauthorized)"},
       {"type": "turn.failed", "error": {"message": "unexpected status 401 Unauthorized"}}],
      "", "failed:codex_not_signed_in"),
@@ -184,7 +184,7 @@ def test_codex_run(tmp_path, monkeypatch, events, last, expected):
     job = {"url": "https://jobs.example/1", "title": "Engineer", "site": "linkedin"}
     status, _ = launcher._run_codex(job, port=9222, worker_id=0, dry_run=False)
     assert status == expected
-    if expected == "applied":
+    if expected == "ready":
         log = (tmp_path / "worker-0.log").read_text()
         assert ">> navigate https://jobs.example/apply" in log and "Reconnecting" not in log
 
@@ -234,10 +234,110 @@ def test_desktop_starts_on_the_engine_where_you_submit(desktop_client):
 def test_desktop_agent_engine_needs_confirming_then_sticks(desktop_client):
     client = desktop_client()
     r = client.post("/api/settings", json={"EXECUTION_ENGINE": "codex"})
-    assert r.status_code == 400 and "submits applications" in r.json()["detail"]
+    assert r.status_code == 400 and "fills in applications by itself" in r.json()["detail"]
     assert client.get("/api/status").json()["engine"] == "local_playwright"
     assert client.post("/api/settings", json={"EXECUTION_ENGINE": "codex", "confirm_agent": True}).status_code == 200
     assert "AGENT_ENGINE_CONFIRMED=1" in config.ENV_PATH.read_text()
     assert desktop_client().get("/api/status").json()["engine"] == "codex"  # after a restart too
     client.post("/api/settings", json={"EXECUTION_ENGINE": "local_playwright"})  # switching back needs no confirm
     assert client.get("/api/status").json()["engine"] == "local_playwright"
+
+
+def _openai_client(monkeypatch, responses):
+    """An OpenAI LLMClient whose HTTP calls return `responses` in turn; records sleeps."""
+    import httpx
+    calls, sleeps = [], []
+
+    def handler(request):
+        calls.append(request)
+        return responses[min(len(calls), len(responses)) - 1]
+    client = llm.LLMClient("https://api.openai.com/v1", "gpt-5-mini", "sk-test")
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(llm.time, "sleep", sleeps.append)
+    return client, calls, sleeps
+
+
+def test_openai_without_credit_stops_at_once_with_the_reason(monkeypatch, caplog):
+    """A new OpenAI key with no credit answers 429 insufficient_quota: not a rate limit to wait out."""
+    import httpx
+
+    from applypilot import budget
+    body = {"error": {"message": "You exceeded your current quota, please check your plan and billing details.",
+                      "type": "insufficient_quota", "code": "insufficient_quota"}}
+    client, calls, sleeps = _openai_client(monkeypatch, [httpx.Response(429, json=body)])
+    with pytest.raises(budget.BudgetExhausted, match="no credit left") as err:
+        client.chat([{"role": "user", "content": "hi"}])
+    assert "platform.openai.com/settings/organization/billing" in str(err.value)
+    assert len(calls) == 1 and sleeps == []
+    assert "Gemini" not in caplog.text
+
+
+def test_openai_rate_limit_waits_for_its_reset_and_names_openai(monkeypatch, caplog):
+    import logging
+
+    import httpx
+    limited = httpx.Response(429, headers={"x-ratelimit-reset-requests": "1.5s", "x-ratelimit-reset-tokens": "6m0s"},
+                             json={"error": {"message": "Rate limit reached for gpt-5-mini", "type": "requests",
+                                             "code": "rate_limit_exceeded"}})
+    ok = httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
+    client, calls, sleeps = _openai_client(monkeypatch, [limited, ok])
+    with caplog.at_level(logging.WARNING):
+        assert client.chat([{"role": "user", "content": "hi"}]) == "OK"
+    assert sleeps == [60] and len(calls) == 2  # the longer reset (6 minutes), capped at a minute
+    assert "OpenAI rate limit (HTTP 429)" in caplog.text and "Gemini" not in caplog.text
+    assert llm._duration_seconds("20ms") == 0.02 and llm._duration_seconds("2") == 2.0
+    assert llm._duration_seconds("1m30s") == 90 and llm._duration_seconds("soon") is None
+
+
+# --- Claude Code / Codex never click the final Submit --------------------------------
+
+def test_agent_prompt_stops_before_the_final_submit(monkeypatch, tmp_path):
+    from applypilot.apply import prompt as apply_prompt
+    profile = {"personal": {"full_name": "Jane Doe", "email": "jane@example.com", "phone": "0412 345 678",
+                            "city": "Sydney", "province_state": "NSW", "password": ""},
+               "work_authorization": {"legally_authorized_to_work": "Yes", "require_sponsorship": "No"},
+               "compensation": {"salary_expectation": "120000", "salary_range_min": "110000"},
+               "experience": {}, "availability": {}, "eeo_voluntary": {}}
+    monkeypatch.setattr(config, "load_profile", lambda: profile)
+    monkeypatch.setattr(config, "load_search_config", lambda: {})
+    resume = tmp_path / "r.txt"
+    resume.write_text("Jane Doe", encoding="utf-8")
+    resume.with_suffix(".pdf").write_bytes(b"%PDF-1.4")
+    job = {"url": "https://jobs.example/1", "title": "Engineer", "site": "linkedin", "fit_score": 8,
+           "application_url": "https://jobs.example/apply", "tailored_resume_path": str(resume)}
+    text = apply_prompt.build_prompt(job=job, tailored_resume="Jane Doe")
+    assert "NEVER click the final Submit" in text and "RESULT:READY" in text
+    assert "RESULT:APPLIED" not in text and "send_email" not in text  # not even an emailed application
+    assert "The Apply button that opens the form" in text  # opening the form is still fine
+
+
+def test_ready_waits_for_you_then_is_saved_for_later(monkeypatch):
+    import io
+    import json as json_mod
+
+    from applypilot import database
+    from applypilot.apply import launcher
+    pages = [[{"type": "page", "url": "https://jobs.example/apply/review"}],
+             [{"type": "page", "url": "https://jobs.example/apply/review"}, {"type": "service_worker"}],
+             [{"type": "page", "url": "chrome://newtab/"}]]  # you closed the application window
+    seen = []
+
+    def urlopen(url, timeout=0):
+        seen.append(url)
+        return io.BytesIO(json_mod.dumps(pages[min(len(seen), len(pages)) - 1]).encode())
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+    monkeypatch.setattr(launcher._stop_event, "wait", lambda timeout=None: False)
+    launcher.wait_for_review(9333)
+    assert len(seen) == 3 and seen[0] == "http://127.0.0.1:9333/json"
+
+    def gone(url, timeout=0):
+        raise ConnectionRefusedError
+    monkeypatch.setattr("urllib.request.urlopen", gone)
+    launcher.wait_for_review(9333)  # Chrome quit: returns at once
+
+    conn = database.init_db()
+    conn.execute("INSERT INTO jobs (url, title, site) VALUES ('https://jobs.example/1', 'Engineer', 'linkedin')")
+    conn.commit()
+    launcher.record_result({"url": "https://jobs.example/1"}, "ready", 1000)
+    status, note, applied = conn.execute("SELECT apply_status, apply_error, applied_at FROM jobs").fetchone()
+    assert status == "manual" and "submit it yourself" in note and applied is None

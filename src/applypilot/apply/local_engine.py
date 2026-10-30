@@ -892,7 +892,7 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
 
     # Ticked boxes and already-chosen options need nothing from the AI
     if not any(not (f["type"] == "checkbox" and f.get("checked")) for f in remaining):
-        lf.write("  nothing left for Gemini on this page\n")
+        lf.write("  nothing left for the AI on this page\n")
         return controls, frame_by_id, notes
 
     remaining = [{**f, "context": redact(f["context"], ctx["local_values"])} if f.get("context") else f

@@ -148,12 +148,14 @@
           OpenAI / Claude key (below). Personal details stay on this computer.</small></span></label>
       <label class="choice"><input type="radio" name="engine" value="claude_code">
         <span><b>Paid: Claude Code</b>
-        <small>Fully automatic and submits for you. Needs the Claude Code CLI (signed in), Chrome or Edge, and
+        <small>Fills in the whole application by itself (including employer account sign-ups), then stops at the
+          final Submit for you to check and send. Needs the Claude Code CLI (signed in), Chrome or Edge, and
           Node.js.</small></span></label>
       <label class="choice"><input type="radio" name="engine" value="codex">
         <span><b>Paid: Codex (ChatGPT)</b>
-        <small>Like Claude Code, but OpenAI's Codex CLI drives the browser, and it also submits for you. Needs the
-          Codex CLI (signed in with your ChatGPT plan or an OpenAI key), Chrome or Edge, and Node.js.</small></span></label>
+        <small>Like Claude Code, but OpenAI's Codex CLI drives the browser; it also stops at the final Submit for
+          you. Needs the Codex CLI (signed in with your ChatGPT plan or an OpenAI key), Chrome or Edge, and
+          Node.js.</small></span></label>
       <p class="muted" id="agent-help" style="display:none">Install once in a terminal: Node.js from nodejs.org, then
         <code id="agent-install"></code>. The checklist on the left shows when ApplyPilot can find it. Applications
         then run from the Apply tab and show in the Find jobs log.</p>
@@ -520,7 +522,7 @@
         <dt>Using your own resume or cover letter</dt>
         <dd>Under a job's documents, <b>use my own resume</b> or <b>use my own cover letter</b> lets you pick a PDF
           or Word file you wrote yourself. <b>Apply</b> then uploads yours instead of the generated one (you can
-          mix, e.g. your resume with the generated letter). A job with your own resume isn't sent to Gemini for
+          mix, e.g. your resume with the generated letter). A job with your own resume isn't sent to the AI for
           tailoring, and its ATS score checks your file. It also works for a job whose drafts were rejected: give
           it your resume and it's ready to apply. <b>use generated</b> switches back. Your files are kept in the
           <code>own_documents</code> folder inside <code>.applypilot</code>.</dd>
@@ -611,7 +613,7 @@
       <li><b>Fills in the application form</b> in a browser window you can watch, uploads your documents, and stops
         so you can check everything and press <b>Submit</b> yourself.</li>
     </ol>
-    <p class="note">With the default engine ApplyPilot never presses Submit: every application is sent by you. You can
+    <p class="note">ApplyPilot never presses the final Submit, whichever engine you use: every application is sent by you. You can
       also skip the form-filling completely and just use the documents (see <a href="#g-yourself">Applying yourself
       instead</a>).</p>
 
@@ -621,8 +623,9 @@
       <li><b>AI key.</b> Under <i>AI for scoring, resumes and form answers</i>, choose a provider. Google Gemini is free:
         click <i>get one free</i>, sign in with a Google account, create a key and paste it. OpenAI (ChatGPT) or
         Anthropic (Claude) work too with your own paid key. Press <b>Save</b>, then <b>Test key</b>.</li>
-      <li><b>How to apply.</b> Leave <b>Browser engine: you submit</b> selected unless you want a paid tool to apply
-        and submit for you (Claude Code or Codex; they ask you to confirm first).</li>
+      <li><b>How to apply.</b> Leave <b>Browser engine: you submit</b> selected unless you'd rather a paid tool
+        (Claude Code or Codex) did the form-filling by itself, accounts and all. They also stop at the final Submit
+        for you to check and send; they ask you to confirm first.</li>
       <li><b>Browser.</b> Press <b>Test browser</b>. If no browser is found, press <b>Install browser</b> (about
         150 MB, once). Then press <b>Log in to sites</b> and sign in to Google, LinkedIn and SEEK in the window that
         opens, and close it. The app stays logged in afterwards.</li>
@@ -760,6 +763,10 @@
       <li>Back in the app, press <b>I submitted it</b>. <b>Not yet: save for later</b> keeps the job ready;
         <b>Never apply to this job</b> removes it.</li>
     </ol>
+    <p><b>With Claude Code or Codex:</b> press <b>Apply</b> and the agent fills in the application in its own Chrome
+      window, page by page, then stops at the final Submit. When the Find jobs log says it's ready, check every page
+      in that window, click Submit yourself, close the window, and press <b>Mark applied</b> on the job. The job
+      shows as <i>Saved for later</i> until you do.</p>
     <p><b>Employer accounts:</b> Workday, PageUp, iCIMS and similar sites need an account with each employer. The app
       types your email but never a password: sign up or sign in in the browser, then <b>Fill this page again</b>.
       For "Sign in with Google", use <b>Log in</b> on the job first.</p>
@@ -894,6 +901,14 @@
       <dt>The browser doesn't open, or opens and closes</dt>
       <dd>Setup → Browser → <b>Test browser</b>; if that fails, <b>Install browser</b>. Close the <i>Log in to
         sites</i> window first: they share one browser profile.</dd>
+      <dt>"no credit left" with OpenAI or Claude</dt>
+      <dd>The API account has no credit (OpenAI calls it <i>insufficient_quota</i>). API keys are billed separately
+        from a ChatGPT or Claude subscription: add a payment method or prepaid credit at
+        platform.openai.com/settings/organization/billing or console.anthropic.com/settings/billing, then press
+        <b>Test key</b> in Setup. The run stops instead of retrying, and picks up where it left off next time.</dd>
+      <dt>"OpenAI rate limit" or "Claude rate limit" in the log</dt>
+      <dd>New paid accounts start with low per-minute limits that rise as you spend. The app waits and retries by
+        itself; if it keeps happening, run fewer jobs at a time or wait a few minutes.</dd>
       <dt>"Daily Gemini budget used up"</dt>
       <dd>Today's free requests are gone. The remaining jobs wait until it resets, or switch to a paid key.</dd>
       <dt>An application filled something wrong</dt>
@@ -1040,9 +1055,10 @@ $("#save-settings").addEventListener("click", () => {
   const engine = ($("input[name=engine]:checked") || {}).value || "claude_code";
   let confirmAgent = false;
   if ((engine === "claude_code" || engine === "codex") && status && engine !== status.engine) {
-    confirmAgent = confirm((engine === "codex" ? "Codex" : "Claude Code") + " fills in AND SUBMITS each " +
-      "application by itself: you won't see it before it's sent. Use it only if you're happy with your resume, " +
-      "profile and saved answers.\n\nSwitch to it?");
+    confirmAgent = confirm((engine === "codex" ? "Codex" : "Claude Code") + " drives a Chrome window by itself, " +
+      "fills in each application (signing up for employer accounts where needed, with the password in your " +
+      "profile), and stops at the final Submit. You check everything in that window and submit it yourself. It " +
+      "uses your " + (engine === "codex" ? "ChatGPT plan or OpenAI key" : "Claude subscription") + ".\n\nSwitch to it?");
     if (!confirmAgent) return;
   }
   saveSettings(engine, confirmAgent);
@@ -1658,7 +1674,8 @@ async function startApply(url) {
   await guarded(async () => {
     const r = await post("/api/apply", { url });
     if (r.mode === "claude_code" || r.mode === "codex") {
-      toast((r.mode === "codex" ? "Codex" : "Claude Code") + " is applying. Follow along in the Find jobs log.");
+      toast((r.mode === "codex" ? "Codex" : "Claude Code") + " is filling it in. When the log says it's ready, check " +
+            "the Chrome window, submit it yourself, close the window, then press Mark applied.");
       showTab("find"); pollPipeline();
     } else { pollApply(); }
   });

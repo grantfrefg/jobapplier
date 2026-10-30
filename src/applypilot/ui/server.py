@@ -375,7 +375,7 @@ def create_app() -> FastAPI:
     desktop = config.is_desktop_app()
     if desktop:
         # The desktop app starts on the engine where you click Submit; Claude Code
-        # and Codex (which submit by themselves) are opt-in in Setup.
+        # and Codex (which drive a browser by themselves) are opt-in in Setup.
         saved = _read_env_file()
         if saved.get("EXECUTION_ENGINE") not in config.EXECUTION_ENGINES or (
                 saved["EXECUTION_ENGINE"] in config.AGENT_ENGINES and saved.get("AGENT_ENGINE_CONFIRMED") != "1"):
@@ -483,10 +483,10 @@ def create_app() -> FastAPI:
             if key == "EXECUTION_ENGINE" and value not in config.EXECUTION_ENGINES:
                 raise HTTPException(400, f"EXECUTION_ENGINE must be one of {config.EXECUTION_ENGINES}")
             if key == "EXECUTION_ENGINE" and value in config.AGENT_ENGINES:
-                # Submits by itself: the page asks first and sends confirm_agent
+                # Drives a browser by itself (it still stops at the final Submit): the page asks first
                 if value != config.get_execution_engine() and not body.get("confirm_agent"):
-                    raise HTTPException(400, "Confirm first: this engine submits applications without showing "
-                                             "them to you")
+                    raise HTTPException(400, "Confirm first: this engine fills in applications by itself in its "
+                                             "own browser window")
                 updates["AGENT_ENGINE_CONFIRMED"] = "1"
             if key == "TAILOR_STYLE" and value not in ("", "full", "light"):
                 raise HTTPException(400, "TAILOR_STYLE must be full or light")
