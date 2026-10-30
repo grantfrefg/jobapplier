@@ -130,3 +130,19 @@ def test_pdf_with_no_text_is_flagged(tmp_path):
     assert issues and "no readable text" in issues[0]
     report = ats.check(GOOD, JOB, ORIGINAL, pdf_path=tmp_path / "r.pdf")
     assert report["score"] < ats.check(GOOD, JOB, ORIGINAL)["score"]  # counts against the score
+
+
+def test_watchlist_skills_are_only_fabricated_when_the_resume_lacks_them():
+    from test_writing import GOOD_RESUME, PROFILE
+    resume = copy.deepcopy(GOOD_RESUME)
+    resume["skills"] = {"Languages": "Python, C++, SQL", "Other": "Scalable systems, Trust and safety"}
+    invented = tailor.validate_json_fields(resume, PROFILE, original_text="Python and SQL")
+    assert invented["errors"] == ["Fabricated skill: 'c++'"]  # not "scala" or "rust"
+    real = tailor.validate_json_fields(resume, PROFILE, original_text="Built tools in C++ and Python")
+    assert real["passed"]
+    from_profile = {**PROFILE, "skills_confirmed": True, "skills_boundary": {"languages": ["C++"]}}
+    assert tailor.validate_json_fields(resume, from_profile, original_text="Python")["passed"]
+    resume["skills"] = {"Frontend": "Vue.js, Vue, TypeScript"}
+    assert tailor.validate_json_fields(resume, PROFILE, original_text="Built UIs in VueJS")["passed"]
+    assert tailor.validate_json_fields(resume, PROFILE, original_text="Vue.js and Nuxt")["passed"]
+    assert not tailor.validate_json_fields(resume, PROFILE, original_text="React")["passed"]
