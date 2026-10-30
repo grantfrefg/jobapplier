@@ -58,7 +58,7 @@ jobs:
           ruff check --select E,F,W
           src/applypilot/ui src/applypilot/desktop.py src/applypilot/__main__.py
           src/applypilot/apply/local_engine.py src/applypilot/apply/answers.py src/applypilot/apply/adapters.py src/applypilot/apply/sites.py src/applypilot/apply/login_browser.py src/applypilot/database.py
-          src/applypilot/budget.py src/applypilot/scoring/ats.py src/applypilot/scoring/facts.py src/applypilot/profile_options.py src/applypilot/own_docs.py src/applypilot/llm_anthropic.py src/applypilot/rerun.py src/applypilot/discovery/retry.py src/applypilot/scoring/voice.py
+          src/applypilot/budget.py src/applypilot/scoring/ats.py src/applypilot/scoring/facts.py src/applypilot/profile_options.py src/applypilot/own_docs.py src/applypilot/llm_anthropic.py src/applypilot/rerun.py src/applypilot/discovery/retry.py src/applypilot/scoring/voice.py src/applypilot/llm_cli.py
           packaging tests
 
       - name: Test

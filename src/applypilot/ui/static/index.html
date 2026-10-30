@@ -170,6 +170,8 @@
         <option value="gemini">Google Gemini: free daily allowance</option>
         <option value="openai">OpenAI (ChatGPT): your paid API key</option>
         <option value="anthropic">Anthropic (Claude): your paid API key</option>
+        <option value="codex_cli">ChatGPT subscription (via the Codex CLI): no API key</option>
+        <option value="claude_cli">Claude subscription (via Claude Code): no API key</option>
       </select>
       <p class="muted" id="provider-note"></p>
       <div data-provider="gemini">
@@ -183,6 +185,18 @@
       <div data-provider="anthropic">
         <label for="anthropic">Anthropic API key <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">(create one)</a></label>
         <input type="password" id="anthropic" placeholder="Paste your key" autocomplete="off">
+      </div>
+      <div data-provider="codex_cli">
+        <p class="sub" style="margin:8px 0 0">Each AI step runs the Codex CLI once, as a single-purpose helper with no
+          tools, using the ChatGPT plan it's signed in with. Install once in a terminal:
+          <code>npm install -g @openai/codex</code>, then <code>codex login</code> and sign in with ChatGPT.
+          <span class="sub-cli" data-cli="codex"></span></p>
+      </div>
+      <div data-provider="claude_cli">
+        <p class="sub" style="margin:8px 0 0">Each AI step runs Claude Code once, as a single-purpose helper with no
+          tools, using the Claude plan it's signed in with. Install once in a terminal:
+          <code>npm install -g @anthropic-ai/claude-code</code>, then run <code>claude</code> and type
+          <code>/login</code>. <span class="sub-cli" data-cli="claude"></span></p>
       </div>
       <label for="model">Model (optional)</label>
       <input type="text" id="model" placeholder="gemini-3.5-flash-lite">
@@ -622,7 +636,9 @@
     <ol>
       <li><b>AI key.</b> Under <i>AI for scoring, resumes and form answers</i>, choose a provider. Google Gemini is free:
         click <i>get one free</i>, sign in with a Google account, create a key and paste it. OpenAI (ChatGPT) or
-        Anthropic (Claude) work too with your own paid key. Press <b>Save</b>, then <b>Test key</b>.</li>
+        Anthropic (Claude) work too with your own paid API key. Already pay for ChatGPT or Claude? Choose
+        <i>ChatGPT subscription</i> or <i>Claude subscription</i> instead: no key needed, just their command-line tool
+        installed and signed in (Setup shows the two commands). Press <b>Save</b>, then <b>Test key</b>.</li>
       <li><b>How to apply.</b> Leave <b>Browser engine: you submit</b> selected unless you'd rather a paid tool
         (Claude Code or Codex) did the form-filling by itself, accounts and all. They also stop at the final Submit
         for you to check and send; they ask you to confirm first.</li>
@@ -853,6 +869,12 @@
     <p>Gemini's free tier has a daily allowance (the badge at the top shows today's use). It resets at midnight US
       Pacific time, late afternoon or evening in Australia, and some is always kept for applying. With your own
       OpenAI or Claude key, requests are billed to that account instead.</p>
+    <p><b>With your ChatGPT or Claude subscription</b> there's no bill per request: each AI step runs that company's
+      command-line tool once (Codex or Claude Code) as a single-purpose helper with no tools, signed in with your
+      plan. It counts towards your plan's usage limits, so a big batch of tailoring can use a few hours of your
+      allowance, and each step takes a few seconds longer than with an API key. If the limit is reached, the run stops
+      and the rest waits for the next one. It's your own tool on your own computer, but check your plan's terms
+      before relying on it heavily.</p>
 
     <h3 id="g-files">Where your files are</h3>
     <ul>
@@ -982,6 +1004,7 @@ document.addEventListener("click", (e) => {
 async function refreshStatus() {
   try { status = await api("/api/status"); } catch { return; }
   showFailedSearches(status.discover_failed || { searches: 0, boards: [] });
+  showSubscriptionCli();
   const local = status.engine === "local_playwright";
   const eb = $("#engine-badge");
   eb.textContent = local ? "Browser engine (" + (status.provider_name || "no AI key") + ", " + status.local_model + ")"
@@ -1012,7 +1035,8 @@ async function refreshStatus() {
 
   const c = status.checks;
   const items = [
-    ["AI key saved", c.llm_key],
+    [status.provider && status.provider.endsWith("_cli") ? "AI ready (" + status.provider_name + ")" : "AI key saved",
+     c.llm_key],
     ["Resume text", c.resume_txt],
     ["Resume PDF", c.resume_pdf],
     ["Profile", c.profile],
@@ -1082,12 +1106,29 @@ const PROVIDER_INFO = {
            "Roughly 2 requests per tailored job."],
   anthropic: ["claude-opus-5-5", "Uses your Anthropic API credit (pay per use; separate from a Claude subscription). " +
               "Defaults to Claude Opus 5.5; claude-sonnet-5-5 or claude-haiku-5-5 cost less per job."],
+  codex_cli: ["Codex's own default", "No API key or bill: uses your ChatGPT plan, so it shares that plan's usage " +
+              "limits (a big batch can use a few hours' worth), and each step takes a few seconds longer. When the " +
+              "limit is reached, the run stops and the rest waits for next time."],
+  claude_cli: ["Claude Code's own default", "No API key or bill: uses your Claude plan, so it shares that plan's " +
+               "usage limits (a big batch can use a few hours' worth), and each step takes a few seconds longer. " +
+               "When the limit is reached, the run stops and the rest waits for next time."],
 };
 function showProvider() {
   const p = $("#provider").value;
   $$("[data-provider]").forEach((n) => (n.style.display = n.dataset.provider === p ? "" : "none"));
-  $("#model").placeholder = PROVIDER_INFO[p][0] + " (default)";
+  $("#model").placeholder = PROVIDER_INFO[p][0] + (p.endsWith("_cli") ? "" : " (default)");
+  showSubscriptionCli();
   $("#provider-note").textContent = PROVIDER_INFO[p][1];
+}
+// Whether the CLI a subscription needs is installed (status.checks.codex_cli / claude_cli)
+function showSubscriptionCli() {
+  if (!status) return;
+  $$(".sub-cli").forEach((n) => {
+    const found = status.checks[n.dataset.cli + "_cli"];
+    n.textContent = found ? "Found it on this computer. Save, then press Test key."
+                          : "Not found yet: install it, then reopen this page.";
+    n.style.color = found ? "var(--ok)" : "var(--warn)";
+  });
 }
 function showEngine() {
   const e = ($("input[name=engine]:checked") || {}).value;
@@ -1101,7 +1142,10 @@ $$("input[name=engine]").forEach((r) => r.addEventListener("change", showEngine)
 
 $("#test-ai").addEventListener("click", async (e) => {
   e.target.disabled = true;
-  try { const r = await post("/api/settings/test-ai"); toast(r.provider_name + " key works (" + r.model + ")"); }
+  try {
+    const r = await post("/api/settings/test-ai");
+    toast(r.provider_name + (r.provider.endsWith("_cli") ? " works (" : " key works (") + (r.model || "default model") + ")");
+  }
   catch (err) { toast(err.message, true); }
   e.target.disabled = false;
 });

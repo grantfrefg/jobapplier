@@ -278,21 +278,32 @@ PROVIDER_GEMINI = "gemini"
 PROVIDER_OPENAI = "openai"
 PROVIDER_ANTHROPIC = "anthropic"
 PROVIDER_LOCAL = "local"
-# provider -> (env var holding its key or URL, default model, display name)
+# Your ChatGPT or Claude plan, through its own CLI signed in on this computer (llm_cli.py)
+PROVIDER_CODEX_CLI = "codex_cli"
+PROVIDER_CLAUDE_CLI = "claude_cli"
+# provider -> (env var holding its key or URL, default model, display name).
+# The subscription providers have no key ("") and default to their CLI's own model ("").
 PROVIDERS = {
     PROVIDER_GEMINI: ("GEMINI_API_KEY", DEFAULT_GEMINI_MODEL, "Google Gemini"),
     PROVIDER_OPENAI: ("OPENAI_API_KEY", "gpt-5-mini", "OpenAI (ChatGPT)"),
     PROVIDER_ANTHROPIC: ("ANTHROPIC_API_KEY", "claude-opus-5-5", "Anthropic (Claude)"),
     PROVIDER_LOCAL: ("LLM_URL", "local-model", "Local model server"),
+    PROVIDER_CODEX_CLI: ("", "", "ChatGPT subscription (via Codex)"),
+    PROVIDER_CLAUDE_CLI: ("", "", "Claude subscription (via Claude Code)"),
 }
+SUBSCRIPTION_CLIS = {PROVIDER_CODEX_CLI: "codex", PROVIDER_CLAUDE_CLI: "claude"}  # provider -> its CLI
 _AUTO_ORDER = (PROVIDER_LOCAL, PROVIDER_GEMINI, PROVIDER_OPENAI, PROVIDER_ANTHROPIC)
 
 
 def get_llm_provider() -> str | None:
-    """The provider to use: LLM_PROVIDER when it's set and has its key, else the
-    first one with a key (a local server URL, then Gemini, OpenAI, Anthropic)."""
+    """The provider to use: LLM_PROVIDER when it's set and has its key (or, for a
+    subscription, its CLI is installed), else the first one with a key (a local server
+    URL, then Gemini, OpenAI, Anthropic). A subscription is only used when chosen."""
     chosen = os.environ.get("LLM_PROVIDER", "").strip().lower()
-    if chosen in PROVIDERS and os.environ.get(PROVIDERS[chosen][0], "").strip():
+    if chosen in SUBSCRIPTION_CLIS:
+        if agent_cli(SUBSCRIPTION_CLIS[chosen]):
+            return chosen
+    elif chosen in PROVIDERS and os.environ.get(PROVIDERS[chosen][0], "").strip():
         return chosen
     for provider in _AUTO_ORDER:
         if os.environ.get(PROVIDERS[provider][0], "").strip():
@@ -301,8 +312,10 @@ def get_llm_provider() -> str | None:
 
 
 def provider_key(provider: str | None) -> str:
-    """The provider's API key (or, for a local server, its URL)."""
-    return os.environ.get(PROVIDERS[provider][0], "").strip() if provider in PROVIDERS else ""
+    """The provider's API key (or, for a local server, its URL; "" for a subscription)."""
+    if provider not in PROVIDERS or not PROVIDERS[provider][0]:
+        return ""
+    return os.environ.get(PROVIDERS[provider][0], "").strip()
 
 
 def _model_fits(provider: str, model: str) -> bool:
@@ -311,8 +324,10 @@ def _model_fits(provider: str, model: str) -> bool:
         return m.startswith("gemini")
     if provider == PROVIDER_ANTHROPIC:
         return m.startswith("claude")
-    if provider == PROVIDER_OPENAI:
+    if provider in (PROVIDER_OPENAI, PROVIDER_CODEX_CLI):
         return not m.startswith(("gemini", "claude"))
+    if provider == PROVIDER_CLAUDE_CLI:
+        return m.startswith("claude") or m in ("opus", "sonnet", "haiku", "fable")
     return True
 
 
@@ -321,6 +336,8 @@ def get_llm_model(provider: str | None = None) -> str:
     (so switching provider never sends a Gemini model name to OpenAI)."""
     provider = provider or get_llm_provider() or PROVIDER_GEMINI
     model = os.environ.get("LLM_MODEL", "").strip()
+    if provider == PROVIDER_CODEX_CLI and not model:
+        model = os.environ.get("CODEX_MODEL", "").strip()  # the Codex apply engine's model setting
     if model and _model_fits(provider, model):
         return model
     return PROVIDERS.get(provider, PROVIDERS[PROVIDER_GEMINI])[1]
@@ -521,8 +538,13 @@ def check_tier(required: int, feature: str) -> None:
 
     missing: list[str] = []
     if required >= 2 and not get_llm_provider():
-        missing.append("AI API key — run [bold]applypilot init[/bold] or set GEMINI_API_KEY, OPENAI_API_KEY "
-                       "or ANTHROPIC_API_KEY")
+        chosen = os.environ.get("LLM_PROVIDER", "").strip().lower()
+        if chosen in SUBSCRIPTION_CLIS:
+            missing.append(f"The {SUBSCRIPTION_CLIS[chosen]} CLI for your subscription — install it and sign in "
+                           "(Setup shows how), or choose another AI in Setup")
+        else:
+            missing.append("AI API key — run [bold]applypilot init[/bold] or set GEMINI_API_KEY, OPENAI_API_KEY "
+                           "or ANTHROPIC_API_KEY")
     if required >= 3 and get_execution_engine() == ENGINE_LOCAL_PLAYWRIGHT:
         if not has_playwright():
             missing.append("Playwright — run [bold]pip install playwright && playwright install chromium[/bold]")
