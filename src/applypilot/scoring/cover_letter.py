@@ -131,7 +131,8 @@ VOICE: IT MUST NOT READ AS AI-WRITTEN (recruiters reject letters that do):
 
 FABRICATION = INSTANT REJECTION (code checks every one of these against the resume):
 - The candidate's real tools are ONLY {skills_str}. Do NOT mention any other tool, even one the job
-  asks for: talk about the closest real work instead.
+  asks for: talk about the closest real work instead. A tool the resume doesn't tie to a job may be
+  named as a skill, never as something used at a particular employer.
 - Do NOT use any number that isn't in the resume.
 - Never call the candidate by a job title they haven't held ("as an AI engineer" for a data
   scientist). Name the job you're applying for only as the role ("the AI Engineer role").

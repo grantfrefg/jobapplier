@@ -44,8 +44,8 @@ GOOD = {
 }
 
 
-def check(resume=None, letter=""):
-    return tailor.check_facts(copy.deepcopy(resume or GOOD), letter, RESUME, PROFILE)
+def check(resume=None, letter="", profile=None):
+    return tailor.check_facts(copy.deepcopy(resume or GOOD), letter, RESUME, profile or PROFILE)
 
 
 def test_clean_resume_passes_and_keeps_an_honest_focus():
@@ -165,3 +165,20 @@ def test_employers_laid_out_the_usual_ways_are_real(line, header_employer):
 def test_part_of_a_longer_name_is_not_an_employer():
     source = facts.Source("Builds on Google Cloud (Vertex AI).\nAcme Corp, Sydney\n")
     assert not source.names_employer("Google") and not source.names_employer("Acme Bank")
+
+
+def test_profile_only_skills_stay_in_the_skills_list():
+    profile = {**PROFILE, "skills_confirmed": True,
+               "skills_boundary": {"tools": ["Kubernetes", "Python", "Stakeholder management", "Leadership"]}}
+    # Python is in the resume, and soft skills aren't tied to a role
+    assert facts.profile_only_skills(RESUME, profile) == ["Kubernetes"]
+    role = {"header": "Senior Data Scientist at Harbourline Retail Group",
+            "subtitle": "Jan 2021 - Present | Python, Kubernetes, PyTorch",
+            "bullets": ["Technical lead for production recommender systems reaching 10 million customers."]}
+    out = check({**GOOD, "skills": {"Tools": "Python, Kubernetes"}, "experience": [role]}, profile=profile)
+    assert out["resume"]["experience"][0]["subtitle"] == "Jan 2021 - Present | Python, PyTorch"
+    assert "Kubernetes" in out["resume"]["skills"]["Tools"]  # still in the skills list
+    assert not any("Kubernetes" in e for e in out["errors"])
+    role["bullets"] = ["Deployed recommender systems on Kubernetes for 10 million customers."]
+    errors = check({**GOOD, "experience": [role]}, profile=profile)["errors"]
+    assert any("names Kubernetes" in e and "SKILLS only" in e for e in errors), errors
