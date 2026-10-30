@@ -8,6 +8,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-30
+
 ### Fixed
 - **"Fabricated skill" for a skill you have.** The tailoring check flagged a fixed list of languages and claims (C++, C#, Rust, Swift, Vue, certifications and others) as invented even when your resume listed them, and found some inside other words ("scala" in "scalable", "rust" in "trust"). It now only flags one that isn't in your resume or your profile's skills, matching whole words (your resume's "VueJS" or "Vue.js" counts for Vue).
 
