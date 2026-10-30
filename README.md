@@ -8,7 +8,7 @@ jobapplier is a fork of [ApplyPilot](https://github.com/Pickle-Pixel/ApplyPilot)
 
 What's different from the original:
 
-- **Free.** Every AI step runs on your own Google Gemini key (`gemini-3.5-flash-lite`, free tier). Form-filling uses a local browser; there's no paid Claude Code subscription, though that engine is still available. Prefer a paid model? Use your own OpenAI or Anthropic (Claude) API key instead, and Codex can drive the browser like Claude Code.
+- **Free.** Every AI step runs on your own Google Gemini key (`gemini-3.5-flash-lite`, free tier). Form-filling uses a local browser; there's no paid Claude Code subscription, though that engine is still available. Prefer a paid model? Use your own OpenAI or Anthropic (Claude) API key instead, or your existing ChatGPT or Claude subscription through its command-line tool (no API key), and Codex can drive the browser like Claude Code.
 - **You submit.** The app fills in the form and stops. Submit/Apply buttons are outlined in red, and you review and click them yourself. That holds for every engine, including Claude Code and Codex.
 - **Private.** Your name, contact details, address and ID numbers are sent to the AI only as placeholders and filled in locally.
 - **Australian job sources.** Indeed Australia, LinkedIn and Jora, filtered to your city and state. Jora ads open the employer's own application form.

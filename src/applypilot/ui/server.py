@@ -442,6 +442,7 @@ def create_app() -> FastAPI:
                 "llm_key": provider is not None,
                 "playwright": config.has_playwright(),
                 "claude_cli": config.agent_cli("claude") is not None,
+                "codex_cli": config.agent_cli("codex") is not None,
                 "agent_cli": config.agent_cli(config.AGENT_ENGINES.get(engine, "claude")) is not None,
                 "browser": bool(config.find_system_browsers()) or config.has_playwright_chromium(),
             },
@@ -509,6 +510,10 @@ def create_app() -> FastAPI:
         from applypilot import llm
         provider = config.get_llm_provider()
         if provider is None:
+            chosen = os.environ.get("LLM_PROVIDER", "").strip().lower()
+            if chosen in config.SUBSCRIPTION_CLIS:
+                raise HTTPException(400, f"The {config.SUBSCRIPTION_CLIS[chosen]} CLI wasn't found on this computer: "
+                                         "install it (see the steps above), then try again")
             raise HTTPException(400, "No AI key saved yet")
         name = config.PROVIDERS[provider][2]
         try:

@@ -44,9 +44,12 @@ def _detect_provider() -> tuple[str, str, str]:
     if provider is None:
         raise RuntimeError(
             "No AI provider configured. Set GEMINI_API_KEY (free), OPENAI_API_KEY, "
-            "ANTHROPIC_API_KEY or LLM_URL (Setup page or .env)."
+            "ANTHROPIC_API_KEY or LLM_URL, or choose your ChatGPT / Claude subscription with its CLI "
+            "installed (Setup page or .env)."
         )
     model = config.get_llm_model(provider)
+    if provider in config.SUBSCRIPTION_CLIS:  # your ChatGPT / Claude plan through its CLI (llm_cli.py)
+        return f"cli:{provider}", model, ""
     if provider == config.PROVIDER_LOCAL:
         return config.provider_key(provider).rstrip("/"), model, os.environ.get("LLM_API_KEY", "")
     return _BASE_URLS[provider], model, config.provider_key(provider)
@@ -127,6 +130,11 @@ class LLMClient:
         if base_url.startswith("https://api.anthropic.com"):
             from applypilot.llm_anthropic import ClaudeChat
             self._claude = ClaudeChat(api_key, model)
+        self._cli = None
+        if base_url.startswith("cli:"):
+            from applypilot.llm_cli import NAMES, SubscriptionChat
+            self._cli = SubscriptionChat(base_url[4:], model)
+            self.provider_name = NAMES[base_url[4:]]
 
     # -- Native Gemini API --------------------------------------------------
 
@@ -258,6 +266,8 @@ class LLMClient:
 
         if self._claude is not None:
             return self._claude.chat(messages, max_tokens=max_tokens, json_mode=json_mode)
+        if self._cli is not None:
+            return self._cli.chat(messages, max_tokens=max_tokens, json_mode=json_mode)
 
         # Pipeline work stops cleanly when the day's Gemini budget is spent
         budget.check(self.model if self._is_gemini else None, budget.PIPELINE)
