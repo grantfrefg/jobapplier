@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from applypilot.config import TAILORED_DIR
+from applypilot.scoring import look
 from applypilot.scoring.context import location_line
 
 log = logging.getLogger(__name__)
@@ -200,37 +201,14 @@ def _entries_html(text: str, job: bool = True) -> str:
     items = ""
     for e in parse_entries(text):
         heading, dates, detail = split_entry(e["title"], e["subtitle"], job)
+        if job and not look.tech_line():
+            detail = ""
         bullets = "".join(f"<li>{_esc(b)}</li>" for b in e["bullets"])
         detail_html = f'<div class="entry-subtitle">{_esc(detail)}</div>' if detail else ""
         items += (f'<div class="entry"><div class="entry-head"><span class="entry-title">{_esc(heading)}</span>'
                   f'<span class="entry-dates">{_esc(dates)}</span></div>{detail_html}'
                   f'{f"<ul>{bullets}</ul>" if bullets else ""}</div>')
     return items
-
-
-_CSS = """
-@page { size: A4; margin: 1.5cm 1.8cm; }
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Calibri', 'Carlito', 'Segoe UI', Arial, sans-serif; font-size: 10.5pt;
-       line-height: 1.35; color: #1a1a1a; }
-a { color: inherit; text-decoration: none; }
-.header { text-align: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1.5px solid #2a7ab5; }
-.name { font-size: 20pt; font-weight: 700; color: #1a3a5c; }
-.title { font-size: 11.5pt; color: #3a6b8c; margin: 1px 0; }
-.location, .contact { font-size: 10pt; color: #444; }
-.section { margin-top: 9px; }
-.section-title { font-size: 11pt; font-weight: 700; color: #1a3a5c; text-transform: uppercase;
-                 letter-spacing: 0.6px; border-bottom: 1px solid #2a7ab5; padding-bottom: 1px; margin-bottom: 4px; }
-.skill-row { margin: 1px 0; }
-.skill-cat { font-weight: 700; color: #1a3a5c; }
-.entry { margin-bottom: 7px; break-inside: avoid; }
-.entry-head { display: flex; justify-content: space-between; gap: 12px; }
-.entry-title { font-weight: 700; color: #1a3a5c; }
-.entry-dates { white-space: nowrap; color: #333; }
-.entry-subtitle { font-size: 10pt; color: #4a6a85; font-style: italic; }
-ul { margin: 2px 0 0 16px; }
-li { margin-bottom: 2px; }
-"""
 
 
 def build_html(resume: dict) -> str:
@@ -258,7 +236,8 @@ def build_html(resume: dict) -> str:
 
     contact = resume["contact"]
     contact_html = " &nbsp;|&nbsp; ".join(_linkify(p.strip()) for p in contact.split("|")) if contact else ""
-    location_html = f'<div class="location">{_esc(resume["location"])}</div>' if resume["location"] else ""
+    location = look.header_details(resume["location"])
+    location_html = f'<div class="location">{_esc(location)}</div>' if location else ""
     name = _esc(resume["name"])
     return f"""<!DOCTYPE html>
 <html lang="en-AU">
@@ -266,12 +245,12 @@ def build_html(resume: dict) -> str:
 <meta charset="utf-8">
 <title>{name} - Resume</title>
 <meta name="author" content="{name}">
-<style>{_CSS}</style>
+<style>{look.resume_css()}</style>
 </head>
 <body>
 <div class="header">
     <div class="name">{name}</div>
-    <div class="title">{_esc(resume['title'])}</div>
+    <div class="title">{_esc(look.plain_title(resume['title']))}</div>
     {location_html}
     <div class="contact">{contact_html}</div>
 </div>

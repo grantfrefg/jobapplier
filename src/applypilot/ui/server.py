@@ -35,7 +35,8 @@ PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
 
 ENV_KEYS = ("EXECUTION_ENGINE", "LLM_PROVIDER", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE",
-            "TAILOR_STYLE")
+            "TAILOR_STYLE", "RESUME_LAYOUT", "RESUME_ACCENT", "RESUME_TAGLINE", "RESUME_TECH_LINE",
+            "SHOW_WORK_RIGHTS")
 NUMBER_KEYS = {"GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE"}
 SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CAPSOLVER_API_KEY"}
 VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
@@ -491,6 +492,12 @@ def create_app() -> FastAPI:
                 updates["AGENT_ENGINE_CONFIRMED"] = "1"
             if key == "TAILOR_STYLE" and value not in ("", "full", "light"):
                 raise HTTPException(400, "TAILOR_STYLE must be full or light")
+            from applypilot.scoring import look
+            allowed = {"RESUME_LAYOUT": tuple(look.LAYOUTS), "RESUME_ACCENT": tuple(look.ACCENTS),
+                       "RESUME_TAGLINE": ("on", "off"), "RESUME_TECH_LINE": ("on", "off"),
+                       "SHOW_WORK_RIGHTS": look.WORK_RIGHTS_MODES}
+            if key in allowed and value and value not in allowed[key]:
+                raise HTTPException(400, f"{key} must be one of {', '.join(allowed[key])}")
             if key == "LLM_PROVIDER" and value and value not in config.PROVIDERS:
                 raise HTTPException(400, f"LLM_PROVIDER must be one of {tuple(config.PROVIDERS)}")
             updates[key] = value
@@ -868,6 +875,21 @@ def create_app() -> FastAPI:
         if not path or not Path(path).exists():
             raise HTTPException(404, "This job has no generated " + ("resume" if kind == "resume" else "cover letter"))
         return Path(path)
+
+    @app.get("/api/resume-preview", response_class=HTMLResponse)
+    def resume_preview() -> str:
+        """Your newest tailored resume (or a sample) in the chosen Resume look."""
+        from applypilot.scoring import look, pdf
+        newest = sorted((p for p in config.TAILORED_DIR.glob("*.txt")
+                         if not p.name.endswith(("_CL.txt", "_JOB.txt", ".edit.txt"))),
+                        key=lambda p: p.stat().st_mtime, reverse=True) if config.TAILORED_DIR.exists() else []
+        text = look.SAMPLE
+        for path in newest[:5]:
+            candidate = path.read_text(encoding="utf-8", errors="replace")
+            if not pdf.is_cover_letter(candidate):
+                text = candidate
+                break
+        return pdf.build_html(pdf.parse_resume(text))
 
     @app.get("/api/jobs/text")
     def job_text(url: str, kind: str = "resume") -> dict:
