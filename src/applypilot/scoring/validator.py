@@ -135,7 +135,8 @@ LLM_LEAK_PHRASES: list[str] = [
     "the following cover letter", "the letter below",
 ]
 
-# Known fabrication markers: completely unrelated tools/languages.
+# Tools and claims the AI likes to add for a job that asks for them. Each is only
+# fabricated when the candidate's resume and profile skills don't have it.
 # Reasonable stretches (K8s, Terraform, Redis, Kafka etc.) are ALLOWED.
 FABRICATION_WATCHLIST: set[str] = {
     # Languages with zero relation to the candidate's stack
@@ -151,6 +152,20 @@ REQUIRED_SECTIONS: set[str] = {"SUMMARY", "TECHNICAL SKILLS", "EXPERIENCE", "PRO
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+def _watch_pattern(term: str) -> re.Pattern:
+    """Whole-word match, so "rust" isn't found in "trust" or "scala" in "scalable"."""
+    end = r"\w*" if term == "certif" else r"(?![\w+#])"
+    return re.compile(r"(?<![\w+#])" + re.escape(term) + end)
+
+
+def fabricated_terms(text: str, original_text: str = "", profile: dict | None = None) -> list[str]:
+    """Watchlist terms in `text` that the resume and the profile's skills don't have."""
+    from applypilot.scoring.facts import profile_skills
+    known = (original_text or "") + "\n" + " ".join(profile_skills(profile or {}))
+    return sorted(t for t in FABRICATION_WATCHLIST
+                  if _watch_pattern(t).search(text) and not _watch_pattern(t).search(known.lower()))
+
 
 def _build_skills_set(profile: dict) -> set[str]:
     """Build the set of allowed skills from the profile's skills_boundary."""
@@ -206,11 +221,8 @@ def validate_json_fields(data: dict, profile: dict, mode: str = "normal", origin
     # Skills: check for fabrication (always enforced)
     if isinstance(data["skills"], dict):
         skills_text = " ".join(str(v) for v in data["skills"].values()).lower()
-        for fake in FABRICATION_WATCHLIST:
-            if len(fake) <= 2:
-                continue
-            if fake in skills_text:
-                errors.append(f"Fabricated skill: '{fake}'")
+        for fake in fabricated_terms(skills_text, original_text, profile):
+            errors.append(f"Fabricated skill: '{fake}'")
 
     # Experience: preserved companies must be present (always enforced)
     resume_facts = profile.get("resume_facts", {})
@@ -349,20 +361,13 @@ def validate_tailored_resume(text: str, profile: dict, original_text: str = "") 
     skills_end = text_lower.find("experience", skills_start) if skills_start != -1 else -1
     if skills_start != -1 and skills_end != -1:
         skills_block = text_lower[skills_start:skills_end]
-        for fake in FABRICATION_WATCHLIST:
-            if len(fake) <= 2:
-                continue
-            if fake in skills_block:
-                errors.append(f"FABRICATED SKILL in Technical Skills: '{fake}'")
+        for fake in fabricated_terms(skills_block, original_text, profile):
+            errors.append(f"FABRICATED SKILL in Technical Skills: '{fake}'")
 
     # 8. Scan full document for fabrication watchlist items not in original
     if original_text:
-        original_lower = original_text.lower()
-        for fake in FABRICATION_WATCHLIST:
-            if len(fake) <= 2:
-                continue
-            if fake in text_lower and fake not in original_lower:
-                warnings.append(f"New tool/skill appeared: '{fake}' (not in original)")
+        for fake in fabricated_terms(text_lower, original_text, profile):
+            warnings.append(f"New tool/skill appeared: '{fake}' (not in original)")
 
     # 9. Em dashes (should be auto-fixed by sanitize_text, but safety net)
     if "\u2014" in text or "\u2013" in text:
