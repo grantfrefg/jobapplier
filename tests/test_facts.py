@@ -144,3 +144,24 @@ def test_confirmed_skills_list_counts_template_examples_as_real():
 def test_describing_words_are_not_job_titles(text, claims):
     source = facts.Source("Software Engineer at Acme\n- Built backend services in Python", [])
     assert facts.role_claims(text, source) == claims
+
+
+@pytest.mark.parametrize("line, header_employer", [
+    ("Acme Corp    Jan 2020 - Present", "Acme Corp"),
+    ("Acme Corp\tSydney NSW", "Acme Corp"),
+    ("Software Engineer - Acme Corp", "Acme Corp"),
+    ("Software Engineer – Acme Corp (2019-2023)", "Acme Corp"),
+    ("Software Engineer | Acme Pty Ltd | 2021 - Present", "Acme"),  # the AI dropped "Pty Ltd"
+    ("Acme, Melbourne", "Acme Pty Ltd"),  # or added it
+    ("ACME CORP Sydney", "Acme Corp"),
+    ("Software Engineer @ Smith & Jones", "Smith and Jones"),
+    ("Analyst at Westpac Group, Feb 2018 – Mar 2020", "Westpac"),
+])
+def test_employers_laid_out_the_usual_ways_are_real(line, header_employer):
+    source = facts.Source(f"Jane Doe\nExperience\n{line}\n- Built things\n")
+    assert source.names_employer(header_employer)
+
+
+def test_part_of_a_longer_name_is_not_an_employer():
+    source = facts.Source("Builds on Google Cloud (Vertex AI).\nAcme Corp, Sydney\n")
+    assert not source.names_employer("Google") and not source.names_employer("Acme Bank")

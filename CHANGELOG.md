@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-30
+
+### Fixed
+- **"Experience header has employer '...', which isn't in the resume" for a real employer.** The check only recognised an employer on its own line or after "at", "|" or a comma. It now also accepts the usual layouts: followed by dates or a place ("Acme Corp    Jan 2020 - Present", "Acme Corp, Sydney NSW"), after a dash, slash or @ ("Engineer - Acme Corp"), with or without "Pty Ltd", "Limited" or "Group", in capitals, and "&" written as "and". A name that's only the start of a longer one ("Google" in "Google Cloud") still isn't an employer.
+
 ## [0.6.1] - 2026-10-30
 
 ### Fixed
