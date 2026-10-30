@@ -155,6 +155,15 @@ def _tokens(text: str) -> list[str]:
     return [_stem(t) for t in re.findall(r"[a-z0-9+#]+(?:[./][a-z0-9+#]+)*", normalize(text)) if t not in _STOP]
 
 
+_SUFFIX_WORDS = r"pty|ltd|limited|inc|llc|plc|corp|corporation|co|company|group|holdings|australia"
+_EMPLOYER_SUFFIX = re.compile(rf"(?:\s*,?\s+(?:{_SUFFIX_WORDS})\.?)+$", re.IGNORECASE)
+# What can follow an employer's name on a resume line: a date, or where it is
+_AFTER_EMPLOYER = (r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\d|present\b|current\b|remote\b|"
+                   r"hybrid\b|sydney|melbourne|brisbane|perth|adelaide|canberra|hobart|darwin|gold coast|"
+                   r"newcastle|wollongong|geelong|(nsw|vic|qld|wa|sa|tas|act|nt|nz|auckland|wellington)\b|"
+                   r"(new south wales|victoria|queensland|western australia|south australia|tasmania)\b")
+
+
 class Source:
     """The real facts: the original resume, plus skills the user listed in their profile."""
 
@@ -178,12 +187,19 @@ class Source:
         return bool(re.search(pattern, self.text)) or any(re.search(pattern, e) for e in self.extra)
 
     def names_employer(self, name: str) -> bool:
-        """The name appears as an employer: on its own line or after "at", not inside a phrase
-        ("Google" in "Google Cloud" isn't an employer)."""
-        n = re.escape(" ".join(name.split()))
-        for line in self.raw.splitlines():
-            line = " ".join(line.split())
-            if re.search(rf"(?:^|\bat |[|·,(]\s*){n}(?:\s*(?:$|[|·,()\-–.;:]|\bat\b))", line, re.IGNORECASE):
+        """The name appears as an employer, not as the start of a longer name ("Google" in
+        "Google Cloud" isn't an employer). It may be followed by a legal suffix ("Pty Ltd"),
+        dates, a place or punctuation, as resumes lay it out ("Acme Corp   Jan 2020 - Present")."""
+        core = _EMPLOYER_SUFFIX.sub("", " ".join(name.split())).strip(" ,.") or name.strip()
+        words = r"\s+".join(re.escape(w) for w in core.replace("&", " and ").split())
+        if not words:
+            return False
+        pattern = re.compile(rf"(?<![\w&]){words}(?![\w&])((?:\s*,?\s+(?:{_SUFFIX_WORDS})\.?)*)(\s*)(\S*)",
+                             re.IGNORECASE)
+        for match in pattern.finditer(self.raw.replace("&", " and ")):
+            gap, after = match.group(2), match.group(3)
+            if (not after or not after[0].isalnum() or "\t" in gap or len(gap) >= 3 or after[0].islower()
+                    or re.match(_AFTER_EMPLOYER, after, re.IGNORECASE)):
                 return True
         return False
 
