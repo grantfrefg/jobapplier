@@ -1286,8 +1286,9 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
 
     gate = gate or _approval_gate
     start = time.time()
-    api_key = config.provider_key(config.get_llm_provider())
-    if not api_key:
+    provider = config.get_llm_provider()
+    api_key = config.provider_key(provider)  # Gemini's key; other providers go through llm.get_client()
+    if provider is None:
         return "failed:no_ai_api_key", 0
 
     profile = config.load_profile()

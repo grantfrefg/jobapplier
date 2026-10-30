@@ -26,7 +26,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `GEMINI_API_KEY` | — | Your Google Gemini key ([get one free](https://aistudio.google.com/apikey)). Check it with **Test key** in Setup |
 | `OPENAI_API_KEY` | — | Your own paid OpenAI API key (default model `gpt-5-mini`) |
 | `ANTHROPIC_API_KEY` | — | Your own paid Anthropic API key, for Claude (default model `claude-opus-5-5`; `claude-sonnet-5-5` or `claude-haiku-5-5` cost less) |
-| `LLM_PROVIDER` | the first with a key | `gemini`, `openai`, `anthropic` or `local`: which AI scores jobs, writes documents and answers forms (Setup → **AI for scoring, resumes and form answers**) |
+| `LLM_PROVIDER` | the first with a key | `gemini`, `openai`, `anthropic` or `local`: which AI scores jobs, writes documents and answers forms (Setup → **AI for scoring, resumes and form answers**). Or `codex_cli` / `claude_cli`: your ChatGPT or Claude subscription through the Codex or Claude Code CLI signed in on this computer (no key; only used when chosen; the model is `LLM_MODEL`, or `CODEX_MODEL` for Codex, else the CLI's default) |
 | `LLM_MODEL` | the provider's default | Model for every AI step; ignored if it isn't one of the chosen provider's models |
 | `EXECUTION_ENGINE` | `claude_code` (`local_playwright` in the desktop app, until you choose and confirm another in Setup) | `local_playwright`: fills forms and **you** click Submit (with any provider above). `claude_code`: paid Claude Code CLI fills everything in by itself, then you submit. `codex`: OpenAI's Codex CLI, the same |
 | `CODEX_MODEL` | Codex's default | Model for the `codex` engine |

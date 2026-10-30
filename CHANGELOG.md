@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-30
+
+### Added
+- **Your ChatGPT or Claude subscription as the AI** (Setup → AI: *ChatGPT subscription (via the Codex CLI)* or *Claude subscription (via Claude Code)*; `LLM_PROVIDER=codex_cli` / `claude_cli`). No API key or bill: each AI step runs the signed-in CLI once as a single-purpose subagent with that step's instructions, no tools, no MCP servers and an empty working folder, and returns the same JSON as an API would. Setup shows whether the CLI is installed and how to sign in, and **Test key** checks it. A plan's usage limit stops the run cleanly; a signed-out CLI says how to sign in. Works for scoring, tailoring, cover letters, the fact-check and the browser engine's form answers.
+
 ## [0.5.3] - 2026-10-30
 
 ### Changed
