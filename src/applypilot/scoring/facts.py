@@ -257,6 +257,30 @@ def source_for(resume_text: str, profile: dict) -> Source:
     return Source(resume_text, profile_skills(profile))
 
 
+# Soft skills can describe any role, so they're never "only in the profile"
+_SOFT = {"leadership", "communication", "teamwork", "team", "problem", "solving", "mentoring", "coaching",
+         "presentation", "negotiation", "time", "organisation", "organization", "attention", "detail",
+         "customer", "service", "planning", "critical", "thinking", "adaptability", "creativity", "writing",
+         "interpersonal", "analytical", "research", "reporting", "budgeting", "training", "sales", "people",
+         "stakeholder", "project", "conflict", "resolution", "decision", "making", "multitasking",
+         "prioritisation", "prioritization", "verbal", "written", "relationship", "building", "self",
+         "motivated", "work", "ethic", "independent", "agile"}
+
+
+def profile_only_skills(resume_text: str, profile: dict) -> list[str]:
+    """Profile skills the resume never mentions: real, but not tied to any role."""
+    resume = Source(resume_text)
+    soft = {_stem(w) for w in _SOFT | GENERIC}
+    return [s for s in profile_skills(profile)
+            if not resume.mentions(s) and not set(_tokens(s)) <= soft]
+
+
+def skills_in(text: str, skills: list[str]) -> list[str]:
+    """Which of these skills the text names (other forms count: "k8s" for Kubernetes)."""
+    found = Source(text)
+    return [s for s in skills if found.mentions(s)]
+
+
 # ── Checks ────────────────────────────────────────────────────────────────
 
 def _split_items(value: str) -> list[str]:

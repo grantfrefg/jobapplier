@@ -115,6 +115,8 @@ facts. Code checks every one of these against the original and rejects the resum
 
 ## SKILLS
 List only skills named in the original resume, plus these extra skills the candidate listed: {skills_block}
+The extra skills go in SKILLS (and may be mentioned in the summary), never in an experience or project
+entry: not in its bullets, not in its "| main tech" line. The resume doesn't say which role used them.
 Never add a tool, language, framework, platform, standard or certification the candidate doesn't name,
 even a closely related or easy-to-learn one. If the job wants something they lack, leave it out and put
 their nearest real experience first.
@@ -249,7 +251,9 @@ supported; or none>"}}
 ## WHAT YOU CHECK AGAINST
 - The ORIGINAL RESUME: every tool, skill, number, title, employer, qualification and achievement in it is
   real and may be used.
-- Plus these extra skills the candidate listed in their profile: {skills_str}
+- Plus these extra skills the candidate listed in their profile: {skills_str}. They are real, in the
+  skills list and the summary; but the resume doesn't say which role used them, so one named inside a
+  role's bullets or tech line, when the original doesn't show it in that role, is rule 3.
 - The JOB AD excerpt is given so you can tell what the letter says about the role or employer. Statements
   about the employer, team, product or role ("your platform team's move to event streaming") are not
   claims about the candidate: never fail them.
@@ -511,6 +515,35 @@ def add_missing_keywords(resume: dict, keywords: list[str], source: "facts.Sourc
     return missing[:8]
 
 
+def _place_profile_skills(resume: dict, profile_only: list[str]) -> list[str]:
+    """Skills only in the profile belong in SKILLS: the resume doesn't say which role used them.
+    Takes them out of each role's tech line; a bullet that names one goes back to the AI."""
+    if not profile_only:
+        return []
+    errors = []
+    for section in ("experience", "projects"):
+        entries = []
+        for entry in resume.get(section) or []:
+            if not isinstance(entry, dict):
+                entries.append(entry)
+                continue
+            entry = dict(entry)
+            dates, sep, tech = str(entry.get("subtitle", "")).partition("|")
+            if sep:
+                kept = [t for t in facts._split_items(tech) if not facts.skills_in(t, profile_only)]
+                entry["subtitle"] = f"{dates.strip()} | {', '.join(kept)}" if kept else dates.strip()
+            named = facts.skills_in(" ".join(map(str, entry.get("bullets") or [])), profile_only)
+            if named:
+                errors.append(f"A bullet under '{entry.get('header', '')}' names {', '.join(named)}, which the "
+                              "resume doesn't show in that role (it's from the profile's skills list). Keep "
+                              f"{'them' if len(named) > 1 else 'it'} in SKILLS only and keep the bullet to "
+                              "what the resume says for that role.")
+            entries.append(entry)
+        if section in resume:
+            resume[section] = entries
+    return errors
+
+
 def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job: dict | None = None) -> dict:
     """Check the AI's resume and letter against the original resume. Fixes what code can fix.
 
@@ -548,6 +581,7 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
         if isinstance(entry, dict):
             for problem in facts.header_problems(str(entry.get("header", "")), source):
                 errors.append(f"Experience header has {problem}, which isn't in the resume. Copy it exactly.")
+    errors += _place_profile_skills(fixed, facts.profile_only_skills(resume_text, profile))
     invented = new_numbers(resume_text, prose)
     if invented:
         errors.append(f"Numbers not in the resume: {', '.join(invented[:5])}. Use only the resume's numbers.")

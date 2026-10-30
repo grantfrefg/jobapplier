@@ -8,6 +8,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Fixed
+- **Extra skills from your profile put into a job they weren't used in.** Skills you list in Your Profile but that your resume doesn't mention were real for the skills list, so the AI also wrote them into a role's bullets or its tech line ("Jan 2021 - Present | Python, Kubernetes"), and the fact-check then rejected the resume. Now they stay in the Skills section (and may be in the summary): they're taken out of each role's tech line automatically, and a bullet that names one goes back to the AI. The cover letter may name them as skills, not as something used at a particular employer. Soft skills (leadership, stakeholder management) aren't affected.
+
 ## [0.6.2] - 2026-10-30
 
 ### Fixed
