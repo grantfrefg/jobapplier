@@ -8,6 +8,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-30
+
 ### Added
 - **Resume look** (Setup): four layouts (Modern, Classic, Compact, Traditional) and six heading colours, with a live preview of your newest resume. All are one column of real text, so ATS read them equally well. **Run a step again → PDF** restyles existing resumes without the AI.
 - **Work rights in the header can be left off.** Automatic by default: citizenship, permanent residency and full work rights are shown; a working holiday, student or other limited visa is left off (a temporary visa with full rights shows as "Full working rights"). Or always / never. Application forms are still answered truthfully from your profile, and the ATS check doesn't ask for work rights you chose to leave off.
