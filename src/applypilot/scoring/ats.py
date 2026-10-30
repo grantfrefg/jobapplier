@@ -113,8 +113,12 @@ def check(resume_text: str, job: dict | None = None, original_text: str = "", pd
         passed.append(f"Length about {max(pages, 1):g} page(s)")
 
     # -- Knockout facts ----------------------------------------------------------
+    from applypilot.scoring import look
     if _WORK_RIGHTS.search(header):
         passed.append("Work rights stated (a hard filter for Australian employers)")
+    elif look.work_rights_left_off():
+        passed.append("Work rights left off the resume (Setup -> Resume look); forms still ask, and the "
+                      "apply step answers them")
     else:
         issues.append("Work rights not stated in the header (e.g. 'Australian Citizen'): employers filter on it."
                       " Set it in Setup -> profile -> work_authorization")
