@@ -153,18 +153,19 @@ REQUIRED_SECTIONS: set[str] = {"SUMMARY", "TECHNICAL SKILLS", "EXPERIENCE", "PRO
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
-def _watch_pattern(term: str) -> re.Pattern:
-    """Whole-word match, so "rust" isn't found in "trust" or "scala" in "scalable"."""
-    end = r"\w*" if term == "certif" else r"(?![\w+#])"
+def _watch_pattern(term: str, word_start: bool = False) -> re.Pattern:
+    """Whole-word match, so "rust" isn't found in "trust" or "scala" in "scalable". With
+    word_start, a word that starts with the term counts too ("VueJS", "Swiftui")."""
+    end = r"\w*" if term == "certif" or word_start else r"(?![\w+#])"
     return re.compile(r"(?<![\w+#])" + re.escape(term) + end)
 
 
 def fabricated_terms(text: str, original_text: str = "", profile: dict | None = None) -> list[str]:
     """Watchlist terms in `text` that the resume and the profile's skills don't have."""
     from applypilot.scoring.facts import profile_skills
-    known = (original_text or "") + "\n" + " ".join(profile_skills(profile or {}))
+    known = ((original_text or "") + "\n" + " ".join(profile_skills(profile or {}))).lower()
     return sorted(t for t in FABRICATION_WATCHLIST
-                  if _watch_pattern(t).search(text) and not _watch_pattern(t).search(known.lower()))
+                  if _watch_pattern(t).search(text) and not _watch_pattern(t, word_start=True).search(known))
 
 
 def _build_skills_set(profile: dict) -> set[str]:
