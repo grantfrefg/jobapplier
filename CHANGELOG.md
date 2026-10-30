@@ -9,7 +9,7 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [Unreleased]
 
 ### Fixed
-- **"Fabricated skill" for a skill you have.** The tailoring check flagged a fixed list of languages and claims (C++, C#, Rust, Swift, certifications and others) as invented even when your resume listed them, and found some inside other words ("scala" in "scalable", "rust" in "trust"). It now only flags one that isn't in your resume or your profile's skills, matching whole words.
+- **"Fabricated skill" for a skill you have.** The tailoring check flagged a fixed list of languages and claims (C++, C#, Rust, Swift, Vue, certifications and others) as invented even when your resume listed them, and found some inside other words ("scala" in "scalable", "rust" in "trust"). It now only flags one that isn't in your resume or your profile's skills, matching whole words (your resume's "VueJS" or "Vue.js" counts for Vue).
 
 ## [0.6.0] - 2026-10-30
 
@@ -157,7 +157,7 @@ tagged v0.4.0.
   - Claude Code engine salary: Australian (base excluding super, 38-hour week, day rates), no fixed US$110K floor.
 - Default model `gemini-3.5-flash-lite` for every stage (was `gemini-2.0-flash`).
 - LLM errors include the provider's message (e.g. "Please pass a valid API key").
-- Location filter shared by all sources, matching whole words. State abbreviations are expanded (NSW → New South Wales).
+- Location filter shared by all sources, matching whole words (your resume's "VueJS" or "Vue.js" counts for Vue). State abbreviations are expanded (NSW → New South Wales).
 - The setup wizard and UI ask for country and city instead of an (unused) search radius.
 
 ### Fixed

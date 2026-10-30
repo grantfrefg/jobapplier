@@ -142,3 +142,7 @@ def test_watchlist_skills_are_only_fabricated_when_the_resume_lacks_them():
     assert real["passed"]
     from_profile = {**PROFILE, "skills_confirmed": True, "skills_boundary": {"languages": ["C++"]}}
     assert tailor.validate_json_fields(resume, from_profile, original_text="Python")["passed"]
+    resume["skills"] = {"Frontend": "Vue.js, Vue, TypeScript"}
+    assert tailor.validate_json_fields(resume, PROFILE, original_text="Built UIs in VueJS")["passed"]
+    assert tailor.validate_json_fields(resume, PROFILE, original_text="Vue.js and Nuxt")["passed"]
+    assert not tailor.validate_json_fields(resume, PROFILE, original_text="React")["passed"]
