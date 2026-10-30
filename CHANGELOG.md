@@ -8,6 +8,12 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-30
+
+### Fixed
+- **OpenAI or Claude without API credit** was retried as if it were a rate limit (OpenAI answers HTTP 429 `insufficient_quota`). The run now stops at once with what to do (add billing or prepaid credit; a ChatGPT or Claude subscription doesn't include API credit), and **Test key** says so straight away.
+- **Rate-limit messages named Gemini whatever the provider.** They now name the provider in use with a tip for it, and wait as long as OpenAI's reset headers say (up to a minute). Claude's rate limit after the SDK's retries gets a plain message too. The apply log no longer says "Gemini" for other providers.
+
 ## [0.5.2] - 2026-10-29
 
 ### Added

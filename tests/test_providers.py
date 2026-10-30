@@ -241,3 +241,49 @@ def test_desktop_agent_engine_needs_confirming_then_sticks(desktop_client):
     assert desktop_client().get("/api/status").json()["engine"] == "codex"  # after a restart too
     client.post("/api/settings", json={"EXECUTION_ENGINE": "local_playwright"})  # switching back needs no confirm
     assert client.get("/api/status").json()["engine"] == "local_playwright"
+
+
+def _openai_client(monkeypatch, responses):
+    """An OpenAI LLMClient whose HTTP calls return `responses` in turn; records sleeps."""
+    import httpx
+    calls, sleeps = [], []
+
+    def handler(request):
+        calls.append(request)
+        return responses[min(len(calls), len(responses)) - 1]
+    client = llm.LLMClient("https://api.openai.com/v1", "gpt-5-mini", "sk-test")
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(llm.time, "sleep", sleeps.append)
+    return client, calls, sleeps
+
+
+def test_openai_without_credit_stops_at_once_with_the_reason(monkeypatch, caplog):
+    """A new OpenAI key with no credit answers 429 insufficient_quota: not a rate limit to wait out."""
+    import httpx
+
+    from applypilot import budget
+    body = {"error": {"message": "You exceeded your current quota, please check your plan and billing details.",
+                      "type": "insufficient_quota", "code": "insufficient_quota"}}
+    client, calls, sleeps = _openai_client(monkeypatch, [httpx.Response(429, json=body)])
+    with pytest.raises(budget.BudgetExhausted, match="no credit left") as err:
+        client.chat([{"role": "user", "content": "hi"}])
+    assert "platform.openai.com/settings/organization/billing" in str(err.value)
+    assert len(calls) == 1 and sleeps == []
+    assert "Gemini" not in caplog.text
+
+
+def test_openai_rate_limit_waits_for_its_reset_and_names_openai(monkeypatch, caplog):
+    import logging
+
+    import httpx
+    limited = httpx.Response(429, headers={"x-ratelimit-reset-requests": "1.5s", "x-ratelimit-reset-tokens": "6m0s"},
+                             json={"error": {"message": "Rate limit reached for gpt-5-mini", "type": "requests",
+                                             "code": "rate_limit_exceeded"}})
+    ok = httpx.Response(200, json={"choices": [{"message": {"content": "OK"}}]})
+    client, calls, sleeps = _openai_client(monkeypatch, [limited, ok])
+    with caplog.at_level(logging.WARNING):
+        assert client.chat([{"role": "user", "content": "hi"}]) == "OK"
+    assert sleeps == [60] and len(calls) == 2  # the longer reset (6 minutes), capped at a minute
+    assert "OpenAI rate limit (HTTP 429)" in caplog.text and "Gemini" not in caplog.text
+    assert llm._duration_seconds("20ms") == 0.02 and llm._duration_seconds("2") == 2.0
+    assert llm._duration_seconds("1m30s") == 90 and llm._duration_seconds("soon") is None

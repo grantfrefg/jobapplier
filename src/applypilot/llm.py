@@ -64,6 +64,39 @@ _TIMEOUT = 120  # seconds
 _RATE_LIMIT_BASE_WAIT = 10
 
 
+_RATE_LIMIT_TIPS = {
+    "Gemini": "Gemini's free tier allows about 15 requests a minute",
+    "OpenAI": ("new OpenAI accounts start with low limits that rise as you spend "
+               "(platform.openai.com/settings/organization/limits)"),
+}
+
+
+def _duration_seconds(value: str | None) -> float | None:
+    """Seconds from a Retry-After or OpenAI reset header ("12", "1s", "6m0s", "20ms")."""
+    if not value:
+        return None
+    value = value.strip()
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    parts = re.findall(r"(\d+(?:\.\d+)?)(ms|s|m|h)", value)
+    if not parts:
+        return None
+    scale = {"ms": 0.001, "s": 1, "m": 60, "h": 3600}
+    return sum(float(n) * scale[unit] for n, unit in parts)
+
+
+def no_credit_message(provider: str, body: str) -> str | None:
+    """The reason when a 429 means the account has no API credit (retrying won't help)."""
+    text = (body or "").lower()
+    if provider == "OpenAI" and ("insufficient_quota" in text or "exceeded your current quota" in text):
+        return ("OpenAI says this API account has no credit left (insufficient_quota). Add a payment method or "
+                "prepaid credit at platform.openai.com/settings/organization/billing, then try again. A ChatGPT "
+                "Plus or Pro subscription doesn't include API credit.")
+    return None
+
+
 _GEMINI_COMPAT_BASE = "https://generativelanguage.googleapis.com/v1beta/openai"
 _GEMINI_NATIVE_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -87,6 +120,8 @@ class LLMClient:
         # False once the OpenAI-compat endpoint has rejected response_format
         self._compat_json_ok: bool = True
         self._is_gemini: bool = base_url.startswith(_GEMINI_COMPAT_BASE)
+        self.provider_name: str = ("Gemini" if self._is_gemini else "OpenAI" if "api.openai.com" in base_url
+                                   else "The AI provider")
         self._is_openai: bool = base_url.startswith("https://api.openai.com")
         self._claude = None
         if base_url.startswith("https://api.anthropic.com"):
@@ -264,25 +299,20 @@ class LLMClient:
                 resp = exc.response
                 if self._is_gemini and budget.is_daily_quota_error(resp.status_code, resp.text):
                     raise budget.exhausted_error(self.model) from exc  # retrying today won't help
+                no_credit = resp.status_code == 429 and no_credit_message(self.provider_name, resp.text)
+                if no_credit:  # stops the run cleanly, like a used-up budget
+                    raise budget.BudgetExhausted(no_credit) from exc
                 if resp.status_code in (429, 503) and attempt < _MAX_RETRIES - 1:
-                    # Respect Retry-After header if provided (Gemini sends this).
-                    retry_after = (
-                        resp.headers.get("Retry-After")
-                        or resp.headers.get("X-RateLimit-Reset-Requests")
-                    )
-                    if retry_after:
-                        try:
-                            wait = float(retry_after)
-                        except (ValueError, TypeError):
-                            wait = _RATE_LIMIT_BASE_WAIT * (2 ** attempt)
-                    else:
-                        wait = min(_RATE_LIMIT_BASE_WAIT * (2 ** attempt), 60)
-
+                    # The provider's own reset time if it sent one (Retry-After; OpenAI's x-ratelimit-reset-*)
+                    hinted = [_duration_seconds(resp.headers.get(h)) for h in
+                              ("Retry-After", "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens")]
+                    hinted = [h for h in hinted if h is not None]
+                    wait = min(max(hinted) if hinted else _RATE_LIMIT_BASE_WAIT * (2 ** attempt), 60)
+                    tip = _RATE_LIMIT_TIPS.get(self.provider_name)
                     log.warning(
-                        "LLM rate limited (HTTP %s). Waiting %ds before retry %d/%d. "
-                        "Tip: Gemini free tier = 15 RPM. Consider a paid account "
-                        "or switching to a local model.",
-                        resp.status_code, wait, attempt + 1, _MAX_RETRIES,
+                        "%s rate limit (HTTP %s): waiting %.0fs before retry %d/%d.%s",
+                        self.provider_name, resp.status_code, wait, attempt + 1, _MAX_RETRIES,
+                        f" Tip: {tip}." if tip else "",
                     )
                     time.sleep(wait)
                     continue
@@ -292,8 +322,8 @@ class LLMClient:
                 if attempt < _MAX_RETRIES - 1:
                     wait = min(_RATE_LIMIT_BASE_WAIT * (2 ** attempt), 60)
                     log.warning(
-                        "LLM request timed out, retrying in %ds (attempt %d/%d)",
-                        wait, attempt + 1, _MAX_RETRIES,
+                        "%s request timed out, retrying in %ds (attempt %d/%d)",
+                        self.provider_name, wait, attempt + 1, _MAX_RETRIES,
                     )
                     time.sleep(wait)
                     continue

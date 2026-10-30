@@ -520,7 +520,7 @@
         <dt>Using your own resume or cover letter</dt>
         <dd>Under a job's documents, <b>use my own resume</b> or <b>use my own cover letter</b> lets you pick a PDF
           or Word file you wrote yourself. <b>Apply</b> then uploads yours instead of the generated one (you can
-          mix, e.g. your resume with the generated letter). A job with your own resume isn't sent to Gemini for
+          mix, e.g. your resume with the generated letter). A job with your own resume isn't sent to the AI for
           tailoring, and its ATS score checks your file. It also works for a job whose drafts were rejected: give
           it your resume and it's ready to apply. <b>use generated</b> switches back. Your files are kept in the
           <code>own_documents</code> folder inside <code>.applypilot</code>.</dd>
@@ -894,6 +894,14 @@
       <dt>The browser doesn't open, or opens and closes</dt>
       <dd>Setup → Browser → <b>Test browser</b>; if that fails, <b>Install browser</b>. Close the <i>Log in to
         sites</i> window first: they share one browser profile.</dd>
+      <dt>"no credit left" with OpenAI or Claude</dt>
+      <dd>The API account has no credit (OpenAI calls it <i>insufficient_quota</i>). API keys are billed separately
+        from a ChatGPT or Claude subscription: add a payment method or prepaid credit at
+        platform.openai.com/settings/organization/billing or console.anthropic.com/settings/billing, then press
+        <b>Test key</b> in Setup. The run stops instead of retrying, and picks up where it left off next time.</dd>
+      <dt>"OpenAI rate limit" or "Claude rate limit" in the log</dt>
+      <dd>New paid accounts start with low per-minute limits that rise as you spend. The app waits and retries by
+        itself; if it keeps happening, run fewer jobs at a time or wait a few minutes.</dd>
       <dt>"Daily Gemini budget used up"</dt>
       <dd>Today's free requests are gone. The remaining jobs wait until it resets, or switch to a paid key.</dd>
       <dt>An application filled something wrong</dt>

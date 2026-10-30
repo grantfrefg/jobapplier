@@ -58,7 +58,15 @@ class ClaudeChat:
         except a.NotFoundError as e:
             raise AnthropicError(f"Claude model not found: {self.model}") from e
         except a.BadRequestError as e:
+            if "credit balance" in str(e.message).lower():
+                from applypilot.budget import BudgetExhausted
+                raise BudgetExhausted("Anthropic says this API account has no credit left. Add credit at "
+                                      "console.anthropic.com/settings/billing, then try again. A Claude Pro or "
+                                      "Max subscription doesn't include API credit.") from e
             raise AnthropicError(f"Claude rejected the request: {e.message}") from e
+        except a.RateLimitError as e:
+            raise AnthropicError("Claude rate limit: still limited after several retries. New Anthropic accounts "
+                                 "start with low limits that rise as you spend; wait a minute and try again.") from e
 
         if response.stop_reason == "refusal":
             raise AnthropicError("Claude declined this request (safety refusal)")
