@@ -559,3 +559,13 @@ def test_tailoring_style_writing_sample_reads_human_and_edit(client, tmp_path, m
     assert r.status_code == 400 and resume_txt.read_text(encoding="utf-8").strip() == RESUME.strip()
     assert client.post("/api/jobs/text", json={"url": url, "kind": "cover", "text": "x"}).status_code == 404
     assert client.post("/api/jobs/text", json={"url": url, "kind": "resume", "text": " "}).status_code == 400
+
+
+def test_resume_look_settings_and_preview(client):
+    saved = client.post("/api/settings", json={"RESUME_LAYOUT": "classic", "RESUME_ACCENT": "green",
+                                               "RESUME_TAGLINE": "off", "SHOW_WORK_RIGHTS": "never"}).json()
+    assert saved["RESUME_LAYOUT"] == "classic" and saved["SHOW_WORK_RIGHTS"] == "never"
+    for bad in ({"RESUME_LAYOUT": "fancy"}, {"RESUME_ACCENT": "pink"}, {"SHOW_WORK_RIGHTS": "maybe"}):
+        assert client.post("/api/settings", json=bad).status_code == 400
+    page = client.get("/api/resume-preview").text  # the sample, as no resume has been tailored yet
+    assert "Jane Morgan" in page and "serif" in page and "#2f5d3a" in page and "Australian Citizen" not in page

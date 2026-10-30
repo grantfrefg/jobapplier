@@ -258,6 +258,40 @@
     </div>
 
     <div class="card">
+      <h2>Resume look</h2>
+      <p class="sub">How tailored resumes look as PDFs. Every layout is one column of real text, so applicant
+        tracking systems read them the same way. Changes apply to new resumes; to restyle ones already made, use
+        <b>Run a step again → PDF</b> on the Find tab (no AI needed).</p>
+      <div class="row">
+        <label style="margin:0">Layout
+          <select id="look-layout" style="width:auto">
+            <option value="modern">Modern (left-aligned, calm)</option>
+            <option value="classic">Classic (serif)</option>
+            <option value="compact">Compact (fits more on a page)</option>
+            <option value="traditional">Traditional (the original centred look)</option></select></label>
+        <label style="margin:0">Colour
+          <select id="look-accent" style="width:auto">
+            <option value="navy">Navy</option><option value="teal">Teal</option><option value="green">Green</option>
+            <option value="burgundy">Burgundy</option><option value="plum">Plum</option>
+            <option value="charcoal">Charcoal</option></select></label>
+      </div>
+      <label class="choice"><input type="checkbox" id="look-tagline"> Add a few words after my job title for each
+        job ("Senior Data Scientist · Production ML"). Off is recommended: it reads as AI-tailored.</label>
+      <label class="choice"><input type="checkbox" id="look-tech"> Show a tools line under each job
+        ("Python, AWS"). Your bullets and skills already name them.</label>
+      <label style="margin:0">Work rights in the header
+        <select id="look-rights" style="width:100%">
+          <option value="auto">Automatic: show citizenship, residency or full work rights; leave limited visas
+            off</option>
+          <option value="always">Always show what's in my profile</option>
+          <option value="never">Never show</option></select></label>
+      <p class="sub" style="margin-top:6px">Leaving work rights off only changes the resume. Application forms
+        still ask, and they're answered truthfully from your profile.</p>
+      <iframe id="look-preview" title="Resume preview" style="width:100%;height:420px;border:1px solid var(--border);
+        border-radius:8px;background:#fff"></iframe>
+    </div>
+
+    <div class="card">
       <h2>What jobs to look for</h2>
       <p class="sub">Used by "Find jobs" to search job boards.</p>
       <label for="s-country">Country</label>
@@ -836,6 +870,12 @@
       <li><b>Your writing</b> (Setup). Paste a cover letter or a few paragraphs you wrote, and cover letters follow
         your tone, sentence length and way of opening and closing. Its facts are never used. Each new letter is also
         checked against your recent ones, so they don't all open the same way.</li>
+      <li><b>Resume look</b> (Setup). Four layouts (Modern, Classic, Compact, Traditional) and six colours, so
+        your resume doesn't look like everyone else's. By default there's no tagline after your job title and no
+        tools line under each job, two things that make a resume read as AI-tailored. It also sets whether your
+        work rights appear: automatically, a working holiday or student visa is left off (forms still ask, and
+        are answered truthfully). All layouts are one column of real text, so ATS read them equally well.
+        <b>Run a step again → PDF</b> restyles resumes you already have, without the AI.</li>
       <li><b>Reads human</b> (the badge next to ATS on the Apply tab). A check with no AI for the patterns that make
         text read as generated: stock phrases ("proven track record"), "not just X but Y", long dashes, the same
         verb starting bullet after bullet, every bullet the same length, strings of "X, Y and Z", most letter
@@ -1065,6 +1105,12 @@ async function loadSettings() {
     : s.ANTHROPIC_API_KEY.set ? "anthropic" : "gemini");
   $("#model").value = s.LLM_MODEL || "";
   $("#tailor-style").value = s.TAILOR_STYLE || "full";
+  $("#look-layout").value = s.RESUME_LAYOUT || "modern";
+  $("#look-accent").value = s.RESUME_ACCENT || "navy";
+  $("#look-tagline").checked = s.RESUME_TAGLINE === "on";
+  $("#look-tech").checked = s.RESUME_TECH_LINE === "on";
+  $("#look-rights").value = s.SHOW_WORK_RIGHTS || "auto";
+  refreshLookPreview();
   $("#codex-model").value = s.CODEX_MODEL || "";
   showProvider(); showEngine();
   $("#daily-limit").value = s.GEMINI_DAILY_LIMIT || "";
@@ -1297,6 +1343,16 @@ async function loadWriting() {
 $("#save-writing").addEventListener("click", () => guarded(async () => {
   await post("/api/writing-sample", { text: $("#writing-sample").value }); await loadWriting();
 }, "Saved"));
+function refreshLookPreview() { $("#look-preview").src = "/api/resume-preview?t=" + Date.now(); }
+for (const id of ["look-layout", "look-accent", "look-tagline", "look-tech", "look-rights"]) {
+  $("#" + id).addEventListener("change", () => guarded(async () => {
+    await post("/api/settings", {
+      RESUME_LAYOUT: $("#look-layout").value, RESUME_ACCENT: $("#look-accent").value,
+      RESUME_TAGLINE: $("#look-tagline").checked ? "on" : "off",
+      RESUME_TECH_LINE: $("#look-tech").checked ? "on" : "off", SHOW_WORK_RIGHTS: $("#look-rights").value });
+    refreshLookPreview();
+  }, "Resume look saved (applies to new PDFs; Run a step again → PDF restyles the rest)"));
+}
 $("#tailor-style").addEventListener("change", () => guarded(() =>
   post("/api/settings", { TAILOR_STYLE: $("#tailor-style").value }),
   $("#tailor-style").value === "light" ? "Light touch: resumes keep your own words (applies to the next tailoring)"

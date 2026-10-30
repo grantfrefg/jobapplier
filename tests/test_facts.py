@@ -48,10 +48,12 @@ def check(resume=None, letter="", profile=None):
     return tailor.check_facts(copy.deepcopy(resume or GOOD), letter, RESUME, profile or PROFILE)
 
 
-def test_clean_resume_passes_and_keeps_an_honest_focus():
+def test_clean_resume_passes_and_keeps_an_honest_focus(monkeypatch):
     out = check()
     assert out["errors"] == [] and out["dropped_skills"] == []
-    assert out["resume"]["title"] == "Senior Data Scientist · Production ML & LLM Systems"
+    assert out["resume"]["title"] == "Senior Data Scientist"  # no tagline unless it's switched on
+    monkeypatch.setenv("RESUME_TAGLINE", "on")
+    assert check()["resume"]["title"] == "Senior Data Scientist · Production ML & LLM Systems"
 
 
 def test_target_job_title_is_replaced_by_the_real_one():
