@@ -368,7 +368,23 @@ def convert_to_pdf(
     out = Path(out)
     render_pdf(html, str(out))
     log.info("PDF generated: %s", out)
+    if not is_cover_letter(text):
+        _word_copy(text, out.with_suffix(".docx"))
     return out
+
+
+def _word_copy(text: str, docx_path: Path) -> None:
+    """With "My Word file" chosen, also write the resume into your Word file; that's what's sent."""
+    from applypilot.scoring import docx_fill
+    if look.layout() != "word" or not docx_fill.template_path().exists():
+        docx_path.unlink(missing_ok=True)
+        return
+    try:
+        docx_fill.fill(text, docx_path)
+        log.info("Word resume generated: %s", docx_path)
+    except Exception as e:  # the PDF is sent instead
+        docx_path.unlink(missing_ok=True)
+        log.warning("Couldn't fill your Word resume (%s); the PDF will be used", e)
 
 
 # Bump when the PDF layout changes: existing PDFs are then rendered again once

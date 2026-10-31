@@ -8,6 +8,13 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-31
+
+### Added
+- **Your own resume's design.** Two new choices in Setup → Resume look:
+  - **Match my resume** reads the resume PDF you uploaded (fonts, sizes, colours, alignment, heading style, rules under headings, bullet character, margins) and renders tailored resumes the same way, as one column of real text. Close rather than identical: a two-column or graphic design comes out as its one-column version.
+  - **My Word file**: upload your resume as a .docx (Setup → Your resume) and each tailored summary, skills list and set of job/project bullets is written into a copy of it, keeping every style exactly. Job titles, employers, dates, education and your header stay as you wrote them; an entry tailoring left out keeps your bullets. The .docx is what's uploaded when applying (a PDF copy is still made). A Word file without recognisable section headings falls back to the PDF.
+
 ## [0.7.0] - 2026-10-30
 
 ### Added
