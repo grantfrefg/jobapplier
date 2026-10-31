@@ -77,7 +77,7 @@ def test_profile_resume_searches(client):
 
     r = client.post("/api/resume", data={"text": RESUME},
                     files={"pdf": ("cv.pdf", b"%PDF-1.4 x", "application/pdf")})
-    assert r.json() == {"text": RESUME.strip() + "\n", "has_pdf": True}
+    assert r.json() == {"text": RESUME.strip() + "\n", "has_pdf": True, "has_docx": False, "has_style": False}
     assert client.post("/api/resume", files={"pdf": ("x.pdf", b"nope", "application/pdf")}).status_code == 400
 
     s = client.post("/api/searches", json={"location": "Sydney, NSW", "country": "australia",
@@ -569,3 +569,12 @@ def test_resume_look_settings_and_preview(client):
         assert client.post("/api/settings", json=bad).status_code == 400
     page = client.get("/api/resume-preview").text  # the sample, as no resume has been tailored yet
     assert "Jane Morgan" in page and "serif" in page and "#2f5d3a" in page and "Australian Citizen" not in page
+
+
+def test_word_resume_upload(client):
+    from pathlib import Path
+    word = (Path(__file__).parent / "fixtures" / "word_resume.docx").read_bytes()
+    bad = client.post("/api/resume", data={"text": ""}, files={"docx": ("cv.docx", b"%PDF-1.4", "application/pdf")})
+    assert bad.status_code == 400 and "Word" in bad.json()["detail"]
+    r = client.post("/api/resume", data={"text": ""}, files={"docx": ("cv.docx", word, "application/octet-stream")})
+    assert r.json()["has_docx"] is True

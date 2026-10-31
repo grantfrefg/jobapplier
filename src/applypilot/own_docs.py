@@ -138,6 +138,10 @@ def documents(job: dict) -> dict[str, dict]:
                     break
             if base.with_suffix(".pdf").exists():
                 doc["file"] = base.with_suffix(".pdf")
+            if kind == "resume" and base.with_suffix(".docx").exists():
+                from applypilot.scoring import look
+                if look.layout() == "word":  # your Word resume, filled with the tailored content
+                    doc["file"] = base.with_suffix(".docx")
         out[kind] = doc
     return out
 

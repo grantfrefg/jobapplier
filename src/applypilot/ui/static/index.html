@@ -243,6 +243,11 @@
       <textarea id="resume-text" placeholder="Paste your full resume as plain text…"></textarea>
       <label for="resume-pdf">Resume PDF <span id="pdf-state" class="muted"></span></label>
       <input type="file" id="resume-pdf" accept="application/pdf">
+      <label for="resume-docx">Resume as a Word file (.docx, optional) <span id="docx-state" class="muted"></span></label>
+      <input type="file" id="resume-docx"
+        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <p class="sub">The PDF's design can be copied (Resume look → Match my resume). The Word file can be filled in
+        directly, keeping its design exactly (Resume look → My Word file).</p>
       <div class="row"><button class="btn" id="save-resume">Save resume</button></div>
     </div>
 
@@ -268,13 +273,16 @@
             <option value="modern">Modern (left-aligned, calm)</option>
             <option value="classic">Classic (serif)</option>
             <option value="compact">Compact (fits more on a page)</option>
-            <option value="traditional">Traditional (the original centred look)</option></select></label>
+            <option value="traditional">Traditional (the original centred look)</option>
+            <option value="mine">Match my resume (copies your PDF's design)</option>
+            <option value="word">My Word file (fills in your .docx)</option></select></label>
         <label style="margin:0">Colour
           <select id="look-accent" style="width:auto">
             <option value="navy">Navy</option><option value="teal">Teal</option><option value="green">Green</option>
             <option value="burgundy">Burgundy</option><option value="plum">Plum</option>
             <option value="charcoal">Charcoal</option></select></label>
       </div>
+      <p class="sub" id="look-note" style="display:none"></p>
       <label class="choice"><input type="checkbox" id="look-tagline"> Add a few words after my job title for each
         job ("Senior Data Scientist · Production ML"). Off is recommended: it reads as AI-tailored.</label>
       <label class="choice"><input type="checkbox" id="look-tech"> Show a tools line under each job
@@ -875,7 +883,11 @@
         tools line under each job, two things that make a resume read as AI-tailored. It also sets whether your
         work rights appear: automatically, a working holiday or student visa is left off (forms still ask, and
         are answered truthfully). All layouts are one column of real text, so ATS read them equally well.
-        <b>Run a step again → PDF</b> restyles resumes you already have, without the AI.</li>
+        <b>Run a step again → PDF</b> restyles resumes you already have, without the AI.
+        <br><b>Your own design:</b> <i>Match my resume</i> copies the fonts, colours, headings and spacing of the resume
+        PDF you uploaded (as one column). <i>My Word file</i> writes each tailored summary, skills list and set of
+        bullets into a copy of your own .docx, so the design stays exactly yours, and that Word file is what's
+        uploaded. Titles, employers, dates, education and your header stay as you wrote them.</li>
       <li><b>Reads human</b> (the badge next to ATS on the Apply tab). A check with no AI for the patterns that make
         text read as generated: stock phrases ("proven track record"), "not just X but Y", long dashes, the same
         verb starting bullet after bullet, every bullet the same length, strings of "X, Y and Z", most letter
@@ -1201,13 +1213,18 @@ async function loadResume() {
   const r = await api("/api/resume");
   $("#resume-text").value = r.text;
   $("#pdf-state").textContent = r.has_pdf ? "(saved; choose a file to replace)" : "(none yet)";
+  $("#docx-state").textContent = r.has_docx ? "(saved; choose a file to replace)" : "(none yet)";
+  resumeFiles = r;
+  lookNote();
 }
 $("#save-resume").addEventListener("click", () => guarded(async () => {
   const fd = new FormData();
   fd.append("text", $("#resume-text").value);
   if ($("#resume-pdf").files[0]) fd.append("pdf", $("#resume-pdf").files[0]);
+  if ($("#resume-docx").files[0]) fd.append("docx", $("#resume-docx").files[0]);
   await post("/api/resume", fd);
-  $("#resume-pdf").value = "";
+  $("#resume-pdf").value = ""; $("#resume-docx").value = "";
+  refreshLookPreview();
   await loadResume(); await refreshStatus();
 }, "Resume saved"));
 
@@ -1343,7 +1360,24 @@ async function loadWriting() {
 $("#save-writing").addEventListener("click", () => guarded(async () => {
   await post("/api/writing-sample", { text: $("#writing-sample").value }); await loadWriting();
 }, "Saved"));
-function refreshLookPreview() { $("#look-preview").src = "/api/resume-preview?t=" + Date.now(); }
+let resumeFiles = {};
+function refreshLookPreview() { $("#look-preview").src = "/api/resume-preview?t=" + Date.now(); lookNote(); }
+function lookNote() {
+  const layout = $("#look-layout").value, note = $("#look-note");
+  const text = layout === "mine" ? (resumeFiles.has_style
+      ? "Copies the fonts, sizes, colours, headings, rules, bullets and margins of the resume PDF you uploaded, as one "
+        + "column. Close, not identical: a two-column or graphic design comes out as its one-column version."
+      : "Upload your resume PDF (Your resume, above) first. Until then this looks like Modern.")
+    : layout === "word" ? (resumeFiles.has_docx
+      ? "Tailored summaries, skills and bullets are written into a copy of your Word file, so the design stays "
+        + "exactly yours, and the .docx is what's uploaded (Seek, LinkedIn and most job sites take it). Titles, "
+        + "employers, dates, education and your header stay as you wrote them. The preview shows the PDF copy, "
+        + "which follows your PDF's design if you uploaded one."
+      : "Upload your resume as a Word file (Your resume, above) first. Until then PDFs are used.")
+    : "";
+  note.textContent = text; note.style.display = text ? "" : "none";
+  $("#look-accent").closest("label").style.display = ["mine", "word"].includes(layout) ? "none" : "";
+}
 for (const id of ["look-layout", "look-accent", "look-tagline", "look-tech", "look-rights"]) {
   $("#" + id).addEventListener("change", () => guarded(async () => {
     await post("/api/settings", {
