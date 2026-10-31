@@ -1,6 +1,8 @@
 """How the resume PDF looks (Setup -> Resume look), applied when the PDF is made.
 
-- RESUME_LAYOUT: modern (default), classic, compact or traditional. All one column of
+- RESUME_LAYOUT: modern (default), classic, compact or traditional; mine follows the style
+  of your uploaded resume PDF (style_match.py); word writes into your own Word file
+  (docx_fill.py) and keeps a PDF copy in your PDF's style. All PDFs are one column of
   real text, so ATS read them the same way.
 - RESUME_ACCENT: the one colour used for section headings (and the name in classic).
 - RESUME_TAGLINE: "on" adds the AI's few words after your job title
@@ -19,7 +21,9 @@ from __future__ import annotations
 import os
 import re
 
-LAYOUTS = {"modern": "Modern", "classic": "Classic", "compact": "Compact", "traditional": "Traditional"}
+LAYOUTS = {"modern": "Modern", "classic": "Classic", "compact": "Compact", "traditional": "Traditional",
+           "mine": "Match my resume", "word": "My Word file"}
+OWN_STYLE = ("mine", "word")  # follow your own resume (the PDF's style; the Word file itself for "word")
 ACCENTS = {"navy": "#1f3a5f", "teal": "#0f5e63", "green": "#2f5d3a", "burgundy": "#6b1f2a",
            "plum": "#4b2e5a", "charcoal": "#2b2b2b"}
 WORK_RIGHTS_MODES = ("auto", "always", "never")
@@ -188,8 +192,16 @@ body {{ font-family: {_SANS}; font-size: 10.5pt; line-height: 1.35; color: #1a1a
 
 
 def resume_css(name: str | None = None, colour: str | None = None) -> str:
-    return (f":root {{ --accent: {colour or accent()}; }}" + _BASE
-            + _LAYOUT_CSS.get(name or layout(), _LAYOUT_CSS["modern"]))
+    name = name or layout()
+    root = f":root {{ --accent: {colour or accent()}; }}" + _BASE
+    if name in OWN_STYLE:
+        # Your resume PDF's style (a "word" resume's PDF copy too); Modern until there is one
+        from applypilot.scoring import style_match
+        style = style_match.load()
+        if style:
+            return root + style_match.resume_css(style)
+        name = "modern"
+    return root + _LAYOUT_CSS.get(name, _LAYOUT_CSS["modern"])
 
 
 SAMPLE = """Jane Morgan

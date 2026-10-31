@@ -542,18 +542,32 @@ def create_app() -> FastAPI:
 
     @app.get("/api/resume")
     def get_resume() -> dict:
+        from applypilot.scoring import docx_fill, style_match
         text = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
-        return {"text": text, "has_pdf": config.RESUME_PDF_PATH.exists()}
+        return {"text": text, "has_pdf": config.RESUME_PDF_PATH.exists(),
+                "has_docx": docx_fill.template_path().exists(), "has_style": bool(style_match.load())}
 
     @app.post("/api/resume")
-    async def save_resume(text: str = Form(""), pdf: UploadFile | None = File(None)) -> dict:
+    async def save_resume(text: str = Form(""), pdf: UploadFile | None = File(None),
+                          docx: UploadFile | None = File(None)) -> dict:
         if text.strip():
             config.RESUME_PATH.write_text(text.strip() + "\n", encoding="utf-8")
+        if docx is not None and docx.filename:
+            from applypilot.scoring import docx_fill
+            data = await docx.read()
+            try:
+                docx_fill.check_docx(data)
+            except docx_fill.FillError as e:
+                raise HTTPException(400, str(e)) from e
+            config.APP_DIR.mkdir(parents=True, exist_ok=True)
+            docx_fill.template_path().write_bytes(data)
         if pdf is not None and pdf.filename:
             data = await pdf.read()
             if not data.startswith(b"%PDF"):
                 raise HTTPException(400, "That file isn't a PDF")
             config.RESUME_PDF_PATH.write_bytes(data)
+            from applypilot.scoring import style_match
+            style_match.save_from(config.RESUME_PDF_PATH)  # for the "Match my resume" layout
         return get_resume()
 
     # -- your own writing (cover letters follow its voice) --------------------
@@ -919,6 +933,8 @@ def create_app() -> FastAPI:
             raise HTTPException(400, f"Couldn't make the PDF from that text: {e}") from e
         draft.replace(path)
         draft.with_suffix(".pdf").replace(path.with_suffix(".pdf"))
+        if draft.with_suffix(".docx").exists():  # "My Word file": the filled copy follows the edit
+            draft.with_suffix(".docx").replace(path.with_suffix(".docx"))
         if kind == "resume":
             job = dict(get_connection().execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone())
             if not job.get("own_resume_path"):

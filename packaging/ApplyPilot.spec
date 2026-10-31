@@ -9,9 +9,11 @@ datas, binaries, hiddenimports = [], [], []
 
 # Our package (YAML registries, UI page, profile template), the job-board
 # scraper and its native curl library, uvicorn's dynamically imported bits,
-# pypdf (reads your own resume PDFs) and the Claude SDK (when Claude is the
-# chosen AI provider); both are only imported when needed
-for pkg in ("applypilot", "jobspy", "curl_cffi", "uvicorn", "pypdf", "anthropic"):
+# pypdf (reads your own resume PDFs), pdfplumber/pdfminer (your PDF's design), python-docx
+# (your Word resume) and the Claude SDK (when Claude is the
+# chosen AI provider); all are only imported when needed
+for pkg in ("applypilot", "jobspy", "curl_cffi", "uvicorn", "pypdf", "anthropic", "pdfplumber", "pdfminer",
+            "docx"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
@@ -59,7 +61,7 @@ if sys.platform == "darwin":
         name="ApplyPilot.app",
         bundle_identifier="com.applypilot.desktop",
         info_plist={
-            "CFBundleShortVersionString": "0.7.0",
+            "CFBundleShortVersionString": "0.8.0",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
             # No window of its own (the UI is a browser tab): run as a background
