@@ -283,6 +283,11 @@
             <option value="charcoal">Charcoal</option></select></label>
       </div>
       <p class="sub" id="look-note" style="display:none"></p>
+      <label style="margin:0">Length
+        <select id="look-pages" style="width:100%">
+          <option value="auto">Automatic: one page with 2 years' experience or less, otherwise up to two</option>
+          <option value="1">One page (graduate and early-career roles)</option>
+          <option value="2">Up to two pages (the Australian norm)</option></select></label>
       <label class="choice"><input type="checkbox" id="look-tagline"> Add a few words after my job title for each
         job ("Senior Data Scientist · Production ML"). Off is recommended: it reads as AI-tailored.</label>
       <label class="choice"><input type="checkbox" id="look-tech"> Show a tools line under each job
@@ -884,6 +889,10 @@
         work rights appear: automatically, a working holiday or student visa is left off (forms still ask, and
         are answered truthfully). All layouts are one column of real text, so ATS read them equally well.
         <b>Run a step again → PDF</b> restyles resumes you already have, without the AI.
+        <br><b>Length:</b> two pages is the Australian norm; graduate and early-career resumes fit on one. Automatic
+        picks one page when your profile says 2 years' experience or less. With one page, the AI writes to fit it,
+        and a resume that still runs a little over is set slightly tighter to fit. To shorten resumes you already
+        have, Redo them (Run a step again → Tailor).
         <br><b>Your own design:</b> <i>Match my resume</i> copies the fonts, colours, headings and spacing of the resume
         PDF you uploaded (as one column). <i>My Word file</i> writes each tailored summary, skills list and set of
         bullets into a copy of your own .docx, so the design stays exactly yours, and that Word file is what's
@@ -1122,6 +1131,7 @@ async function loadSettings() {
   $("#look-tagline").checked = s.RESUME_TAGLINE === "on";
   $("#look-tech").checked = s.RESUME_TECH_LINE === "on";
   $("#look-rights").value = s.SHOW_WORK_RIGHTS || "auto";
+  $("#look-pages").value = s.RESUME_PAGES || "auto";
   refreshLookPreview();
   $("#codex-model").value = s.CODEX_MODEL || "";
   showProvider(); showEngine();
@@ -1378,12 +1388,13 @@ function lookNote() {
   note.textContent = text; note.style.display = text ? "" : "none";
   $("#look-accent").closest("label").style.display = ["mine", "word"].includes(layout) ? "none" : "";
 }
-for (const id of ["look-layout", "look-accent", "look-tagline", "look-tech", "look-rights"]) {
+for (const id of ["look-layout", "look-accent", "look-tagline", "look-tech", "look-rights", "look-pages"]) {
   $("#" + id).addEventListener("change", () => guarded(async () => {
     await post("/api/settings", {
       RESUME_LAYOUT: $("#look-layout").value, RESUME_ACCENT: $("#look-accent").value,
       RESUME_TAGLINE: $("#look-tagline").checked ? "on" : "off",
-      RESUME_TECH_LINE: $("#look-tech").checked ? "on" : "off", SHOW_WORK_RIGHTS: $("#look-rights").value });
+      RESUME_TECH_LINE: $("#look-tech").checked ? "on" : "off", SHOW_WORK_RIGHTS: $("#look-rights").value,
+      RESUME_PAGES: $("#look-pages").value });
     refreshLookPreview();
   }, "Resume look saved (applies to new PDFs; Run a step again → PDF restyles the rest)"));
 }

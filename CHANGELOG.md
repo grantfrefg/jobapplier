@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-31
+
+### Added
+- **One-page resumes for graduate roles** (Setup -> Resume look -> Length): one page, up to two, or Automatic (one page when your profile says 2 years' experience or less). With one page the AI writes to fit it (shorter summary, fewer bullets and skills lines, least relevant items dropped first), and a resume that still runs a little over is set slightly tighter to fit (a two-page resume that runs onto a third is tightened the same way). The ATS check says when a resume is longer than its target.
+
 ## [0.8.0] - 2026-10-31
 
 ### Added
