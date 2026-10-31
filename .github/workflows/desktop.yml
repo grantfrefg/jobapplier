@@ -102,4 +102,6 @@ jobs:
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           files: dist/*.zip
-          generate_release_notes: ${{ inputs.release_tag == '' }}
+          # Never add notes: the release's own text (or GitHub's "Generate release notes"
+          # when publishing) is kept as it is, so the notes don't appear twice
+          generate_release_notes: false
