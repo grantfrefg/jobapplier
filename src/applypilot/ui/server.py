@@ -36,7 +36,7 @@ PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
 ENV_KEYS = ("EXECUTION_ENGINE", "LLM_PROVIDER", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE",
             "TAILOR_STYLE", "RESUME_LAYOUT", "RESUME_ACCENT", "RESUME_TAGLINE", "RESUME_TECH_LINE",
-            "SHOW_WORK_RIGHTS")
+            "SHOW_WORK_RIGHTS", "RESUME_PAGES")
 NUMBER_KEYS = {"GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE"}
 SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CAPSOLVER_API_KEY"}
 VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
@@ -495,7 +495,7 @@ def create_app() -> FastAPI:
             from applypilot.scoring import look
             allowed = {"RESUME_LAYOUT": tuple(look.LAYOUTS), "RESUME_ACCENT": tuple(look.ACCENTS),
                        "RESUME_TAGLINE": ("on", "off"), "RESUME_TECH_LINE": ("on", "off"),
-                       "SHOW_WORK_RIGHTS": look.WORK_RIGHTS_MODES}
+                       "SHOW_WORK_RIGHTS": look.WORK_RIGHTS_MODES, "RESUME_PAGES": look.PAGE_MODES}
             if key in allowed and value and value not in allowed[key]:
                 raise HTTPException(400, f"{key} must be one of {', '.join(allowed[key])}")
             if key == "LLM_PROVIDER" and value and value not in config.PROVIDERS:

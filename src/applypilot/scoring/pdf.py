@@ -211,7 +211,7 @@ def _entries_html(text: str, job: bool = True) -> str:
     return items
 
 
-def build_html(resume: dict) -> str:
+def build_html(resume: dict, fit: int = 0) -> str:
     """Build an ATS-friendly A4 resume page from parsed data.
 
     One column, real text, standard section headings, no tables or images.
@@ -245,7 +245,7 @@ def build_html(resume: dict) -> str:
 <meta charset="utf-8">
 <title>{name} - Resume</title>
 <meta name="author" content="{name}">
-<style>{look.resume_css()}</style>
+<style>{look.resume_css()}{look.fit_css(fit) if fit else ''}</style>
 </head>
 <body>
 <div class="header">
@@ -367,10 +367,28 @@ def convert_to_pdf(
     out = output_path or text_path.with_suffix(".pdf")
     out = Path(out)
     render_pdf(html, str(out))
-    log.info("PDF generated: %s", out)
     if not is_cover_letter(text):
+        _fit_pages(text, out)
         _word_copy(text, out.with_suffix(".docx"))
+    log.info("PDF generated: %s", out)
     return out
+
+
+def page_count(pdf_path: Path) -> int:
+    from pypdf import PdfReader
+    try:
+        return len(PdfReader(str(pdf_path)).pages)
+    except Exception:
+        return 0
+
+
+def _fit_pages(text: str, out: Path) -> None:
+    """A resume a little over its page target (one page for graduates) is set tighter to fit."""
+    target = look.pages_target()
+    for level in (1, 2):
+        if page_count(out) <= target:
+            return
+        render_pdf(build_html(parse_resume(text), fit=level), str(out))
 
 
 def _word_copy(text: str, docx_path: Path) -> None:
