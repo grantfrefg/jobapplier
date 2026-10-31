@@ -61,7 +61,7 @@ if sys.platform == "darwin":
         name="ApplyPilot.app",
         bundle_identifier="com.applypilot.desktop",
         info_plist={
-            "CFBundleShortVersionString": "0.8.0",
+            "CFBundleShortVersionString": "0.8.1",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
             # No window of its own (the UI is a browser tab): run as a background

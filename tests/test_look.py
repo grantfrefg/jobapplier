@@ -94,3 +94,16 @@ def test_pdf_font_names_become_css_families():
     assert font_family("Calibri-Bold") == ("Calibri", False)
     assert font_family("ArialMT") == ("Arial", False)
     assert font_family("XYZ+Garamond-Italic")[1]
+
+
+def test_page_target(monkeypatch):
+    grad = {"experience": {"years_of_experience_total": "1"}}
+    senior = {"experience": {"years_of_experience_total": "8"}}
+    assert look.pages_target(grad) == 1 and look.pages_target(senior) == 2 and look.pages_target({}) == 2
+    assert "ONE page" in look.length_rule(grad) and "2 pages" in look.length_rule(senior)
+    monkeypatch.setenv("RESUME_PAGES", "1")
+    assert look.pages_target(senior) == 1
+    from applypilot.scoring import tailor
+    assert "ONE page" in tailor._build_application_prompt(senior)
+    report = ats.check(look.SAMPLE + ("\n- Extra bullet about reporting work for the team" * 60))
+    assert any("fits on one page" in i for i in report["issues"])

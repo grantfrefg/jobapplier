@@ -103,14 +103,21 @@ def check(resume_text: str, job: dict | None = None, original_text: str = "", pd
     elif undated:
         issues.append(f"No date range a parser can read for: {', '.join(t[:40] for t in undated[:3])} "
                       "(use 'Mar 2021 - Present')")
+    from applypilot.scoring import look
+    from applypilot.scoring.pdf import page_count
     words = len((resume_text or "").split())
     pages = round(words / WORDS_PER_PAGE, 1)
-    if words < 250:
+    target = look.pages_target()
+    real = page_count(pdf_path) if pdf_path and str(pdf_path).lower().endswith(".pdf") else 0
+    if words < (150 if target == 1 else 250):
         issues.append(f"Very short ({words} words): too little for a keyword search to find")
-    elif pages > 3.2:
-        issues.append(f"About {pages:g} pages: Australian resumes are normally 2, at most 3")
+    elif target == 1 and (real or pages) > 1.15:
+        issues.append(f"{f'{real} pages' if real else f'About {pages:g} pages'}: a graduate resume fits on one "
+                      "page (Resume look -> Length). Trim the least relevant bullets, or Redo the resume")
+    elif (real or pages) > 3.2:
+        issues.append(f"About {real or pages:g} pages: Australian resumes are normally 2, at most 3")
     else:
-        passed.append(f"Length about {max(pages, 1):g} page(s)")
+        passed.append(f"{real} page(s)" if real else f"Length about {max(pages, 1):g} page(s)")
 
     # -- Knockout facts ----------------------------------------------------------
     from applypilot.scoring import look
