@@ -27,6 +27,7 @@ OWN_STYLE = ("mine", "word")  # follow your own resume (the PDF's style; the Wor
 ACCENTS = {"navy": "#1f3a5f", "teal": "#0f5e63", "green": "#2f5d3a", "burgundy": "#6b1f2a",
            "plum": "#4b2e5a", "charcoal": "#2b2b2b"}
 WORK_RIGHTS_MODES = ("auto", "always", "never")
+PAGE_MODES = ("auto", "1", "2")
 
 _WORK_RIGHTS = re.compile(r"citizen|permanent resident|work(ing)? rights|visa|right to work", re.I)
 _LIMITED = re.compile(r"working holiday|student|limited|bridging|visa", re.I)
@@ -95,6 +96,35 @@ def work_rights_left_off() -> bool:
     except Exception:  # no profile yet
         return False
     return bool(line) and not shown_work_rights(line)
+
+
+def pages_target(profile: dict | None = None) -> int:
+    """How many pages a resume should fill: RESUME_PAGES 1 or 2, or automatically one page for
+    graduates and early career (2 years or less), two otherwise."""
+    value = os.environ.get("RESUME_PAGES", "").strip()
+    if value in ("1", "2"):
+        return int(value)
+    if profile is None:
+        from applypilot.config import load_profile
+        try:
+            profile = load_profile()
+        except Exception:  # no profile yet
+            return 2
+    try:
+        years = float(str((profile.get("experience") or {}).get("years_of_experience_total") or "").strip())
+    except ValueError:
+        return 2
+    return 1 if years <= 2 else 2
+
+
+def length_rule(profile: dict | None = None) -> str:
+    """The LENGTH instruction for the tailoring prompt."""
+    if pages_target(profile) == 1:
+        return ("LENGTH: ONE page (a graduate or early-career resume). About 400-450 words in all: a 2-sentence "
+                "summary, 3-4 skills lines, 3-4 bullets for the most relevant role or project and 1-2 for the "
+                "rest. Drop the least relevant roles' bullets, projects and skills first. No filler.")
+    return ("LENGTH: Australian resumes are normally 2 pages (3 at most for long careers). Keep it tight: no "
+            "filler bullets.")
 
 
 def plain_title(title: str) -> str:
@@ -229,4 +259,12 @@ Sep 2019 - Dec 2020 | Python, SQL
 EDUCATION
 Southern Cross Institute of Technology | Master of Data Science | 2019
 """
+
+
+def fit_css(level: int) -> str:
+    """Tighter spacing and type, used when a resume runs past its page target (level 1 or 2)."""
+    size, lead, margin = ((10.0, 1.28, "1.3cm 1.6cm"), (9.4, 1.22, "1.0cm 1.3cm"))[min(level, 2) - 1]
+    return (f"@page {{ margin: {margin}; }} body {{ font-size: {size}pt !important; line-height: {lead} "
+            "!important; } .section { margin-top: 6px !important; } .entry { margin-bottom: 4px !important; } "
+            "li { margin-bottom: 0 !important; } .name { font-size: 1.6em !important; }")
 

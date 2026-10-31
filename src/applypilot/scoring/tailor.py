@@ -161,8 +161,8 @@ this job. If the resume has none, return an empty list: never make one up.
 EXPERIENCE ENTRIES: header "Job Title at Employer"; subtitle "Mon YYYY - Mon YYYY (or Present) | main tech".
 EDUCATION: "Institution | Degree | graduation year" (the year only if the original resume shows it).
 
-LENGTH: Australian resumes are normally 2 pages (3 at most for long careers). Keep it tight: no filler
-bullets. No photo, date of birth, marital status or "references available on request".
+{look.length_rule(profile)}
+No photo, date of birth, marital status or "references available on request".
 
 ## VOICE: IT MUST NOT READ AS AI-WRITTEN
 Australian recruiters read hundreds of these and reject the ones that sound generated.

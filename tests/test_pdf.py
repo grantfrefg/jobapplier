@@ -125,3 +125,18 @@ def test_pdf_falls_back_when_the_headless_shell_is_missing(monkeypatch):
     monkeypatch.setattr(config, "find_system_browsers", lambda: [])
     assert pdf._launch_headless(P()) == "browser"
     assert tried == [{"headless": True}, {"headless": True, "channel": "chromium"}]
+
+
+def test_a_resume_a_little_over_one_page_is_set_tighter_to_fit(tmp_path, monkeypatch):
+    pytest.importorskip("playwright")
+    from applypilot.scoring import look
+    line = "- Delivered reporting improvement number {} for the regional operations team"
+    bullets = "\n".join(line.format(i) for i in range(11))
+    jobs = "\n\n".join(f"Analyst at Company {n}\nJan 20{10 + n} - Dec 20{11 + n}\n{bullets}" for n in range(3))
+    text = look.SAMPLE.split("EXPERIENCE")[0] + "EXPERIENCE\n" + jobs + "\n\nEDUCATION\nUniversity | BCom | 2020\n"
+    resume = tmp_path / "long.txt"
+    resume.write_text(text, encoding="utf-8")
+    monkeypatch.setenv("RESUME_PAGES", "2")
+    assert pdf.page_count(pdf.convert_to_pdf(resume)) == 2
+    monkeypatch.setenv("RESUME_PAGES", "1")
+    assert pdf.page_count(pdf.convert_to_pdf(resume)) == 1

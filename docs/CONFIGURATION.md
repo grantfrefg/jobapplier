@@ -40,6 +40,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `RESUME_TAGLINE` | `off` | `on` adds a few words for each job after your title ("Senior Data Scientist · Production ML") |
 | `RESUME_TECH_LINE` | `off` | `on` shows a tools line under each job |
 | `SHOW_WORK_RIGHTS` | `auto` | Work rights in the resume header: `auto` shows citizenship, residency or full work rights and leaves limited visas (working holiday, student) off; `always`; `never`. Application forms are still answered from your profile |
+| `RESUME_PAGES` | `auto` | Resume length: `1` (graduate and early career), `2` (the Australian norm), or `auto`: one page with 2 years' experience or less in your profile, otherwise two. A resume a little over is set tighter to fit |
 | `CAPSOLVER_API_KEY` | — | CAPTCHA solving, `claude_code` engine only |
 | `CHROME_PATH` | auto-detected | Browser for the apply engines (Chrome, Edge or Chromium) |
 
