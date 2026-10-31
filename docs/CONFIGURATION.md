@@ -35,7 +35,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `GEMINI_DAILY_LIMIT` | `500` | Gemini requests per day for your model (Google's free-tier limit). Requests are counted per US Pacific day, when Google resets them |
 | `GEMINI_APPLY_RESERVE` | `50` | Requests kept for applying: finding and preparing jobs stops when only this many are left |
 | `TAILOR_STYLE` | `full` | `full` rewrites bullets and the summary for each ad (best keyword match); `light` keeps your bullets word for word, only swapping in the ad's terms and reordering (Find jobs → **Tailoring style**) |
-| `RESUME_LAYOUT` | `modern` | Resume PDF layout: `modern`, `classic` (serif), `compact` or `traditional` (Setup → **Resume look**) |
+| `RESUME_LAYOUT` | `modern` | Resume layout: `modern`, `classic` (serif), `compact`, `traditional`; `mine` copies the design of your uploaded resume PDF; `word` fills a copy of your uploaded Word resume (`~/.applypilot/resume.docx`) and sends that .docx (Setup → **Resume look**) |
 | `RESUME_ACCENT` | `navy` | Heading colour: `navy`, `teal`, `green`, `burgundy`, `plum` or `charcoal` |
 | `RESUME_TAGLINE` | `off` | `on` adds a few words for each job after your title ("Senior Data Scientist · Production ML") |
 | `RESUME_TECH_LINE` | `off` | `on` shows a tools line under each job |

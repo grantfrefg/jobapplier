@@ -1,6 +1,6 @@
 [project]
 name = "applypilot"
-version = "0.7.0"
+version = "0.8.0"
 description = "AI-powered end-to-end job application pipeline"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -27,6 +27,8 @@ dependencies = [
     "pyyaml>=6.0",
     "pandas>=2.0",
     "pypdf>=4.0",  # reading the text of your own resume PDFs (ATS check)
+    "pdfplumber>=0.10",  # reading the design of your resume PDF (Resume look -> Match my resume)
+    "python-docx>=1.1",  # filling your own Word resume (Resume look -> My Word file)
     "anthropic>=2.0",  # Claude, when you choose it as the AI provider (your own API key)
     "tzdata; sys_platform == 'win32'",  # Pacific time for the daily Gemini budget
     ]
