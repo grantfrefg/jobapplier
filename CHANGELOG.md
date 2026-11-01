@@ -15,6 +15,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   - **Cover letters** are built around the story closest to each job's ad (retold briefly, nothing added), so they say something specific to you instead of restating the resume.
   - **The fact-check** counts a story's details and numbers as real for the letter (resumes still only use the resume).
   - **Application questions** like "Tell us about a time you..." or "Why this role?" are answered from your stories, by the built-in engine and by Claude Code / Codex.
+- **Contract and temp jobs** (e.g. on a working holiday visa): a **Job type** choice in Setup → What jobs to look for (Any, Full time, Part time or casual, Contract or temp) filters LinkedIn, Indeed and Glassdoor searches; Contract or temp searches both contract and temporary listings.
+- **Working holiday visa aware scoring:** with that visa in your profile, contract, temp, casual and fixed-term roles of 6 months or less score best, permanent roles open to visa holders score 1 lower, and ones requiring residency or citizenship are dealbreakers.
+
+### Fixed
+- **Claude Code / Codex refused day-rate questions for contract seekers.** Their instructions said to apply for full-time salaried roles only; they now answer hourly / day rate questions from your profile when it says you take contract work.
 
 ## [0.8.1] - 2026-10-31
 
