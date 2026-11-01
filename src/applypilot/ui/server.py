@@ -570,6 +570,24 @@ def create_app() -> FastAPI:
             style_match.save_from(config.RESUME_PDF_PATH)  # for the "Match my resume" layout
         return get_resume()
 
+    # -- your stories (cover letters and "tell us about a time" answers) -----
+
+    @app.get("/api/stories")
+    def get_stories() -> dict:
+        from applypilot import stories
+        return {"stories": stories.load(), "questions": stories.QUESTIONS, "max": stories.MAX_STORIES}
+
+    @app.post("/api/stories")
+    def save_stories(body: dict) -> dict:
+        from applypilot import stories
+        items = body.get("stories")
+        if not isinstance(items, list):
+            raise HTTPException(400, "stories must be a list")
+        if len([s for s in items if str((s or {}).get("answer") or "").strip()]) > stories.MAX_STORIES:
+            raise HTTPException(400, f"At most {stories.MAX_STORIES} stories")
+        stories.save([s for s in items if isinstance(s, dict)])
+        return get_stories()
+
     # -- your own writing (cover letters follow its voice) --------------------
 
     @app.get("/api/writing-sample")
@@ -639,6 +657,7 @@ def create_app() -> FastAPI:
                     "include_remote": any(loc.get("remote") for loc in locs),
                     "exclude_titles": [str(t) for t in parsed.get("exclude_titles") or []],
                     "roles": [str(q.get("query", "")) for q in parsed.get("queries") or [] if isinstance(q, dict)],
+                    "job_type": str(defaults.get("job_type") or ""),
                 }
             except (yaml.YAMLError, AttributeError, TypeError, ValueError):
                 simple = None
@@ -662,8 +681,11 @@ def create_app() -> FastAPI:
             excludes = body.get("exclude_titles") or []
             if isinstance(excludes, str):
                 excludes = excludes.split(",")
+            job_type = str(body.get("job_type") or "")
+            if job_type not in ("", "fulltime", "parttime", "contract"):
+                raise HTTPException(400, "job_type must be fulltime, parttime or contract (or empty for any)")
             text = build_search_yaml(location, roles, str(body.get("country") or "australia"),
-                                     bool(body.get("include_remote")), [str(t) for t in excludes])
+                                     bool(body.get("include_remote")), [str(t) for t in excludes], job_type)
         try:
             parsed = yaml.safe_load(text)
         except yaml.YAMLError as e:

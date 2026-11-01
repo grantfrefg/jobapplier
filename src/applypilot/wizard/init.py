@@ -214,7 +214,8 @@ COUNTRY_SOURCES = {
 
 
 def build_search_yaml(location: str, roles: list[str], country: str = "australia",
-                      include_remote: bool = False, exclude_titles: list[str] | None = None) -> str:
+                      include_remote: bool = False, exclude_titles: list[str] | None = None,
+                      job_type: str = "") -> str:
     """Render searches.yaml content (shared by this wizard and the web UI)."""
     from applypilot.config import location_accept_patterns
 
@@ -232,6 +233,11 @@ def build_search_yaml(location: str, roles: list[str], country: str = "australia
         f"  location: {q(location)}",
         "  hours_old: 72",
         "  results_per_site: 50",
+    ]
+    if job_type:
+        lines += ["  # Only this kind of listing on LinkedIn, Indeed and Glassdoor: fulltime, parttime or contract",
+                  f"  job_type: {q(job_type)}"]
+    lines += [
         "",
         "locations:",
         f"  - location: {q(location)}",

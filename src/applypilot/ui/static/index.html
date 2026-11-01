@@ -263,6 +263,19 @@
     </div>
 
     <div class="card">
+      <h2>Your stories <span class="muted">(optional, worth 10 minutes)</span></h2>
+      <p class="sub">A few true stories from your jobs, in your own words: a problem you solved, something you're
+        proud of, a tight deadline. Rough notes are fine. Cover letters are built around the story that fits each job,
+        and application questions like "Tell us about a time you..." are answered from them, so they say something
+        only you could say instead of restating your resume. Nothing is added to what you write, and resumes don't
+        use them. They're sent to the AI with letters and forms, so leave out anything private.</p>
+      <div id="stories"></div>
+      <div class="row"><button class="btn secondary" id="add-story">Add a story</button>
+        <button class="btn" id="save-stories">Save stories</button>
+        <span class="muted" id="stories-state"></span></div>
+    </div>
+
+    <div class="card">
       <h2>Resume look</h2>
       <p class="sub">How tailored resumes look as PDFs. Every layout is one column of real text, so applicant
         tracking systems read them the same way. Changes apply to new resumes; to restyle ones already made, use
@@ -316,6 +329,13 @@
       <input type="text" id="s-location" placeholder="e.g. Sydney, NSW">
       <label class="choice"><input type="checkbox" id="s-remote">
         <span>Also include remote jobs</span></label>
+      <label for="s-jobtype">Job type</label>
+      <select id="s-jobtype">
+        <option value="">Any</option><option value="fulltime">Full time</option>
+        <option value="parttime">Part time or casual</option>
+        <option value="contract">Contract or temp (e.g. on a working holiday visa)</option></select>
+      <p class="sub">Filters LinkedIn, Indeed and Glassdoor searches. Other sources can't filter by type, so your
+        profile's Availability (full time / contract) also feeds the score.</p>
       <label for="s-roles">Job titles, comma separated</label>
       <input type="text" id="s-roles" placeholder="Data Analyst, Business Analyst">
       <label for="s-exclude">Skip jobs whose title contains (comma separated)</label>
@@ -883,6 +903,11 @@
       <li><b>Your writing</b> (Setup). Paste a cover letter or a few paragraphs you wrote, and cover letters follow
         your tone, sentence length and way of opening and closing. Its facts are never used. Each new letter is also
         checked against your recent ones, so they don't all open the same way.</li>
+      <li><b>Your stories</b> (Setup). The strongest fix for generic letters: a few true stories in your own words
+        (a problem you solved, something you're proud of, a tight deadline). Each cover letter is built around the
+        one closest to the job, and application questions like "Tell us about a time you..." are answered from them.
+        Their details count as real in the fact-check; nothing beyond what you wrote is added, and resumes don't use
+        them.</li>
       <li><b>Resume look</b> (Setup). Four layouts (Modern, Classic, Compact, Traditional) and six colours, so
         your resume doesn't look like everyone else's. By default there's no tagline after your job title and no
         tools line under each job, two things that make a resume read as AI-tailored. It also sets whether your
@@ -1248,13 +1273,14 @@ async function loadSearches() {
     $("#s-remote").checked = s.simple.include_remote;
     $("#s-roles").value = s.simple.roles.join(", ");
     $("#s-exclude").value = (s.simple.exclude_titles || []).join(", ");
+    $("#s-jobtype").value = s.simple.job_type || "";
   }
 }
 $("#save-searches").addEventListener("click", () => guarded(async () => {
   await post("/api/searches", {
     location: $("#s-location").value, country: $("#s-country").value, include_remote: $("#s-remote").checked,
     roles: $("#s-roles").value.split(","),
-    exclude_titles: $("#s-exclude").value.split(","),
+    exclude_titles: $("#s-exclude").value.split(","), job_type: $("#s-jobtype").value,
   });
   await loadSearches(); await refreshStatus();
 }, "Job search saved"));
@@ -1398,6 +1424,35 @@ for (const id of ["look-layout", "look-accent", "look-tagline", "look-tech", "lo
     refreshLookPreview();
   }, "Resume look saved (applies to new PDFs; Run a step again → PDF restyles the rest)"));
 }
+// ---------- setup: your stories ----------
+let storyQuestions = {};
+function storyRow(story = {}) {
+  const question = el("select", { class: "story-question", style: "width:100%" },
+    ...Object.entries(storyQuestions).map(([k, q]) => el("option", { value: k }, q)));
+  question.value = story.question || "proud";
+  const row = el("div", { class: "story", style: "border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0" },
+    el("input", { type: "text", class: "story-role", style: "width:100%",
+                  placeholder: "Which job? e.g. Acme Freight (Operations Analyst)", value: story.role || "" }),
+    question,
+    el("textarea", { class: "story-answer", rows: "4", placeholder: "What happened, what you did, how it turned out. "
+                     + "Specific details and real numbers help most." }, story.answer || ""),
+    el("button", { class: "btn secondary", onclick: () => row.remove() }, "Remove"));
+  return row;
+}
+async function loadStories() {
+  const data = await api("/api/stories");
+  storyQuestions = data.questions;
+  $("#stories").replaceChildren(...(data.stories.length ? data.stories : [{}]).map(storyRow));
+  $("#stories-state").textContent = data.stories.length
+    ? `${data.stories.length} saved: letters and form answers can use them.` : "";
+}
+$("#add-story").addEventListener("click", () => $("#stories").append(storyRow()));
+$("#save-stories").addEventListener("click", () => guarded(async () => {
+  const stories = [...document.querySelectorAll("#stories .story")].map((r) => ({
+    role: r.querySelector(".story-role").value, question: r.querySelector(".story-question").value,
+    answer: r.querySelector(".story-answer").value }));
+  await post("/api/stories", { stories }); await loadStories();
+}, "Stories saved (used by the next cover letters and applications)"));
 $("#tailor-style").addEventListener("change", () => guarded(() =>
   post("/api/settings", { TAILOR_STYLE: $("#tailor-style").value }),
   $("#tailor-style").value === "light" ? "Light touch: resumes keep your own words (applies to the next tailoring)"
@@ -1944,7 +1999,7 @@ $("#quit").addEventListener("click", () => guarded(async () => {
 (async () => {
   await refreshStatus();
   refreshBrowser();
-  await Promise.all([loadSettings(), loadResume(), loadWriting(), loadSearches(), loadProfile(), loadAnswers()]).catch((e) => toast(e.message, true));
+  await Promise.all([loadSettings(), loadResume(), loadWriting(), loadStories(), loadSearches(), loadProfile(), loadAnswers()]).catch((e) => toast(e.message, true));
   // First launch (nothing set up, no tab remembered): start with the guide
   let tab = status && !status.checks.profile && !status.checks.resume_txt ? "guide" : "setup";
   try { tab = localStorage.getItem("ap-tab") || tab; } catch {}
