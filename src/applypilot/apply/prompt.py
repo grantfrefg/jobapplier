@@ -490,6 +490,11 @@ def build_prompt(job: dict, tailored_resume: str,
     else:
         cl_display = cover_letter_text
 
+    # Your stories, for "Tell us about a time..." questions
+    from applypilot import stories
+    told = stories.answers_block()
+    stories_section = f"\n== YOUR STORIES ==\n{told}\n" if told else ""
+
     # Phone digits only (for fields with country prefix)
     phone_digits = "".join(c for c in personal.get("phone", "") if c.isdigit())
 
@@ -531,7 +536,7 @@ Cover Letter PDF (upload if asked): {cl_upload_path or "N/A"}
 
 == APPLICANT PROFILE ==
 {profile_summary}
-
+{stories_section}
 == YOUR MISSION ==
 Fill in a complete, accurate application, up to (not including) the button that sends it. Use the profile and resume as source data -- adapt to fit each form's format.
 
