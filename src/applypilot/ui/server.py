@@ -570,6 +570,24 @@ def create_app() -> FastAPI:
             style_match.save_from(config.RESUME_PDF_PATH)  # for the "Match my resume" layout
         return get_resume()
 
+    # -- your stories (cover letters and "tell us about a time" answers) -----
+
+    @app.get("/api/stories")
+    def get_stories() -> dict:
+        from applypilot import stories
+        return {"stories": stories.load(), "questions": stories.QUESTIONS, "max": stories.MAX_STORIES}
+
+    @app.post("/api/stories")
+    def save_stories(body: dict) -> dict:
+        from applypilot import stories
+        items = body.get("stories")
+        if not isinstance(items, list):
+            raise HTTPException(400, "stories must be a list")
+        if len([s for s in items if str((s or {}).get("answer") or "").strip()]) > stories.MAX_STORIES:
+            raise HTTPException(400, f"At most {stories.MAX_STORIES} stories")
+        stories.save([s for s in items if isinstance(s, dict)])
+        return get_stories()
+
     # -- your own writing (cover letters follow its voice) --------------------
 
     @app.get("/api/writing-sample")

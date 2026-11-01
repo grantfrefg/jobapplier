@@ -8,6 +8,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-01
+
+### Added
+- **Your stories** (Setup): a few true stories from your jobs in your own words: something you're proud of, a problem you solved, a tight deadline, working with others, something you learned fast, why you like the work. Rough notes are fine.
+  - **Cover letters** are built around the story closest to each job's ad (retold briefly, nothing added), so they say something specific to you instead of restating the resume.
+  - **The fact-check** counts a story's details and numbers as real for the letter (resumes still only use the resume).
+  - **Application questions** like "Tell us about a time you..." or "Why this role?" are answered from your stories, by the built-in engine and by Claude Code / Codex.
+
 ## [0.8.1] - 2026-10-31
 
 ### Added

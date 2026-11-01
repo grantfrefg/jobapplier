@@ -16,6 +16,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from applypilot import stories
 from applypilot.budget import BudgetExhausted
 from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import finish_redo, get_connection, get_jobs_by_stage, mark_duplicates
@@ -251,6 +252,8 @@ supported; or none>"}}
 ## WHAT YOU CHECK AGAINST
 - The ORIGINAL RESUME: every tool, skill, number, title, employer, qualification and achievement in it is
   real and may be used.
+- The CANDIDATE'S OWN STORIES, when given: true accounts in their words. Their facts may be used in the
+  cover letter (not the resume).
 - Plus these extra skills the candidate listed in their profile: {skills_str}. They are real, in the
   skills list and the summary; but the resume doesn't say which role used them, so one named inside a
   role's bullets or tech line, when the original doesn't show it in that role, is rule 3.
@@ -431,7 +434,9 @@ def judge_tailored_resume(
     Returns:
         {"passed": bool, "verdict": str, "issues": str}
     """
-    letter_part = f"\n\n---\n\nCOVER LETTER:\n{cover_letter}" if cover_letter else ""
+    told = stories.facts_text() if cover_letter else ""
+    letter_part = (f"\n\n---\n\nCANDIDATE'S OWN STORIES (true; the cover letter may use their facts):\n{told}"
+                   if told else "") + (f"\n\n---\n\nCOVER LETTER:\n{cover_letter}" if cover_letter else "")
     ad_part = f"JOB AD (excerpt):\n{job_ad[:_JUDGE_AD_CHARS]}\n\n---\n\n" if job_ad else ""
     messages = [
         {"role": "system", "content": _build_judge_prompt(profile)},
@@ -590,8 +595,17 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
         errors.append("Education doesn't match the resume. Copy it exactly.")
 
     return {"resume": fixed, "errors": errors,
-            "letter_errors": letter_problems(letter, source, resume_text, (job or {}).get("full_description") or ""),
+            "letter_errors": _letter_errors(letter, source, resume_text, profile, job),
             "dropped_skills": dropped, "title_replaced": replaced, "added_keywords": added}
+
+
+def _letter_errors(letter: str, source: "facts.Source", resume_text: str, profile: dict, job: dict | None) -> list[str]:
+    """letter_problems, with the candidate's stories counted as real facts for the letter."""
+    told = stories.facts_text()
+    if told:
+        resume_text = resume_text + "\n" + told
+        source = facts.source_for(resume_text, profile)
+    return letter_problems(letter, source, resume_text, (job or {}).get("full_description") or "")
 
 
 def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_ad: str = "") -> list[str]:
@@ -656,8 +670,8 @@ def tailor_application(
             )
         messages = [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": f"ORIGINAL RESUME:\n{resume_text}\n\n---\n\nTARGET JOB:\n{target}\n\n"
-                                        "Return the JSON:"},
+            {"role": "user", "content": f"ORIGINAL RESUME:\n{resume_text}\n\n---\n\nTARGET JOB:\n{target}"
+                                        f"{stories.letter_block(job)}\n\nReturn the JSON:"},
         ]
         report["requests"] += 1
         try:

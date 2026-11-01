@@ -216,6 +216,9 @@ def generate_cover_letter(
         The cover letter text (best attempt even if validation failed).
     """
     target = job_text(job)
+    from applypilot import stories
+    told = stories.letter_block(job)
+    known = resume_text + ("\n" + stories.facts_text() if told else "")  # a story's facts are real too
 
     avoid_notes: list[str] = []
     letter = ""
@@ -235,7 +238,7 @@ def generate_cover_letter(
             {"role": "system", "content": prompt},
             {"role": "user", "content": (
                 f"RESUME:\n{resume_text}\n\n---\n\n"
-                f"TARGET JOB:\n{target}\n\n"
+                f"TARGET JOB:\n{target}{told}\n\n"
                 "Write the cover letter:"
             )},
         ]
@@ -244,8 +247,8 @@ def generate_cover_letter(
             stats["requests"] = stats.get("requests", 0) + 1
         letter = australianise(clean_letter(client.chat(messages, max_tokens=1024, temperature=0.7)), resume_text)
 
-        validation = validate_cover_letter(letter, mode=validation_mode, original_text=resume_text)
-        fact_errors = _fact_errors(letter, resume_text, profile, job.get("full_description") or "")
+        validation = validate_cover_letter(letter, mode=validation_mode, original_text=known)
+        fact_errors = _fact_errors(letter, known, profile, job.get("full_description") or "")
         validation["errors"] += fact_errors
         same = voice.repeated_opening(letter, voice.recent_openings())
         if same:  # a style problem: retried, but never a reason to drop the letter

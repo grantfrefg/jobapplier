@@ -578,3 +578,12 @@ def test_word_resume_upload(client):
     assert bad.status_code == 400 and "Word" in bad.json()["detail"]
     r = client.post("/api/resume", data={"text": ""}, files={"docx": ("cv.docx", word, "application/octet-stream")})
     assert r.json()["has_docx"] is True
+
+
+def test_stories_api(client):
+    r = client.get("/api/stories").json()
+    assert r["stories"] == [] and "problem" in r["questions"]
+    saved = client.post("/api/stories", json={"stories": [
+        {"role": "Acme", "question": "problem", "answer": "Fixed the weekly report."}]}).json()
+    assert saved["stories"][0]["answer"] == "Fixed the weekly report."
+    assert client.post("/api/stories", json={"stories": "nope"}).status_code == 400
