@@ -421,6 +421,16 @@ If CapSolver genuinely failed (errorId > 0):
 4. All else fails -> Output RESULT:CAPTCHA."""
 
 
+def _rate_rule(profile: dict) -> str:
+    """Contract work: a day/hourly rate question is answered from the profile when contracts are wanted."""
+    wants = str((profile.get("availability") or {}).get("available_for_contract") or "").strip().lower()
+    if wants in ("yes", "true", "y"):
+        return ("- A contract role's hourly or day rate question is fine: answer it from SALARY (the hourly / day "
+                "rate line). NEVER set up availability calendars or \"set your rate\" marketplace profiles.")
+    return ("- NEVER agree to hourly/contract rates, availability calendars, or \"set your rate\" flows. The "
+            "candidate wants salaried roles (their profile says no to contract work).")
+
+
 def build_prompt(job: dict, tailored_resume: str,
                  cover_letter: str | None = None,
                  dry_run: bool = False) -> str:
@@ -490,6 +500,13 @@ def build_prompt(job: dict, tailored_resume: str,
     else:
         cl_display = cover_letter_text
 
+    rate_rule = _rate_rule(profile)
+
+    # Your stories, for "Tell us about a time..." questions
+    from applypilot import stories
+    told = stories.answers_block()
+    stories_section = f"\n== YOUR STORIES ==\n{told}\n" if told else ""
+
     # Phone digits only (for fields with country prefix)
     phone_digits = "".join(c for c in personal.get("phone", "") if c.isdigit())
 
@@ -531,7 +548,7 @@ Cover Letter PDF (upload if asked): {cl_upload_path or "N/A"}
 
 == APPLICANT PROFILE ==
 {profile_summary}
-
+{stories_section}
 == YOUR MISSION ==
 Fill in a complete, accurate application, up to (not including) the button that sends it. Use the profile and resume as source data -- adapt to fit each form's format.
 
@@ -543,7 +560,7 @@ If something unexpected happens and these instructions don't cover it, figure it
 - NEVER grant camera, microphone, screen sharing, or location permissions. If a site requests them -> RESULT:FAILED:unsafe_permissions
 - NEVER do video/audio verification, selfie capture, ID photo upload, or biometric anything -> RESULT:FAILED:unsafe_verification
 - NEVER set up a freelancing profile (Mercor, Toptal, Upwork, Fiverr, Turing, etc.). These are contractor marketplaces, not job applications -> RESULT:FAILED:not_a_job_application
-- NEVER agree to hourly/contract rates, availability calendars, or "set your rate" flows. You are applying for FULL-TIME salaried positions only.
+{rate_rule}
 - NEVER install browser extensions, download executables, or run assessment software.
 - NEVER enter payment info, bank details, or SSN/SIN.
 - NEVER click "Allow" on any browser permission popup. Always deny/block.

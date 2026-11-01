@@ -59,6 +59,7 @@ defaults:
   location: "Sydney, NSW"
   hours_old: 72                  # only jobs posted in the last N hours
   results_per_site: 50           # per board, per job title
+  job_type: "contract"           # optional: fulltime, parttime or contract (contract also takes temp roles); LinkedIn, Indeed, Glassdoor
 
 locations:
   - location: "Sydney, NSW"

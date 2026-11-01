@@ -83,7 +83,12 @@ def test_profile_resume_searches(client):
     s = client.post("/api/searches", json={"location": "Sydney, NSW", "country": "australia",
                                            "include_remote": True, "roles": ["Data Analyst", " "]}).json()
     assert s["simple"] == {"location": "Sydney, NSW", "country": "australia", "include_remote": True,
-                           "exclude_titles": [], "roles": ["Data Analyst"]}
+                           "exclude_titles": [], "roles": ["Data Analyst"], "job_type": ""}
+    s = client.post("/api/searches", json={"location": "Sydney, NSW", "roles": ["Data Analyst"],
+                                           "job_type": "contract"}).json()
+    assert s["simple"]["job_type"] == "contract" and 'job_type: "contract"' in s["yaml"]
+    assert client.post("/api/searches", json={"location": "Sydney", "roles": ["x"],
+                                              "job_type": "gig"}).status_code == 400
     s = client.post("/api/searches", json={"location": "Sydney, NSW", "roles": ["Data Analyst"],
                                            "exclude_titles": "intern, Senior Director,"}).json()
     assert s["simple"]["exclude_titles"] == ["intern", "Senior Director"]
@@ -578,3 +583,12 @@ def test_word_resume_upload(client):
     assert bad.status_code == 400 and "Word" in bad.json()["detail"]
     r = client.post("/api/resume", data={"text": ""}, files={"docx": ("cv.docx", word, "application/octet-stream")})
     assert r.json()["has_docx"] is True
+
+
+def test_stories_api(client):
+    r = client.get("/api/stories").json()
+    assert r["stories"] == [] and "problem" in r["questions"]
+    saved = client.post("/api/stories", json={"stories": [
+        {"role": "Acme", "question": "problem", "answer": "Fixed the weekly report."}]}).json()
+    assert saved["stories"][0]["answer"] == "Fixed the weekly report."
+    assert client.post("/api/stories", json={"stories": "nope"}).status_code == 400

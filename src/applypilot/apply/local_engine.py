@@ -40,6 +40,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from applypilot import budget, config
+from applypilot import stories as stories_mod
 from applypilot.apply import adapters, answers
 from applypilot.apply.dashboard import add_event, update_state
 from applypilot.database import apply_link
@@ -619,7 +620,7 @@ def parse_json_response(text: str) -> dict:
 
 def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
                        safe_resume: str, has_cover_pdf: bool, has_cover_text: bool,
-                       ats: str | None) -> str:
+                       ats: str | None, stories: str = "") -> str:
     sections = [
         f"JOB: {job.get('title', '')} @ {job.get('company') or job.get('site', '')} ({job.get('location', '')})",
         f"FOUND ON: {_BOARD_NAMES.get(str(job.get('site') or '').lower(), job.get('site') or 'a job board')}",
@@ -637,6 +638,8 @@ def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
         sections.append("JOB DESCRIPTION (excerpt):\n" + description[:_MAX_AD_CHARS])
     sections.append("APPLICANT PROFILE:\n" + json.dumps(safe_profile, indent=1))
     sections.append("RESUME:\n" + safe_resume[:_MAX_RESUME_CHARS])
+    if stories and any(f.get("type") in ("textarea", "text") for f in fields):  # "Tell us about a time..."
+        sections.append(stories[:_MAX_RESUME_CHARS])
     sections.append("FORM FIELDS:\n" + json.dumps(fields, indent=0))
     return "\n\n".join(sections)
 
@@ -901,7 +904,7 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
         job, remaining, ctx["safe_profile"], ctx["safe_resume"],
         has_cover_pdf="{{COVER_LETTER_PDF}}" in ctx["file_values"],
         has_cover_text=bool(ctx["local_values"].get("{{COVER_LETTER_TEXT}}")),
-        ats=ats,
+        ats=ats, stories=ctx.get("safe_stories", ""),
     )
     result = _call_ai(prompt, ctx["api_key"], ctx["model"])
     done = _run_actions(result["actions"], frame_by_id, ctx, lf)
@@ -1315,6 +1318,7 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
         "file_values": file_values,
         "safe_profile": redacted_profile(profile, placeholders),
         "safe_resume": redact(text_values.get("{{RESUME_TEXT}}", ""), placeholders),
+        "safe_stories": redact(stories_mod.answers_block(), placeholders),
         "ats": detect_ats(apply_link(job)),
     }
     target = apply_link(job)
