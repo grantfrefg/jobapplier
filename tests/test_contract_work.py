@@ -35,4 +35,5 @@ def test_working_holiday_visa_shapes_the_score():
            "availability": {"available_for_contract": "Yes", "available_for_full_time": "No"}}
     brief = candidate_brief(whv)
     assert "6 months with one employer" in brief and "wants contract" in brief and "not full-time" in brief
+    assert "says nothing about visas" in brief and "silence is not a dealbreaker" in brief
     assert "6 months" not in candidate_brief({"work_authorization": {"work_permit_type": "Australian citizen"}})
