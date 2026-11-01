@@ -8,6 +8,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Changed
+- **Working holiday visa scoring:** a permanent role whose ad says nothing about visas now explicitly scores 1 lower, like any permanent role, and is never treated as a dealbreaker; only ads requiring residency or citizenship, or saying no visa holders or sponsorship, are.
+
 ## [0.9.0] - 2026-11-01
 
 ### Added

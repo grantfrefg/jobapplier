@@ -84,9 +84,10 @@ def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
                                                + ([f"not {' or '.join(no)}"] if no else [])))
     if "working holiday" in str(auth.get("work_permit_type") or "").lower():
         lines.append("Working holiday visa: usually up to 6 months with one employer. Contract, temporary, casual "
-                     "and fixed-term roles of 6 months or less fit best. A permanent role open to visa holders is "
-                     "still fine but scores 1 lower; one that requires permanent residency or citizenship, or "
-                     "says no visa holders or sponsorship, is a work-rights dealbreaker.")
+                     "and fixed-term roles of 6 months or less fit best. A permanent role scores 1 lower, including "
+                     "one whose ad says nothing about visas (silence is not a dealbreaker: judge the rest as usual). "
+                     "Only an ad that requires permanent residency or citizenship, or says no visa holders or no "
+                     "sponsorship, is a work-rights dealbreaker.")
     if salary_floor(profile):
         lines.append(f"Minimum salary: {salary_floor(profile)} {comp.get('salary_currency') or 'AUD'} "
                      "base, excluding super")
