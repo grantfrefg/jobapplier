@@ -198,6 +198,21 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tup
 
 # -- Single search execution -------------------------------------------------
 
+# Search settings job_type -> the JobSpy listing types searched (contract also takes temp roles)
+JOB_TYPES = {"fulltime": ["fulltime"], "parttime": ["parttime"], "contract": ["contract", "temporary"]}
+
+
+def _scrape_types(kwargs: dict, job_type: str, max_retries: int):
+    """Scrape once per listing type for the job_type setting (once, unfiltered, without one)."""
+    import pandas as pd
+    types = JOB_TYPES.get(job_type or "")
+    if not types:
+        return _scrape_with_retry(kwargs, max_retries=max_retries)
+    frames = [_scrape_with_retry({**kwargs, "job_type": t}, max_retries=max_retries) for t in types]
+    frames = [f for f in frames if f is not None and len(f)]
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 def _run_one_search(
     search: dict,
     sites: list[str],
@@ -243,7 +258,7 @@ def _run_one_search(
         if "linkedin" in other_sites:
             kwargs["linkedin_fetch_description"] = True
         try:
-            df = _scrape_with_retry(kwargs, max_retries=max_retries)
+            df = _scrape_types(kwargs, defaults.get("job_type", ""), max_retries)
             all_dfs.append(df)
         except Exception as e:
             log.error("[%s] (non-gd): %s", label, e)
@@ -265,7 +280,7 @@ def _run_one_search(
         if proxy_config:
             gd_kwargs["proxies"] = [proxy_config["jobspy"]]
         try:
-            gd_df = _scrape_with_retry(gd_kwargs, max_retries=max_retries)
+            gd_df = _scrape_types(gd_kwargs, defaults.get("job_type", ""), max_retries)
             all_dfs.append(gd_df)
         except Exception as e:
             log.error("[%s] (glassdoor): %s", label, e)

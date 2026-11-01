@@ -83,7 +83,12 @@ def test_profile_resume_searches(client):
     s = client.post("/api/searches", json={"location": "Sydney, NSW", "country": "australia",
                                            "include_remote": True, "roles": ["Data Analyst", " "]}).json()
     assert s["simple"] == {"location": "Sydney, NSW", "country": "australia", "include_remote": True,
-                           "exclude_titles": [], "roles": ["Data Analyst"]}
+                           "exclude_titles": [], "roles": ["Data Analyst"], "job_type": ""}
+    s = client.post("/api/searches", json={"location": "Sydney, NSW", "roles": ["Data Analyst"],
+                                           "job_type": "contract"}).json()
+    assert s["simple"]["job_type"] == "contract" and 'job_type: "contract"' in s["yaml"]
+    assert client.post("/api/searches", json={"location": "Sydney", "roles": ["x"],
+                                              "job_type": "gig"}).status_code == 400
     s = client.post("/api/searches", json={"location": "Sydney, NSW", "roles": ["Data Analyst"],
                                            "exclude_titles": "intern, Senior Director,"}).json()
     assert s["simple"]["exclude_titles"] == ["intern", "Senior Director"]

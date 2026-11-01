@@ -329,6 +329,13 @@
       <input type="text" id="s-location" placeholder="e.g. Sydney, NSW">
       <label class="choice"><input type="checkbox" id="s-remote">
         <span>Also include remote jobs</span></label>
+      <label for="s-jobtype">Job type</label>
+      <select id="s-jobtype">
+        <option value="">Any</option><option value="fulltime">Full time</option>
+        <option value="parttime">Part time or casual</option>
+        <option value="contract">Contract or temp (e.g. on a working holiday visa)</option></select>
+      <p class="sub">Filters LinkedIn, Indeed and Glassdoor searches. Other sources can't filter by type, so your
+        profile's Availability (full time / contract) also feeds the score.</p>
       <label for="s-roles">Job titles, comma separated</label>
       <input type="text" id="s-roles" placeholder="Data Analyst, Business Analyst">
       <label for="s-exclude">Skip jobs whose title contains (comma separated)</label>
@@ -1266,13 +1273,14 @@ async function loadSearches() {
     $("#s-remote").checked = s.simple.include_remote;
     $("#s-roles").value = s.simple.roles.join(", ");
     $("#s-exclude").value = (s.simple.exclude_titles || []).join(", ");
+    $("#s-jobtype").value = s.simple.job_type || "";
   }
 }
 $("#save-searches").addEventListener("click", () => guarded(async () => {
   await post("/api/searches", {
     location: $("#s-location").value, country: $("#s-country").value, include_remote: $("#s-remote").checked,
     roles: $("#s-roles").value.split(","),
-    exclude_titles: $("#s-exclude").value.split(","),
+    exclude_titles: $("#s-exclude").value.split(","), job_type: $("#s-jobtype").value,
   });
   await loadSearches(); await refreshStatus();
 }, "Job search saved"));
