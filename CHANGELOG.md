@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-02
+
+### Added
+- **How many people have applied** ("47 applicants", "200+ applicants", "Under 25 applicants") next to each job on Find jobs and Apply, when the board shows it. LinkedIn does: the count is read from the job page the app already loads, so it costs no extra requests. It's updated when the job turns up in a later search. Indeed, Jora and the agency boards don't publish one.
+
 ## [0.10.0] - 2026-11-02
 
 ### Changed

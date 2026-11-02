@@ -209,6 +209,8 @@ _ALL_COLUMNS: dict[str, str] = {
     "application_url": "TEXT",
     "detail_scraped_at": "TEXT",
     "detail_error": "TEXT",
+    "applicants": "TEXT",            # "47 applicants" when the board says (applicants.py)
+    "applicants_count": "INTEGER",   # the same as a number, for sorting
     # Scoring
     "fit_score": "INTEGER",
     "score_reasoning": "TEXT",

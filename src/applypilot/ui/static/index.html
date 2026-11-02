@@ -903,6 +903,9 @@
       <li><b>Your writing</b> (Setup). Paste a cover letter or a few paragraphs you wrote, and cover letters follow
         your tone, sentence length and way of opening and closing. Its facts are never used. Each new letter is also
         checked against your recent ones, so they don't all open the same way.</li>
+      <li><b>Applicant counts.</b> Jobs from LinkedIn show how many people have applied ("47 applicants",
+        "200+ applicants") next to the company and location, read from the job page the app already loads. A job
+        with few applicants is worth applying to early. Other boards don't publish a count.</li>
       <li><b>Your stories</b> (Setup). The strongest fix for generic letters: a few true stories in your own words
         (a problem you solved, something you're proud of, a tight deadline). Each cover letter is built around the
         one closest to the job, and application questions like "Tell us about a time you..." are answered from them.
@@ -1570,7 +1573,7 @@ async function loadChoose() {
       el("td", {}, box),
       el("td", { class: "score" }, j.fit_score ?? "–"),
       el("td", {}, el("a", { href: j.link, target: "_blank", rel: "noopener" }, j.title || j.link),
-        el("div", { class: "muted" }, [j.company, j.site, j.location, j.salary].filter(Boolean).join(" · ")),
+        el("div", { class: "muted" }, [j.company, j.site, j.location, j.salary, j.applicants].filter(Boolean).join(" · ")),
         notes.length ? el("div", { class: "muted", title: TAILOR_FAILED[j.tailor_status] ? tailorHelp(j) : "" },
           notes.join(" · ")) : ""),
       el("td", { class: "muted" }, j.score_reason || "",
@@ -1788,7 +1791,7 @@ async function loadJobs() {
       el("td", { class: "score", title: j.score_reason ? "Why this score: " + j.score_reason : "",
         style: j.score_reason ? "cursor:help" : "" }, j.fit_score ?? "–"),
       el("td", {}, el("a", { href: link, target: "_blank", rel: "noopener" }, j.title || link),
-        el("div", { class: "muted" }, [j.company, j.site, j.location].filter(Boolean).join(" · ")),
+        el("div", { class: "muted" }, [j.company, j.site, j.location, j.applicants].filter(Boolean).join(" · ")),
         j.apply_site_name ? el("div", { class: "muted", title: ACCOUNT_HELP[j.apply_account] || "" },
           "Applies on " + j.apply_site_name + " · " + (ACCOUNT_LABEL[j.apply_account] || j.apply_account)) : "",
         j.also_on ? el("div", { class: "muted" }, "Also on: " + j.also_on) : ""),
