@@ -1,3 +1,3 @@
 """Jobapplier — AI-powered end-to-end job application pipeline."""
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"

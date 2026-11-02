@@ -551,6 +551,11 @@ def scrape_detail_page(page, url: str) -> dict:
             page.wait_for_load_state("networkidle", timeout=10000)
         except Exception:
             pass
+        try:  # "47 applicants", when the board shows it
+            from applypilot import applicants
+            result["applicants"] = applicants.parse(page.content())
+        except Exception:
+            pass
     except Exception as e:
         err_str = str(e)
         if "timeout" in err_str.lower():
@@ -662,6 +667,9 @@ def scrape_site_batch(
                 log.info("  %s | %s | desc=%s chars | apply=%s | %.1fs%s",
                          status, tier_str, f"{desc_len:,}", apply_str, elapsed, err_str)
 
+                if result.get("applicants"):
+                    conn.execute("UPDATE jobs SET applicants = ?, applicants_count = ? WHERE url = ?",
+                                 (*result["applicants"], url))
                 if status in ("ok", "partial"):
                     stats[status] += 1
                     conn.execute(
