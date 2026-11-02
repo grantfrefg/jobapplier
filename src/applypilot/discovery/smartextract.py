@@ -1034,6 +1034,8 @@ def build_scrape_targets(
       {query_encoded} -> URL-encoded search query
       {location_encoded} -> URL-encoded location
       {query} -> raw search query (for simple substitution)
+      {query_slug} -> "data-analyst" for "Data Analyst" (boards with the query in the path)
+      {city_encoded} -> URL-encoded city alone ("Sydney" for "Sydney, NSW")
     """
     if sites is None:
         sites = load_sites()
@@ -1045,7 +1047,11 @@ def build_scrape_targets(
     locs = search_cfg.get("locations", [])
     default_location = locs[0]["location"] if locs else ""
 
+    city = default_location.split(",")[0].strip()
     targets: list[dict] = []
+
+    def slug(text: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
     for site in sites:
         site_url = site.get("url", "")
@@ -1057,7 +1063,9 @@ def build_scrape_targets(
                 expanded_url = site_url
                 expanded_url = expanded_url.replace("{query_encoded}", quote_plus(query))
                 expanded_url = expanded_url.replace("{query}", quote_plus(query))
+                expanded_url = expanded_url.replace("{query_slug}", slug(query))
                 expanded_url = expanded_url.replace("{location_encoded}", quote_plus(default_location))
+                expanded_url = expanded_url.replace("{city_encoded}", quote_plus(city))
                 targets.append({
                     "name": site_name,
                     "url": expanded_url,
@@ -1066,6 +1074,7 @@ def build_scrape_targets(
         else:
             expanded_url = site_url
             expanded_url = expanded_url.replace("{location_encoded}", quote_plus(default_location))
+            expanded_url = expanded_url.replace("{city_encoded}", quote_plus(city))
             targets.append({
                 "name": site_name,
                 "url": expanded_url,

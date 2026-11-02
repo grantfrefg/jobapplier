@@ -13,6 +13,7 @@ Where jobs come from depends on the `country` in `searches.yaml`.
 | Indeed Australia (au.indeed.com) | JobSpy | None |
 | LinkedIn | JobSpy | None |
 | Jora (au.jora.com) | Smart extract: a browser loads the search page and the AI works out how to read the listings, once; the plan is saved and reused | ~2 the first time, then 0 |
+| Workforce Australia, Randstad Australia, Hays Australia | Smart extract, the same way. Workforce Australia is the government board (casual and Harvest Trail roles too); Randstad and Hays are recruitment agencies, where much contract and temp work is listed. Randstad searches nationally and the location filter keeps your area | ~2 each the first time, then 0 |
 
 For other countries, every bundled source is used: ZipRecruiter, Canadian/US job boards and Workday employers, as in the original ApplyPilot. You can choose sources yourself with `sites`, `smart_extract_sites` and `workday_employers` (see [CONFIGURATION.md](CONFIGURATION.md)).
 

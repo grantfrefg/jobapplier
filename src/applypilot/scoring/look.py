@@ -10,7 +10,9 @@
 - RESUME_TECH_LINE: "on" shows the tools line under each job. Off by default: the
   bullets and skills already name them.
 - SHOW_WORK_RIGHTS: auto (default) shows citizenship, residency and full work rights,
-  and leaves temporary visas with limits (working holiday, student) off; always; never.
+  and a working holiday visa when you're after contract, temp or casual work; other
+  temporary visas with limits (student, or working holiday for permanent roles) are
+  left off; always; never.
 
 Applied when the PDF is rendered, so changing one and running "PDF" again restyles
 every resume without asking the AI.
@@ -68,9 +70,29 @@ def shown_work_rights(line: str) -> str:
     if not line or mode == "never":
         return ""
     if mode == "auto" and _LIMITED.search(line):
-        # A temporary visa with full work rights reads as just that; a limited one is left off
-        return "Full working rights" if re.search(r"full work", line, re.I) else ""
+        # A temporary visa with full work rights reads as just that. A working holiday visa is
+        # what contract, temp and casual recruiters ask first, so it shows when that's the work
+        # wanted; otherwise a limited visa is left off
+        if re.search(r"full work", line, re.I):
+            return "Full working rights"
+        return "Working holiday visa" if re.search(r"working holiday", line, re.I) and _seeks_short_work() else ""
     return line
+
+
+def _seeks_short_work() -> bool:
+    """The profile takes contract work, or the search asks for contract or part-time/casual roles."""
+    from applypilot import config
+    try:
+        avail = (config.load_profile() or {}).get("availability") or {}
+        if str(avail.get("available_for_contract") or "").strip().lower() in ("yes", "true", "y"):
+            return True
+    except Exception:  # no profile yet
+        pass
+    try:
+        defaults = (config.load_search_config() or {}).get("defaults") or {}
+        return str(defaults.get("job_type") or "") in ("contract", "parttime")
+    except Exception:
+        return False
 
 
 def header_details(line: str) -> str:
