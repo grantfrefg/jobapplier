@@ -25,7 +25,7 @@ from applypilot import config
 TIMEOUT = 600  # seconds for one request (a long tailoring reply can take a few minutes)
 # A short system prompt on the command line; the step's own instructions go in on stdin,
 # which keeps long prompts clear of Windows' command-line limit (npm's .cmd shims run via cmd.exe)
-_SUBAGENT_ROLE = ("You are one specialised step inside ApplyPilot, a job application tool. The message gives "
+_SUBAGENT_ROLE = ("You are one specialised step inside Jobapplier, a job application tool. The message gives "
                   "your instructions and data. Follow them exactly, use no tools, and reply with only what they "
                   "ask for.")
 _LIMIT = re.compile(r"usage limit|limit reached|rate limit|quota|too many requests|try again (later|in|at)", re.I)

@@ -1,9 +1,9 @@
 {
-  // ApplyPilot dev container: Python 3.12 + a virtual desktop, so the visible
+  // Jobapplier dev container: Python 3.12 + a virtual desktop, so the visible
   // browser used by the free local engine works on Windows/macOS hosts.
-  // Open http://localhost:8000 for the ApplyPilot UI and
+  // Open http://localhost:8000 for the Jobapplier UI and
   // http://localhost:6080 to watch the browser directly.
-  "name": "ApplyPilot",
+  "name": "Jobapplier",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "features": {
     // Lightweight desktop (Xvfb + fluxbox) exposed in your web browser via noVNC
@@ -30,7 +30,7 @@
   ],
   "forwardPorts": [8000, 6080],
   "portsAttributes": {
-    "8000": { "label": "ApplyPilot UI", "onAutoForward": "openBrowser" },
+    "8000": { "label": "Jobapplier UI", "onAutoForward": "openBrowser" },
     "6080": { "label": "Browser desktop (noVNC)", "onAutoForward": "silent" }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",

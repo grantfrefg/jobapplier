@@ -1,5 +1,5 @@
 """
-Unified LLM client for ApplyPilot.
+Unified LLM client for Jobapplier.
 
 The provider is chosen in Settings (LLM_PROVIDER) or by which key is set
 (config.get_llm_provider):

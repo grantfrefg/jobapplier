@@ -1,6 +1,6 @@
 [project]
 name = "applypilot"
-version = "0.9.1"
+version = "0.10.0"
 description = "AI-powered end-to-end job application pipeline"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -39,11 +39,12 @@ ui = ["fastapi>=0.110", "uvicorn>=0.27", "python-multipart>=0.0.9"]
 
 [project.scripts]
 applypilot = "applypilot.cli:app"
+jobapplier = "applypilot.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/Pickle-Pixel/ApplyPilot"
-Repository = "https://github.com/Pickle-Pixel/ApplyPilot"
-Issues = "https://github.com/Pickle-Pixel/ApplyPilot/issues"
+Homepage = "https://github.com/grantfrefg/jobapplier"
+Repository = "https://github.com/grantfrefg/jobapplier"
+Issues = "https://github.com/grantfrefg/jobapplier/issues"
 
 [build-system]
 requires = ["hatchling"]

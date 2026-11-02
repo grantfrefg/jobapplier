@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ApplyPilot</title>
+<title>Jobapplier</title>
 <style>
   :root {
     --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #e3e6eb;
@@ -115,7 +115,7 @@
 </head>
 <body>
 <header>
-  <h1>ApplyPilot</h1>
+  <h1>Jobapplier</h1>
   <nav>
     <button data-tab="setup" class="active">1. Setup</button>
     <button data-tab="find">2. Find jobs</button>
@@ -157,7 +157,7 @@
           you. Needs the Codex CLI (signed in with your ChatGPT plan or an OpenAI key), Chrome or Edge, and
           Node.js.</small></span></label>
       <p class="muted" id="agent-help" style="display:none">Install once in a terminal: Node.js from nodejs.org, then
-        <code id="agent-install"></code>. The checklist on the left shows when ApplyPilot can find it. Applications
+        <code id="agent-install"></code>. The checklist on the left shows when Jobapplier can find it. Applications
         then run from the Apply tab and show in the Find jobs log.</p>
       <div id="codex-model-row" style="display:none">
         <label for="codex-model">Codex model (optional)</label>
@@ -218,7 +218,7 @@
 
     <div class="card">
       <h2>Browser</h2>
-      <p class="sub">ApplyPilot fills in forms in a browser window you can watch.</p>
+      <p class="sub">Jobapplier fills in forms in a browser window you can watch.</p>
       <p id="browser-state">Checking…</p>
       <div class="row">
         <button class="btn secondary" id="test-browser">Test browser</button>
@@ -226,8 +226,8 @@
       </div>
       <pre class="log" id="install-log" style="display:none;height:160px"></pre>
       <h3 style="margin:16px 0 4px;font-size:14px">Logins</h3>
-      <p class="sub">Google and some sites block sign-in while ApplyPilot controls the browser. Log in here instead,
-        in a normal window of the same browser, then close that window. ApplyPilot then stays logged in to Google,
+      <p class="sub">Google and some sites block sign-in while Jobapplier controls the browser. Log in here instead,
+        in a normal window of the same browser, then close that window. Jobapplier then stays logged in to Google,
         LinkedIn, SEEK and any employer site you sign in to.</p>
       <div class="row" style="margin-top:4px">
         <button class="btn secondary" id="login-open">Log in to sites</button>
@@ -598,7 +598,7 @@
         <dd>You don't have to use the Apply button. Click the job title to open the ad in your usual browser,
           download the <b>Resume</b> and <b>Cover letter</b> from this list (or copy text from them), and apply and
           submit everything yourself. Then press <b>Mark applied</b> so the job moves to <i>Applied</i> and isn't
-          offered again. The same PDFs for the job you're applying to are also in the <code>ApplyPilot uploads</code>
+          offered again. The same PDFs for the job you're applying to are also in the <code>Jobapplier uploads</code>
           folder in your home folder.</dd>
         <dt>Using your own resume or cover letter</dt>
         <dd>Under a job's documents, <b>use my own resume</b> or <b>use my own cover letter</b> lets you pick a PDF
@@ -660,11 +660,11 @@
 <!-- ============================== GUIDE ============================== -->
 <section class="tab" id="tab-guide">
   <div class="card guide">
-    <h2>How to use ApplyPilot</h2>
+    <h2>How to use Jobapplier</h2>
     <p class="sub">A step-by-step guide. The tabs along the top follow the same order: Setup once, then Find jobs and
       Apply whenever you're job hunting. Links in <a href="#" data-goto="setup">blue</a> take you to that part of the app.</p>
     <nav class="toc">
-      <a href="#g-what">What ApplyPilot does</a>
+      <a href="#g-what">What Jobapplier does</a>
       <a href="#g-setup">1. Set up (once)</a>
       <a href="#g-find">2. Find jobs</a>
       <a href="#g-profile">Your profile, and why it's asked</a>
@@ -684,8 +684,8 @@
       <a href="#g-trouble">When something goes wrong</a>
     </nav>
 
-    <h3 id="g-what">What ApplyPilot does</h3>
-    <p>ApplyPilot runs on your computer and does the slow parts of applying for jobs:</p>
+    <h3 id="g-what">What Jobapplier does</h3>
+    <p>Jobapplier runs on your computer and does the slow parts of applying for jobs:</p>
     <ol>
       <li><b>Finds jobs</b> on LinkedIn, Indeed Australia and Jora that match the titles and places you choose.</li>
       <li><b>Scores each job</b> 1–10 against your resume, so you see the best matches first.</li>
@@ -694,7 +694,7 @@
       <li><b>Fills in the application form</b> in a browser window you can watch, uploads your documents, and stops
         so you can check everything and press <b>Submit</b> yourself.</li>
     </ol>
-    <p class="note">ApplyPilot never presses the final Submit, whichever engine you use: every application is sent by you. You can
+    <p class="note">Jobapplier never presses the final Submit, whichever engine you use: every application is sent by you. You can
       also skip the form-filling completely and just use the documents (see <a href="#g-yourself">Applying yourself
       instead</a>).</p>
 
@@ -763,7 +763,7 @@
     </table>
 
     <h3 id="g-skills">Skills: the key to better tailored resumes</h3>
-    <p>When ApplyPilot tailors a resume it rewrites and reorders it for the ad, but it may only name a skill or tool
+    <p>When Jobapplier tailors a resume it rewrites and reorders it for the ad, but it may only name a skill or tool
       that's <b>in your resume</b> or <b>in your profile's skills list</b>. Anything else is removed by the code
       checks, and drafts that lean on it are rejected. So the skills list decides how well a resume can match:</p>
     <ul>
@@ -968,7 +968,7 @@
       <li>Settings, profile, resume and the job list: <code class="data-dir"></code></li>
       <li>Tailored resumes: <code>tailored_resumes</code> in that folder; cover letters: <code>cover_letters</code>;
         your own uploaded files: <code>own_documents</code>.</li>
-      <li>The files for the job you're applying to right now: the <code>ApplyPilot uploads</code> folder in your
+      <li>The files for the job you're applying to right now: the <code>Jobapplier uploads</code> folder in your
         home folder (handy for dragging into a form).</li>
     </ul>
 
@@ -1026,6 +1026,9 @@
       <dt>Something else</dt>
       <dd>The log on Find jobs has the details. Most steps can be repeated safely with <b>Run again</b>.</dd>
     </dl>
+    <p class="note">Jobapplier is free software under the GNU AGPL-3.0, originally based on
+      <a href="https://github.com/Pickle-Pixel/ApplyPilot" target="_blank" rel="noopener">ApplyPilot</a> by Pickle-Pixel.
+      Source: <a href="https://github.com/grantfrefg/jobapplier" target="_blank" rel="noopener">github.com/grantfrefg/jobapplier</a>.</p>
   </div>
 </section>
 </main>
@@ -1954,7 +1957,7 @@ async function refreshBrowser() {
   const names = b.system.map((p) => p.split(/[\\/]/).pop().replace(/\.exe$/i, ""));
   $("#browser-state").textContent = b.system.length
     ? "Found: " + names.join(", ") + ". You're all set."
-    : b.playwright_chromium ? "ApplyPilot's own browser is installed. You're all set."
+    : b.playwright_chromium ? "Jobapplier's own browser is installed. You're all set."
     : "No Chrome or Edge found. Install Google Chrome, or press Install browser.";
   $("#install-browser").style.display = (b.system.length || b.playwright_chromium) && !b.install ? "none" : "";
   const inst = b.install, log = $("#install-log");
@@ -1990,10 +1993,10 @@ $("#test-browser").addEventListener("click", async (e) => {
   e.target.disabled = false;
 });
 $("#quit").addEventListener("click", () => guarded(async () => {
-  if (!confirm("Quit ApplyPilot?")) return;
+  if (!confirm("Quit Jobapplier?")) return;
   await post("/api/shutdown");
   document.body.replaceChildren(el("main", {}, el("div", { class: "card" },
-    el("h2", {}, "ApplyPilot has quit"), el("p", { class: "sub" }, "You can close this tab. Open the app again any time."))));
+    el("h2", {}, "Jobapplier has quit"), el("p", { class: "sub" }, "You can close this tab. Open the app again any time."))));
 }));
 
 // ---------- boot ----------

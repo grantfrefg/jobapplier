@@ -1,4 +1,4 @@
-"""ApplyPilot CLI — the main entry point."""
+"""Jobapplier CLI — the main entry point."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def main(
         is_eager=True,
     ),
 ) -> None:
-    """ApplyPilot — AI-powered end-to-end job application pipeline."""
+    """Jobapplier — AI-powered end-to-end job application pipeline."""
 
 
 @app.command()
@@ -288,7 +288,7 @@ def ui(
         raise typer.Exit(code=1)
 
     shown_host = "localhost" if host in ("127.0.0.1", "0.0.0.0") else host
-    console.print(f"[bold blue]ApplyPilot UI[/bold blue] → http://{shown_host}:{port}")
+    console.print(f"[bold blue]Jobapplier UI[/bold blue] → http://{shown_host}:{port}")
     console.print("[dim]Ctrl+C to stop[/dim]")
     serve(host=host, port=port)
 
@@ -436,7 +436,7 @@ def status() -> None:
 
     stats = get_stats()
 
-    console.print("\n[bold]ApplyPilot Pipeline Status[/bold]\n")
+    console.print("\n[bold]Jobapplier Pipeline Status[/bold]\n")
 
     # Summary table
     summary = Table(title="Pipeline Overview", show_header=True, header_style="bold cyan")
@@ -614,7 +614,7 @@ def doctor() -> None:
 
     # --- Render results ---
     console.print()
-    console.print("[bold]ApplyPilot Doctor[/bold]\n")
+    console.print("[bold]Jobapplier Doctor[/bold]\n")
 
     col_w = max(len(r[0]) for r in results) + 2
     for check, status, note in results:

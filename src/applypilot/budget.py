@@ -1,7 +1,7 @@
 """Daily Gemini request budget.
 
 Google's free tier limits requests per model per day, resetting at midnight
-Pacific time. Every Gemini request ApplyPilot makes is counted here (in the
+Pacific time. Every Gemini request Jobapplier makes is counted here (in the
 `llm_usage` table) so a run can stop cleanly when the day's allowance is
 used up, instead of failing partway through a stage.
 

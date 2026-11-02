@@ -1,4 +1,4 @@
-"""ApplyPilot first-time setup wizard.
+"""Jobapplier first-time setup wizard.
 
 Interactive flow that creates ~/.applypilot/ with:
   - resume.txt (and optionally resume.pdf)
@@ -92,7 +92,7 @@ def _setup_resume() -> None:
 
 def _setup_profile() -> dict:
     """Walk through profile questions and return a nested profile dict."""
-    console.print(Panel("[bold]Step 2: Profile[/bold]\nTell ApplyPilot about yourself. This powers scoring, tailoring, and auto-fill."))
+    console.print(Panel("[bold]Step 2: Profile[/bold]\nTell Jobapplier about yourself. This powers scoring, tailoring, and auto-fill."))
 
     profile: dict = {}
 
@@ -224,7 +224,7 @@ def build_search_yaml(location: str, roles: list[str], country: str = "australia
     sources = COUNTRY_SOURCES.get(country, {})
     q = json.dumps  # a valid double-quoted YAML scalar, escaping any quotes
     lines = [
-        "# ApplyPilot search configuration",
+        "# Jobapplier search configuration",
         "# Edit this file to refine your job search queries.",
         "",
         "# Country for Indeed (e.g. australia, usa, canada, uk)",
@@ -321,7 +321,7 @@ def _setup_ai_features() -> None:
         default="gemini",
     )
 
-    env_lines = ["# ApplyPilot configuration", ""]
+    env_lines = ["# Jobapplier configuration", ""]
 
     if provider == "gemini":
         api_key = Prompt.ask("Gemini API key (from aistudio.google.com)")
@@ -353,12 +353,12 @@ def _setup_auto_apply() -> None:
     """Configure autonomous job application (requires Claude Code CLI)."""
     console.print(Panel(
         "[bold]Step 5: Auto-Apply (optional)[/bold]\n"
-        "ApplyPilot can autonomously fill and submit job applications\n"
+        "Jobapplier can autonomously fill and submit job applications\n"
         "using Claude Code as the browser agent."
     ))
 
     if not Confirm.ask("Enable autonomous job applications?", default=True):
-        console.print("[dim]You can apply manually using the tailored resumes ApplyPilot generates.[/dim]")
+        console.print("[dim]You can apply manually using the tailored resumes Jobapplier generates.[/dim]")
         return
 
     # Check for Claude Code CLI
@@ -384,7 +384,7 @@ def _setup_auto_apply() -> None:
                     encoding="utf-8",
                 )
         else:
-            ENV_PATH.write_text(f"# ApplyPilot configuration\nCAPSOLVER_API_KEY={capsolver_key}\n", encoding="utf-8")
+            ENV_PATH.write_text(f"# Jobapplier configuration\nCAPSOLVER_API_KEY={capsolver_key}\n", encoding="utf-8")
         console.print("[green]CapSolver key saved.[/green]")
     else:
         console.print("[dim]Skipped. Add CAPSOLVER_API_KEY to .env later if needed.[/dim]")
@@ -399,7 +399,7 @@ def run_wizard() -> None:
     console.print()
     console.print(
         Panel.fit(
-            "[bold green]ApplyPilot Setup Wizard[/bold green]\n\n"
+            "[bold green]Jobapplier Setup Wizard[/bold green]\n\n"
             "This will create your configuration at:\n"
             f"  [cyan]{APP_DIR}[/cyan]\n\n"
             "You can re-run this anytime with [bold]applypilot init[/bold].",
