@@ -1181,7 +1181,7 @@ def _approval_gate(page, needs_attention: list[str], dry_run: bool) -> str:
 # ---------------------------------------------------------------------------
 
 def launch_browser(p):
-    """Open a visible browser with the persistent ApplyPilot profile.
+    """Open a visible browser with the persistent Jobapplier profile.
 
     Tries CHROME_PATH, then Playwright's own Chromium, then an installed
     Chrome / Edge, so most Windows and Mac users need no extra download.

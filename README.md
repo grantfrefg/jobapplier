@@ -29,11 +29,11 @@ What's different from the original:
 Pick the option that suits you.
 
 ### 1. Desktop app (easiest, no installs)
-Download the zip for your computer from the [latest release](https://github.com/grantfrefg/jobapplier/releases/latest), unzip it, and double-click **ApplyPilot**. The page opens in your browser.
+Download the zip for your computer from the [latest release](https://github.com/grantfrefg/jobapplier/releases/latest), unzip it, and double-click **Jobapplier**. The page opens in your browser.
 
-- **Windows:** [ApplyPilot-Windows.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/ApplyPilot-Windows.zip)
-- **Mac with an M1–M4 chip:** [ApplyPilot-Mac-AppleSilicon.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/ApplyPilot-Mac-AppleSilicon.zip)
-- **Older Intel Mac:** [ApplyPilot-Mac-Intel.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/ApplyPilot-Mac-Intel.zip)
+- **Windows:** [Jobapplier-Windows.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/Jobapplier-Windows.zip)
+- **Mac with an M1–M4 chip:** [Jobapplier-Mac-AppleSilicon.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/Jobapplier-Mac-AppleSilicon.zip)
+- **Older Intel Mac:** [Jobapplier-Mac-Intel.zip](https://github.com/grantfrefg/jobapplier/releases/latest/download/Jobapplier-Mac-Intel.zip)
 
 Not sure which Mac you have? Apple menu → **About This Mac**: "Chip: Apple M…" means Apple Silicon; "Processor: Intel…" means Intel.
 
@@ -87,7 +87,7 @@ The web UI has three tabs, plus a **Guide** tab: a step-by-step user guide insid
 - Press **Apply** next to a job. A browser opens, and the app fills the form, uploads your documents and moves through "Next" pages. On a job-board ad (Jora, SEEK, Indeed, LinkedIn) it follows the ad's Apply link to the real form first; for LinkedIn **Easy Apply**, click Easy Apply yourself, then **Fill this page again**.
 - On a sign-in or create-account page it fills in your email (never a password) and tells you what to do.
 - Fields it already knows (name, contact details, location, uploads, answers you've given before) are filled without the AI; Gemini is only asked about the rest. Any answer you type or change before submitting is remembered for next time.
-- It stops at **"Your turn: review and submit"**. Check the form, fix anything, click Submit in the browser, then tell the app what you did. To upload a file by hand, the panel lists this job's resume and cover letter, which are in the `ApplyPilot uploads` folder in your home folder:
+- It stops at **"Your turn: review and submit"**. Check the form, fix anything, click Submit in the browser, then tell the app what you did. To upload a file by hand, the panel lists this job's resume and cover letter, which are in the `Jobapplier uploads` folder in your home folder:
   - **I submitted it**
   - **Save for later**
   - **Fill this page again** (e.g. after you log in to SEEK)
@@ -131,7 +131,7 @@ Everything can be set in the web UI, and it's all saved as files in `~/.applypil
 | `applypilot.db` | Jobs (with where each applies and its ATS check), saved screening answers and today's Gemini request count |
 | `site_plans/` | How each smart-extract site (Jora) is read; delete a file to make it re-learn |
 | `own_documents/` | Resumes and cover letters you uploaded for particular jobs |
-| `~/ApplyPilot uploads/` | The current application's resume and cover letter (PDF, or Word if you gave your own), for uploading by hand (outside `~/.applypilot`, so file pickers show it) |
+| `~/Jobapplier uploads/` | The current application's resume and cover letter (PDF, or Word if you gave your own), for uploading by hand (outside `~/.applypilot`, so file pickers show it) |
 
 Every setting is listed in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 

@@ -13,7 +13,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `tailored_resumes/`, `cover_letters/` | Generated documents |
 | `site_plans/` | How smart extract reads each site (delete a file to make that site re-learn) |
 | `own_documents/` | Resumes and cover letters you uploaded for particular jobs (Apply tab → **use my own resume / cover letter**) |
-| `~/ApplyPilot uploads/` | Outside `~/.applypilot`: the current application's resume and cover letter, for picking in a file dialog. Set `APPLYPILOT_UPLOAD_DIR` to move it |
+| `~/Jobapplier uploads/` | Outside `~/.applypilot`: the current application's resume and cover letter, for picking in a file dialog. Set `APPLYPILOT_UPLOAD_DIR` to move it |
 | `local-playwright-profile/` | The local engine's browser profile (keeps job-site logins) |
 | `logs/` | Run logs; `desktop.log` for the desktop app |
 

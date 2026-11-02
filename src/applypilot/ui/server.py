@@ -48,7 +48,7 @@ GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
 # ---------------------------------------------------------------------------
 
 def applypilot_command(*args: str) -> list[str]:
-    """Command line that runs the ApplyPilot CLI in a child process.
+    """Command line that runs the Jobapplier CLI in a child process.
 
     A packaged desktop app has no `python -m`; its executable dispatches
     CLI arguments itself (see packaging/desktop_entry.py).
@@ -385,7 +385,7 @@ def create_app() -> FastAPI:
             os.environ["EXECUTION_ENGINE"] = config.ENGINE_LOCAL_PLAYWRIGHT
         config.extend_tool_path()  # a double-clicked app doesn't get the terminal's PATH
 
-    app = FastAPI(title="ApplyPilot", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Jobapplier", docs_url=None, redoc_url=None)
     task = SubprocessTask()
     session = ApplySession()
     login: dict = {"proc": None}  # the normal (non-automated) login window, if open
@@ -1072,7 +1072,7 @@ def create_app() -> FastAPI:
                 page = context.pages[0] if context.pages else context.new_page()
                 page.set_content(
                     "<body style='font:24px system-ui;display:grid;place-items:center;height:90vh'>"
-                    "<div>&#10003; ApplyPilot can control this browser.<br>"
+                    "<div>&#10003; Jobapplier can control this browser.<br>"
                     "<small>This window closes by itself.</small></div></body>")
                 page.wait_for_timeout(3000)
                 context.close()

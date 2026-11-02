@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-02
+
+### Changed
+- **The app is now called Jobapplier** everywhere you see it: the app and its window, the download zips (Jobapplier-Windows.zip and the Mac ones), the Setup and Guide pages, the uploads folder (`~/Jobapplier uploads`) and the docs. Your data stays where it is (`~/.applypilot`), so settings, jobs, resumes and logins carry over. `jobapplier` also works as the command-line name. Jobapplier is free software under the AGPL-3.0, originally based on ApplyPilot by Pickle-Pixel.
+
 ## [0.9.1] - 2026-11-02
 
 ### Added

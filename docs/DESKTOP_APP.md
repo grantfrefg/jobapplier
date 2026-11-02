@@ -1,6 +1,6 @@
 # The desktop app
 
-A double-click app for Windows and Mac, so friends can use ApplyPilot without installing Python or using a terminal. It's the same web UI, in **friend mode**:
+A double-click app for Windows and Mac, so friends can use Jobapplier without installing Python or using a terminal. It's the same web UI, in **friend mode**:
 
 - **You submit, always.** Forms are filled in and the user clicks Submit. Claude Code or Codex (which fill in whole applications by themselves, then stop for the user to submit) can be chosen in Setup after a confirmation; the app only honours an engine confirmed there (`AGENT_ENGINE_CONFIRMED`), not one left in a copied `.env`.
 - **Simpler Setup page.** AI key (Gemini free, or the user's own OpenAI / Anthropic key), browser, resume, job search and profile.
@@ -15,13 +15,13 @@ GitHub Actions → **Desktop app** → **Run workflow**. After about 15 minutes,
 
 | Zip | For |
 |---|---|
-| `ApplyPilot-Windows.zip` | Windows 10/11 |
-| `ApplyPilot-Mac-AppleSilicon.zip` | Macs with M-series chips |
-| `ApplyPilot-Mac-Intel.zip` | Older Intel Macs |
+| `Jobapplier-Windows.zip` | Windows 10/11 |
+| `Jobapplier-Mac-AppleSilicon.zip` | Macs with M-series chips |
+| `Jobapplier-Mac-Intel.zip` | Older Intel Macs |
 
 Each build:
 1. runs the unit tests;
-2. builds the app with PyInstaller (`packaging/ApplyPilot.spec`);
+2. builds the app with PyInstaller (`packaging/Jobapplier.spec`);
 3. **smoke-tests the packaged app** (`packaging/smoke_test.py`): CLI mode, desktop mode, a pipeline stage run from the app, and Quit;
 4. zips it with a `READ_ME_FIRST` file.
 
@@ -30,9 +30,9 @@ Push a version tag (e.g. `git tag v0.5.0 && git push origin v0.5.0`) to also att
 ### Building locally
 ```bash
 pip install ".[ui]" -r packaging/requirements-desktop.txt
-cd packaging && pyinstaller ApplyPilot.spec --noconfirm
-python smoke_test.py dist/ApplyPilot/ApplyPilot      # Windows: dist/ApplyPilot/ApplyPilot.exe
-                                                     # Mac: dist/ApplyPilot.app/Contents/MacOS/ApplyPilot
+cd packaging && pyinstaller Jobapplier.spec --noconfirm
+python smoke_test.py dist/Jobapplier/Jobapplier      # Windows: dist/Jobapplier/Jobapplier.exe
+                                                     # Mac: dist/Jobapplier.app/Contents/MacOS/Jobapplier
 ```
 
 ## Sharing while the repo is private

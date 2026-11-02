@@ -1,6 +1,6 @@
-"""Smoke-test a packaged ApplyPilot build (used by the desktop workflow).
+"""Smoke-test a packaged Jobapplier build (used by the desktop workflow).
 
-Usage: python packaging/smoke_test.py <path to ApplyPilot executable>
+Usage: python packaging/smoke_test.py <path to Jobapplier executable>
 """
 
 import json
@@ -33,7 +33,7 @@ log = data / "cli.log"
 subprocess.run([str(exe), "doctor"], env=dict(env, APPLYPILOT_CHILD_LOG=str(log)), timeout=120, check=True)
 out = log.read_text(encoding="utf-8")
 print(out)
-assert "ApplyPilot Doctor" in out, "CLI mode produced no doctor output"
+assert "Jobapplier Doctor" in out, "CLI mode produced no doctor output"
 
 # 2. Desktop mode: server comes up in friend mode
 app = subprocess.Popen([str(exe)], env=env)
