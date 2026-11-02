@@ -123,7 +123,7 @@ def check(resume_text: str, job: dict | None = None, original_text: str = "", pd
     from applypilot.scoring import look
     if _WORK_RIGHTS.search(header):
         passed.append("Work rights stated (a hard filter for Australian employers)")
-    elif look.work_rights_left_off():
+    elif look.work_rights_left_off(job):
         passed.append("Work rights left off the resume (Setup -> Resume look); forms still ask, and the "
                       "apply step answers them")
     else:

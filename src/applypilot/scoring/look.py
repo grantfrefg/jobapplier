@@ -10,9 +10,9 @@
 - RESUME_TECH_LINE: "on" shows the tools line under each job. Off by default: the
   bullets and skills already name them.
 - SHOW_WORK_RIGHTS: auto (default) shows citizenship, residency and full work rights,
-  and a working holiday visa when you're after contract, temp or casual work; other
-  temporary visas with limits (student, or working holiday for permanent roles) are
-  left off; always; never.
+  and a working holiday visa on resumes for contract, temp and casual roles (decided per
+  job from its ad); for permanent or unclear roles, and for other limited visas such as
+  student visas, it's left off; always; never.
 
 Applied when the PDF is rendered, so changing one and running "PDF" again restyles
 every resume without asking the AI.
@@ -64,50 +64,61 @@ def work_rights_mode() -> str:
     return value if value in WORK_RIGHTS_MODES else "auto"
 
 
-def shown_work_rights(line: str) -> str:
-    """The work-rights wording for the header, or "" to leave it off."""
+# What makes an ad contract/temp/casual work, where a working holiday visa is worth stating
+_SHORT_TERM = re.compile(
+    r"\b(temp|temporary|casual|fixed[- ]term|locum|seasonal|harvest|day rate|daily rate|"
+    r"(maternity|parental)( leave)? (cover|contract)|\d{1,2}[- ]?(month|week)s? (contract|role|assignment|"
+    r"position|engagement|project)|(contract|assignment) of \d{1,2} (months|weeks)|temp[- ]to[- ]perm)\b", re.I)
+_CONTRACT = re.compile(r"\bcontract(or)?\b", re.I)
+_PERMANENT = re.compile(r"\bpermanent\b", re.I)
+
+
+def short_term_role(job: dict | None) -> bool:
+    """The ad is for contract, temp, casual or fixed-term work (not permanent, and not unclear)."""
+    if not job:
+        return False
+    text = f"{job.get('title') or ''}\n{(job.get('full_description') or job.get('description') or '')[:8000]}"
+    if _SHORT_TERM.search(text):
+        return True
+    # "Contract" alone is short-term unless the ad also says permanent ("contract management")
+    return bool(_CONTRACT.search(text)) and not _PERMANENT.search(text)
+
+
+def shown_work_rights(line: str, job: dict | None = None, decided: bool = False) -> str:
+    """The work-rights wording for the header, or "" to leave it off.
+
+    With Automatic, a working holiday visa shows on resumes for contract, temp and casual
+    roles (it's what those recruiters ask first) and not for permanent or unclear ones;
+    `decided` passes it through as tailoring already chose for that job.
+    """
     mode = work_rights_mode()
     if not line or mode == "never":
         return ""
     if mode == "auto" and _LIMITED.search(line):
-        # A temporary visa with full work rights reads as just that. A working holiday visa is
-        # what contract, temp and casual recruiters ask first, so it shows when that's the work
-        # wanted; otherwise a limited visa is left off
-        if re.search(r"full work", line, re.I):
+        if re.search(r"full work", line, re.I):  # a temporary visa with full work rights reads as just that
             return "Full working rights"
-        return "Working holiday visa" if re.search(r"working holiday", line, re.I) and _seeks_short_work() else ""
+        if re.search(r"working holiday", line, re.I) and (decided or short_term_role(job)):
+            return "Working holiday visa"
+        return ""
     return line
 
 
-def _seeks_short_work() -> bool:
-    """The profile takes contract work, or the search asks for contract or part-time/casual roles."""
-    from applypilot import config
-    try:
-        avail = (config.load_profile() or {}).get("availability") or {}
-        if str(avail.get("available_for_contract") or "").strip().lower() in ("yes", "true", "y"):
-            return True
-    except Exception:  # no profile yet
-        pass
-    try:
-        defaults = (config.load_search_config() or {}).get("defaults") or {}
-        return str(defaults.get("job_type") or "") in ("contract", "parttime")
-    except Exception:
-        return False
-
-
-def header_details(line: str) -> str:
-    """A "Sydney, NSW | Working holiday visa" header line with the work rights shown or not."""
+def header_details(line: str, keep_working_holiday: bool = True) -> str:
+    """A "Sydney, NSW | Working holiday visa" header line with the work rights shown or not.
+    A working holiday visa already in a tailored resume was chosen for its job, so it stays
+    (unless `keep_working_holiday` is False, for your own Word header on a permanent role)."""
     parts = []
     for part in (p.strip() for p in (line or "").split("|")):
         if part and _WORK_RIGHTS.search(part):
-            part = shown_work_rights(part)
+            part = shown_work_rights(part, decided=keep_working_holiday)
         if part:
             parts.append(part)
     return " | ".join(parts)
 
 
-def work_rights_left_off() -> bool:
-    """The candidate chose to keep their work rights off (so the ATS check doesn't ask for them)."""
+def work_rights_left_off(job: dict | None = None) -> bool:
+    """The candidate chose to keep their work rights off this resume (so the ATS check doesn't
+    ask for them)."""
     mode = work_rights_mode()
     if mode != "auto":
         return mode == "never"
@@ -117,7 +128,7 @@ def work_rights_left_off() -> bool:
         line = work_rights(load_profile())
     except Exception:  # no profile yet
         return False
-    return bool(line) and not shown_work_rights(line)
+    return bool(line) and not shown_work_rights(line, job=job)
 
 
 def pages_target(profile: dict | None = None) -> int:

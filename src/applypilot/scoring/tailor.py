@@ -336,7 +336,7 @@ def extract_json(raw: str) -> dict:
 
 # ── Resume Assembly (profile-driven header) ──────────────────────────────
 
-def assemble_resume_text(data: dict, profile: dict) -> str:
+def assemble_resume_text(data: dict, profile: dict, job: dict | None = None) -> str:
     """Convert JSON resume data to formatted plain text.
 
     Header (name, location, contact) is ALWAYS code-injected from the profile,
@@ -345,6 +345,7 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
     Args:
         data: Parsed JSON resume from the LLM.
         profile: User profile dict from load_profile().
+        job: The job it's for (a working holiday visa shows only for contract, temp or casual work).
 
     Returns:
         Formatted resume text.
@@ -357,7 +358,7 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
     lines.append(sanitize_text(data.get("title") or current_title(profile)))
 
     # Location and work rights: Australian recruiters screen on both first
-    details = [d for d in (location_line(profile), look.shown_work_rights(work_rights(profile))) if d]
+    details = [d for d in (location_line(profile), look.shown_work_rights(work_rights(profile), job=job)) if d]
     if details:
         lines.append(" | ".join(details))
 
@@ -718,11 +719,11 @@ def tailor_application(
             avoid_notes.extend(validation["errors"])
             if attempt < max_retries:
                 continue
-            tailored = assemble_resume_text(resume, profile)
+            tailored = assemble_resume_text(resume, profile, job)
             report["status"] = "failed_validation"
             return tailored, letter, report
 
-        tailored = assemble_resume_text(resume, profile)
+        tailored = assemble_resume_text(resume, profile, job)
         reasons = judge_reasons(validation_mode)
         report["judge_reasons"] = reasons
         if not reasons:
