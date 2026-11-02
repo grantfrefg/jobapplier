@@ -206,9 +206,10 @@ def _setup_profile() -> dict:
 COUNTRY_SOURCES = {
     "australia": {
         "boards": ["indeed", "linkedin"],
-        "smart_extract_sites": ["Jora"],
+        "smart_extract_sites": ["Jora", "Workforce Australia", "Randstad Australia", "Hays Australia"],
         "workday_employers": [],  # the bundled registry is Canadian/US employers
-        "site_priority": ["linkedin", "indeed", "jora"],
+        "site_priority": ["linkedin", "indeed", "jora", "workforce australia", "randstad australia",
+                          "hays australia"],
     },
 }
 

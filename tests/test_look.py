@@ -107,3 +107,18 @@ def test_page_target(monkeypatch):
     assert "ONE page" in tailor._build_application_prompt(senior)
     report = ats.check(look.SAMPLE + ("\n- Extra bullet about reporting work for the team" * 60))
     assert any("fits on one page" in i for i in report["issues"])
+
+
+def test_working_holiday_visa_shows_for_contract_and_casual_work(monkeypatch):
+    from applypilot import config
+    monkeypatch.setenv("SHOW_WORK_RIGHTS", "auto")
+    profile = {"availability": {"available_for_contract": "No"}}
+    monkeypatch.setattr(config, "load_profile", lambda: profile)
+    monkeypatch.setattr(config, "load_search_config", lambda: {"defaults": {}})
+    assert look.shown_work_rights("Working holiday visa") == ""  # permanent roles: left off
+    profile["availability"]["available_for_contract"] = "Yes"
+    assert look.shown_work_rights("Working holiday visa") == "Working holiday visa"
+    profile["availability"]["available_for_contract"] = "No"
+    monkeypatch.setattr(config, "load_search_config", lambda: {"defaults": {"job_type": "parttime"}})
+    assert look.shown_work_rights("Working holiday visa") == "Working holiday visa"
+    assert look.shown_work_rights("Student visa") == ""  # other limited visas stay off

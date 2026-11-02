@@ -70,7 +70,7 @@ locations:
 location_accept: ["Sydney", "NSW", "New South Wales"]
 
 sites: [indeed, linkedin]        # JobSpy boards
-smart_extract_sites: ["Jora"]    # sites from config/sites.yaml
+smart_extract_sites: ["Jora", "Workforce Australia", "Randstad Australia", "Hays Australia"]  # from config/sites.yaml
 workday_employers: []            # employers from config/employers.yaml ([] = off)
 site_priority: [linkedin, indeed, jora]
 

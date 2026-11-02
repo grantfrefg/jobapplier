@@ -11,7 +11,7 @@ What's different from the original:
 - **Free.** Every AI step runs on your own Google Gemini key (`gemini-3.5-flash-lite`, free tier). Form-filling uses a local browser; there's no paid Claude Code subscription, though that engine is still available. Prefer a paid model? Use your own OpenAI or Anthropic (Claude) API key instead, or your existing ChatGPT or Claude subscription through its command-line tool (no API key), and Codex can drive the browser like Claude Code.
 - **You submit.** The app fills in the form and stops. Submit/Apply buttons are outlined in red, and you review and click them yourself. That holds for every engine, including Claude Code and Codex.
 - **Private.** Your name, contact details, address and ID numbers are sent to the AI only as placeholders and filled in locally.
-- **Australian job sources.** Indeed Australia, LinkedIn and Jora, filtered to your city and state. Jora ads open the employer's own application form.
+- **Australian job sources.** Indeed Australia, LinkedIn, Jora, Workforce Australia (the government job board, including Harvest Trail and casual roles) and the Randstad and Hays recruitment agencies, filtered to your city and state.
 - **One application per role.** The same job on several boards is detected, and you apply once.
 - **Written for engineers in Australia.** Scoring knows your deal-breakers (work rights, security clearance, location, seniority). Resumes and cover letters use Australian English and come out as ATS-friendly A4 PDFs with your location and work rights at the top.
 - **Sounds like you.** A light-touch tailoring style keeps your own bullets word for word, cover letters can follow a sample of your own writing and never open like a recent one, a **Reads human** check flags what makes text sound AI-written, and you can edit any generated resume or letter in the app.
@@ -103,7 +103,7 @@ Everything is stored on your computer in `~/.applypilot/`.
 
 | Stage | What happens | AI requests |
 |---|---|---|
-| **Discover** | Searches Indeed Australia and LinkedIn (via JobSpy) and Jora. Keeps jobs in your area (plus remote, if you ask). How to read Jora's pages is learned once and saved | Jora only: ~2 the first time, then 0 |
+| **Discover** | Searches Indeed Australia and LinkedIn (via JobSpy), Jora, Workforce Australia, Randstad and Hays. Keeps jobs in your area (plus remote, if you ask). How to read each smart-extract site's pages is learned once and saved | ~2 per smart-extract site the first time, then 0 |
 | **De-duplicate** | Links repeat listings of the same role (same company and title, same employer link, or near-identical text). Keeps one, preferring LinkedIn, then Indeed, then Jora | None |
 | **Enrich** | Fetches each job's full description and application link | Only for unusual pages |
 | **Score** | Skips titles on your skip list for free, then rates the rest 1–10 against your resume, 10 jobs per request, like an engineering recruiter. Jobs you can't take (citizenship or a clearance you don't hold, onsite elsewhere, far too senior or junior) score 3 or lower | ~1 per 10 jobs |
