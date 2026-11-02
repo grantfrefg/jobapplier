@@ -246,13 +246,13 @@ def _fill_entries(block: list, tailored: list[dict]) -> int:
     return filled
 
 
-def _hide_work_rights(header: list) -> None:
+def _hide_work_rights(header: list, keep_working_holiday: bool) -> None:
     from applypilot.scoring import look
     for p in header:
         text = _text(p)
         if not look._WORK_RIGHTS.search(text):
             continue
-        shown = look.header_details(text)
+        shown = look.header_details(text, keep_working_holiday)
         if shown != " | ".join(x.strip() for x in text.split("|") if x.strip()):
             _set_text(p, [(shown, _first_rpr(p), None)])
 
@@ -283,7 +283,8 @@ def fill(resume_text: str, out_path: Path, template: Path | None = None) -> dict
             done[key.lower()] = _fill_entries(blocks[key], parse_entries(sections.get(key, "")))
     if not any(done.values()):
         raise FillError("Nothing in your Word resume matched the tailored sections")
-    _hide_work_rights(header)
+    # A working holiday visa follows what tailoring chose for this job (shown for contract work)
+    _hide_work_rights(header, "working holiday" in parsed.get("location", "").lower())
     out_path = Path(out_path)
     doc.save(str(out_path))
     return done

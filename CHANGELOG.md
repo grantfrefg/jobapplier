@@ -15,7 +15,7 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - Search URLs in `sites.yaml` can use `{query_slug}` ("data-analyst") and `{city_encoded}` ("Sydney").
 
 ### Changed
-- **A working holiday visa shows on the resume when you're after contract, temp or casual work** (Resume look → Work rights → Automatic): it's the first thing those recruiters ask. For permanent roles it's still left off, as are other limited visas.
+- **A working holiday visa shows on resumes for contract, temp and casual roles** (Resume look → Work rights → Automatic), decided per job from its ad ("casual", "temp", "fixed-term", "6 month contract", a day rate...): it's the first thing those recruiters ask. For permanent roles, or when the ad doesn't say, it's left off, as are other limited visas. Your Word resume's header follows the same choice, and the ATS check doesn't ask for work rights left off this way.
 
 ## [0.9.0] - 2026-11-01
 
