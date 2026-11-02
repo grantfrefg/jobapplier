@@ -44,8 +44,9 @@ def test_each_option_changes_the_page(monkeypatch):
 ])
 def test_work_rights_in_the_header(monkeypatch, mode, permit, shown):
     monkeypatch.setenv("SHOW_WORK_RIGHTS", mode)
-    assert look.shown_work_rights(permit) == shown
-    assert look.header_details(f"Sydney, NSW | {permit}") == " | ".join(x for x in ("Sydney, NSW", shown) if x)
+    assert look.shown_work_rights(permit) == shown  # with no job (or a permanent one)
+    if "working holiday" not in permit.lower():  # that one was decided for its job when tailoring
+        assert look.header_details(f"Sydney, NSW | {permit}") == " | ".join(x for x in ("Sydney, NSW", shown) if x)
 
 
 def test_hidden_work_rights_are_not_an_ats_problem(monkeypatch):
@@ -109,16 +110,34 @@ def test_page_target(monkeypatch):
     assert any("fits on one page" in i for i in report["issues"])
 
 
-def test_working_holiday_visa_shows_for_contract_and_casual_work(monkeypatch):
-    from applypilot import config
+@pytest.mark.parametrize("title, ad, short", [
+    ("Warehouse Assistant", "Casual role, immediate start", True),
+    ("Data Analyst (Contract)", "Initial 6 month contract with a view to extend", True),
+    ("Admin Officer", "Temp to perm opportunity", True),
+    ("Project Coordinator", "12-month fixed-term role covering parental leave", True),
+    ("Business Analyst", "Daily rate $650 + super", True),
+    ("Data Analyst", "Permanent full-time role. You'll manage supplier contract renewals.", False),
+    ("Accountant", "Join our growing team. 3 months probation applies.", False),
+    ("Software Engineer", "Hybrid, Sydney CBD, great culture", False),  # unclear: treated as permanent
+])
+def test_contract_temp_and_casual_ads_are_told_apart(title, ad, short):
+    assert look.short_term_role({"title": title, "full_description": ad}) is short
+
+
+def test_working_holiday_visa_is_shown_per_job(monkeypatch):
+    from applypilot.scoring import tailor
     monkeypatch.setenv("SHOW_WORK_RIGHTS", "auto")
-    profile = {"availability": {"available_for_contract": "No"}}
+    profile = {"personal": {"full_name": "Sam Rivera", "city": "Sydney", "province_state": "NSW"},
+               "work_authorization": {"work_permit_type": "Working holiday visa"}}
+    data = {"title": "Operations Analyst", "summary": "Analyst.", "skills": {}, "experience": [], "education": "Uni"}
+    contract = {"title": "Operations Analyst", "full_description": "3 month contract, immediate start"}
+    permanent = {"title": "Operations Analyst", "full_description": "Permanent full-time position"}
+    assert "Sydney, NSW | Working holiday visa" in tailor.assemble_resume_text(data, profile, contract)
+    text = tailor.assemble_resume_text(data, profile, permanent)
+    assert "Working holiday" not in text and "Sydney, NSW" in text
+    # Rendering keeps what tailoring chose; the ATS check doesn't ask for it on the permanent one
+    assert look.header_details("Sydney, NSW | Working holiday visa") == "Sydney, NSW | Working holiday visa"
+    from applypilot import config
     monkeypatch.setattr(config, "load_profile", lambda: profile)
-    monkeypatch.setattr(config, "load_search_config", lambda: {"defaults": {}})
-    assert look.shown_work_rights("Working holiday visa") == ""  # permanent roles: left off
-    profile["availability"]["available_for_contract"] = "Yes"
-    assert look.shown_work_rights("Working holiday visa") == "Working holiday visa"
-    profile["availability"]["available_for_contract"] = "No"
-    monkeypatch.setattr(config, "load_search_config", lambda: {"defaults": {"job_type": "parttime"}})
-    assert look.shown_work_rights("Working holiday visa") == "Working holiday visa"
-    assert look.shown_work_rights("Student visa") == ""  # other limited visas stay off
+    assert look.work_rights_left_off(permanent) and not look.work_rights_left_off(contract)
+    assert look.shown_work_rights("Student visa", job=contract) == ""  # other limited visas stay off
