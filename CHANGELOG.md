@@ -8,8 +8,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-02
+
+### Added
+- **More Australian job sources:** Workforce Australia (the government job board, including casual and Harvest Trail roles) and the Randstad and Hays recruitment agencies, where much contract, temp and casual work is listed. New searches use them automatically; to add them to an existing search, press **Save search** in Setup once. (Robert Walters, CareerOne and Programmed were checked too, but block automated browsers.)
+- Search URLs in `sites.yaml` can use `{query_slug}` ("data-analyst") and `{city_encoded}` ("Sydney").
+
 ### Changed
-- **Working holiday visa scoring:** a permanent role whose ad says nothing about visas now explicitly scores 1 lower, like any permanent role, and is never treated as a dealbreaker; only ads requiring residency or citizenship, or saying no visa holders or sponsorship, are.
+- **A working holiday visa shows on the resume when you're after contract, temp or casual work** (Resume look → Work rights → Automatic): it's the first thing those recruiters ask. For permanent roles it's still left off, as are other limited visas.
 
 ## [0.9.0] - 2026-11-01
 
@@ -20,6 +26,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   - **Application questions** like "Tell us about a time you..." or "Why this role?" are answered from your stories, by the built-in engine and by Claude Code / Codex.
 - **Contract and temp jobs** (e.g. on a working holiday visa): a **Job type** choice in Setup → What jobs to look for (Any, Full time, Part time or casual, Contract or temp) filters LinkedIn, Indeed and Glassdoor searches; Contract or temp searches both contract and temporary listings.
 - **Working holiday visa aware scoring:** with that visa in your profile, contract, temp, casual and fixed-term roles of 6 months or less score best, permanent roles open to visa holders score 1 lower, and ones requiring residency or citizenship are dealbreakers.
+
+### Changed
+- **Working holiday visa scoring:** a permanent role whose ad says nothing about visas explicitly scores 1 lower, like any permanent role, and is never treated as a dealbreaker; only ads requiring residency or citizenship, or saying no visa holders or sponsorship, are.
 
 ### Fixed
 - **Claude Code / Codex refused day-rate questions for contract seekers.** Their instructions said to apply for full-time salaried roles only; they now answer hourly / day rate questions from your profile when it says you take contract work.

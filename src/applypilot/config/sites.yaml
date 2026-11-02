@@ -53,6 +53,9 @@ base_urls:
   "Techstars Jobs": "https://www.techstars.com"
   "Randstad Canada": "https://www.randstad.ca/jobs/search/"
   "Jora": "https://au.jora.com"
+  "Workforce Australia": "https://www.workforceaustralia.gov.au"
+  "Randstad Australia": "https://www.randstad.com.au"
+  "Hays Australia": "https://www.hays.com.au"
 
 sites:
   # ── Searchable sites (URL includes query + location params) ──────────
@@ -62,6 +65,22 @@ sites:
   # and LinkedIn come from JobSpy (see `country` / `sites` in searches.yaml).
   - name: "Jora"
     url: "https://au.jora.com/j?sp=search&q={query_encoded}&l={location_encoded}"
+    type: search
+
+  # The Australian Government's job board (includes Harvest Trail and casual roles)
+  - name: "Workforce Australia"
+    url: "https://www.workforceaustralia.gov.au/individuals/jobs/search?searchText={query_encoded}&locationName={city_encoded}"
+    type: search
+
+  # Recruitment agencies: much of Australia's contract, temp and casual work goes through them.
+  # Randstad searches nationally (location_accept keeps your area); others in the
+  # same bracket (Robert Walters, CareerOne, Programmed) block automated browsers.
+  - name: "Randstad Australia"
+    url: "https://www.randstad.com.au/jobs/q-{query_slug}/"
+    type: search
+
+  - name: "Hays Australia"
+    url: "https://www.hays.com.au/job-search?q={query_encoded}&location={city_encoded}"
     type: search
 
   # Canada-specific
