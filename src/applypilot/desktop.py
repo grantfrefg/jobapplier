@@ -99,7 +99,7 @@ def main() -> None:
 
     threading.Thread(target=_open_when_ready, daemon=True).start()
     threading.Thread(target=_idle_watchdog, daemon=True).start()
-    logging.info("ApplyPilot desktop on %s (data: %s)", url, config.APP_DIR)
+    logging.info("Jobapplier desktop on %s (data: %s)", url, config.APP_DIR)
     server.run()
 
 

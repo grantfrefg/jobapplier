@@ -1,3 +1,3 @@
-"""ApplyPilot — AI-powered end-to-end job application pipeline."""
+"""Jobapplier — AI-powered end-to-end job application pipeline."""
 
-__version__ = "0.9.1"
+__version__ = "0.10.0"

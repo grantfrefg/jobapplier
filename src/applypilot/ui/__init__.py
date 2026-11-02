@@ -1,1 +1,1 @@
-"""Local web UI for ApplyPilot (`applypilot ui`)."""
+"""Local web UI for Jobapplier (`applypilot ui`)."""

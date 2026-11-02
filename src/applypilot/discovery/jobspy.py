@@ -1,7 +1,7 @@
 """JobSpy-based job discovery: searches Indeed, LinkedIn, Glassdoor, ZipRecruiter.
 
 Uses python-jobspy to scrape multiple job boards, deduplicates results,
-parses salary ranges, and stores everything in the ApplyPilot database.
+parses salary ranges, and stores everything in the Jobapplier database.
 
 Search queries, locations, and filtering rules are loaded from the user's
 search configuration YAML (searches.yaml) rather than being hardcoded.

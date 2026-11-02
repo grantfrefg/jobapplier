@@ -1,4 +1,4 @@
-"""Entry point for the packaged ApplyPilot desktop app.
+"""Entry point for the packaged Jobapplier desktop app.
 
 Double-click (no arguments) -> open the web UI (applypilot.desktop).
 With arguments               -> behave like the `applypilot` CLI. The web UI

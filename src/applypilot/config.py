@@ -1,4 +1,4 @@
-"""ApplyPilot configuration: paths, platform detection, user data."""
+"""Jobapplier configuration: paths, platform detection, user data."""
 
 import os
 import platform
@@ -347,7 +347,7 @@ LOCAL_BROWSER_PROFILE_DIR = APP_DIR / "local-playwright-profile"
 # The current application's resume and cover letter, in a visible folder so
 # they're easy to pick in the browser's file picker (~/.applypilot is hidden).
 # Holds only the job being applied to.
-UPLOAD_DIR = Path(os.environ.get("APPLYPILOT_UPLOAD_DIR", Path.home() / "ApplyPilot uploads"))
+UPLOAD_DIR = Path(os.environ.get("APPLYPILOT_UPLOAD_DIR", Path.home() / "Jobapplier uploads"))
 
 
 def get_execution_engine() -> str:

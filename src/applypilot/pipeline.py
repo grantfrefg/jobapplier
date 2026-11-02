@@ -1,4 +1,4 @@
-"""ApplyPilot Pipeline Orchestrator.
+"""Jobapplier Pipeline Orchestrator.
 
 Runs pipeline stages in sequence or concurrently (streaming mode).
 
@@ -488,7 +488,7 @@ def run_pipeline(
     mode = "streaming" if stream else "sequential"
     console.print()
     console.print(Panel.fit(
-        f"[bold]ApplyPilot Pipeline[/bold] ({mode})",
+        f"[bold]Jobapplier Pipeline[/bold] ({mode})",
         border_style="blue",
     ))
     console.print(f"  Min score:  {min_score}")
