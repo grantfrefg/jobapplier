@@ -14,7 +14,7 @@ AU_CFG = yaml.safe_load(build_search_yaml("Sydney, NSW", ["Data Analyst"], "aust
 def test_generated_config_targets_australia():
     assert AU_CFG["country"] == "australia"
     assert AU_CFG["sites"] == ["indeed", "linkedin"]
-    assert AU_CFG["smart_extract_sites"] == ["Jora"]
+    assert AU_CFG["smart_extract_sites"] == ["Jora", "Workforce Australia", "Randstad Australia", "Hays Australia"]
     assert AU_CFG["workday_employers"] == []
     assert AU_CFG["location_accept"] == ["Sydney", "NSW", "New South Wales"]
     assert {"location": "Australia", "remote": True} in AU_CFG["locations"]
@@ -57,9 +57,12 @@ def test_smart_extract_allowlist(monkeypatch):
     seen = {}
     monkeypatch.setattr(se, "_run_all", lambda targets, *a, **k: seen.setdefault("targets", targets) and {})
     se.run_smart_extract()
-    names = {t["name"] for t in seen["targets"]}
-    assert names == {"Jora"}
-    assert seen["targets"][0]["url"] == "https://au.jora.com/j?sp=search&q=Data+Analyst&l=Sydney%2C+NSW"
+    urls = {t["name"]: t["url"] for t in seen["targets"]}
+    assert set(urls) == {"Jora", "Workforce Australia", "Randstad Australia", "Hays Australia"}
+    assert urls["Jora"] == "https://au.jora.com/j?sp=search&q=Data+Analyst&l=Sydney%2C+NSW"
+    assert urls["Randstad Australia"] == "https://www.randstad.com.au/jobs/q-data-analyst/"  # query in the path
+    assert urls["Hays Australia"].endswith("q=Data+Analyst&location=Sydney")  # the city alone
+    assert "searchText=Data+Analyst&locationName=Sydney" in urls["Workforce Australia"]
 
 
 def _capture_workday(monkeypatch, cfg):
