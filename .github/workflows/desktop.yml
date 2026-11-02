@@ -1,6 +1,6 @@
 name: Desktop app
 
-# Builds the double-click ApplyPilot app for Windows and macOS.
+# Builds the double-click Jobapplier app for Windows and macOS.
 #   - Run manually: Actions tab > "Desktop app" > Run workflow
 #     (download the zips from the run's "Artifacts" section)
 #   - Push a tag like v0.4.0 to also publish them on a GitHub Release
@@ -31,13 +31,13 @@ jobs:
         include:
           - os: windows-latest
             label: Windows
-            artifact: ApplyPilot-Windows
+            artifact: Jobapplier-Windows
           - os: macos-latest
             label: Mac (Apple Silicon)
-            artifact: ApplyPilot-Mac-AppleSilicon
+            artifact: Jobapplier-Mac-AppleSilicon
           - os: macos-15-intel
             label: Mac (Intel)
-            artifact: ApplyPilot-Mac-Intel
+            artifact: Jobapplier-Mac-Intel
 
     steps:
       - uses: actions/checkout@v4
@@ -56,29 +56,29 @@ jobs:
 
       - name: Build app
         working-directory: packaging
-        run: pyinstaller ApplyPilot.spec --noconfirm
+        run: pyinstaller Jobapplier.spec --noconfirm
 
       - name: Smoke test (Windows)
         if: runner.os == 'Windows'
-        run: python packaging/smoke_test.py packaging/dist/ApplyPilot/ApplyPilot.exe
+        run: python packaging/smoke_test.py packaging/dist/Jobapplier/Jobapplier.exe
 
       - name: Smoke test (Mac)
         if: runner.os == 'macOS'
-        run: python packaging/smoke_test.py packaging/dist/ApplyPilot.app/Contents/MacOS/ApplyPilot
+        run: python packaging/smoke_test.py packaging/dist/Jobapplier.app/Contents/MacOS/Jobapplier
 
       - name: Zip (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           Copy-Item packaging/READ_ME_FIRST_Windows.txt packaging/dist/
-          Compress-Archive -Path packaging/dist/ApplyPilot, packaging/dist/READ_ME_FIRST_Windows.txt `
+          Compress-Archive -Path packaging/dist/Jobapplier, packaging/dist/READ_ME_FIRST_Windows.txt `
             -DestinationPath "${{ matrix.artifact }}.zip"
 
       - name: Zip (Mac)
         if: runner.os == 'macOS'
         run: |
           mkdir -p staging
-          cp -R packaging/dist/ApplyPilot.app staging/
+          cp -R packaging/dist/Jobapplier.app staging/
           cp packaging/READ_ME_FIRST_Mac.txt staging/
           # ditto keeps the .app's symlinks and code signature intact
           ditto -c -k --sequesterRsrc staging "${{ matrix.artifact }}.zip"

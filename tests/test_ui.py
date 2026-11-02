@@ -39,7 +39,7 @@ def client(tmp_path, monkeypatch):
 
 def test_index_served(client):
     r = client.get("/")
-    assert r.status_code == 200 and "ApplyPilot" in r.text
+    assert r.status_code == 200 and "Jobapplier" in r.text
 
 
 def test_settings_roundtrip_masks_secrets(client):

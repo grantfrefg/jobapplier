@@ -1,6 +1,6 @@
-# PyInstaller spec for the ApplyPilot desktop app (Windows .exe / macOS .app).
-# Build from the repo root:  pyinstaller packaging/ApplyPilot.spec --noconfirm
-# Output: dist/ApplyPilot/ (Windows/Linux folder) or dist/ApplyPilot.app (macOS)
+# PyInstaller spec for the Jobapplier desktop app (Windows .exe / macOS .app).
+# Build from the repo root:  pyinstaller packaging/Jobapplier.spec --noconfirm
+# Output: dist/Jobapplier/ (Windows/Linux folder) or dist/Jobapplier.app (macOS)
 
 import sys
 from PyInstaller.utils.hooks import collect_all, collect_submodules
@@ -46,22 +46,22 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="ApplyPilot",
+    name="Jobapplier",
     console=False,  # no black terminal window
     disable_windowed_traceback=False,
     argv_emulation=False,
     upx=False,
 )
 
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="ApplyPilot")
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="Jobapplier")
 
 if sys.platform == "darwin":
     app = BUNDLE(
         coll,
-        name="ApplyPilot.app",
+        name="Jobapplier.app",
         bundle_identifier="com.applypilot.desktop",
         info_plist={
-            "CFBundleShortVersionString": "0.9.1",
+            "CFBundleShortVersionString": "0.10.0",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
             # No window of its own (the UI is a browser tab): run as a background
