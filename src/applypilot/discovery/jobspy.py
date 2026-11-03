@@ -15,8 +15,10 @@ from datetime import datetime, timezone
 
 from jobspy import scrape_jobs
 
-from applypilot import config
+from applypilot import applicants, config
 from applypilot.database import get_connection, init_db, store_jobs
+
+applicants.watch_linkedin()  # LinkedIn pages JobSpy fetches also give each job's applicant count
 
 log = logging.getLogger(__name__)
 
@@ -180,17 +182,20 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tup
         if not apply_url.startswith(("http://", "https://")):
             apply_url = None
 
+        count = applicants.for_url(url)
         try:
             conn.execute(
                 "INSERT INTO jobs (url, title, company, salary, description, location, site, strategy, "
-                "discovered_at, full_description, application_url, detail_scraped_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "discovered_at, full_description, application_url, detail_scraped_at, applicants, "
+                "applicants_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (url, title, company, salary, description, location_str, site_label, strategy, now,
-                 full_description, apply_url, detail_scraped_at),
+                 full_description, apply_url, detail_scraped_at, *(count or (None, None))),
             )
             new += 1
         except sqlite3.IntegrityError:
             existing += 1
+            if count:  # seen again: the latest count
+                conn.execute("UPDATE jobs SET applicants = ?, applicants_count = ? WHERE url = ?", (*count, url))
 
     conn.commit()
     return new, existing
