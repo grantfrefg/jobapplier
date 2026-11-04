@@ -156,7 +156,10 @@ def length_rule(profile: dict | None = None) -> str:
         return ("LENGTH: ONE page (a graduate or early-career resume). About 400-450 words in all: a 2-sentence "
                 "summary, 3-4 skills lines, 3-4 bullets for the most relevant role or project and 1-2 for the "
                 "rest. Drop the least relevant roles' bullets, projects and skills first. No filler.")
-    return ("LENGTH: Australian resumes are normally 2 pages (3 at most for long careers). Keep it tight: no "
+    from applypilot import market
+    mk = market.current(profile)
+    return (f"LENGTH: {mk.adjective} {mk.documents} are normally 2 pages (3 at most for long careers). Keep it "
+            "tight: no "
             "filler bullets.")
 
 

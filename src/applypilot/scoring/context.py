@@ -1,17 +1,20 @@
 """Candidate facts and house style shared by the AI prompts.
 
 The prompts are tuned for engineers (software first, other disciplines
-too) applying in Australia; the role, seniority, location and work rights
-come from the profile.
+too) applying in Australia or the UK (market.py); the role, seniority,
+location and work rights come from the profile.
 """
 
 from __future__ import annotations
 
-AU_STYLE = (
-    "Use Australian English spelling (optimise, organisation, analyse, modelling, "
-    "licence as a noun, programme only for non-software programs). Dates as "
-    "\"Mar 2021 - Jun 2023\" in resumes and DD/MM/YYYY in forms. Currency is AUD."
-)
+from applypilot import market
+
+AU_STYLE = market.AU.style  # the Australian house style (kept for older imports)
+
+
+def house_style(profile: dict | None = None) -> str:
+    """Spelling, dates and currency for the market in use."""
+    return market.current(profile).style
 
 
 def target_role(profile: dict) -> str:
@@ -49,7 +52,7 @@ def salary_ask(profile: dict) -> int | None:
 
 def _location(profile: dict) -> str:
     p = profile.get("personal", {})
-    return ", ".join(x for x in (p.get("city"), p.get("province_state")) if x) or "Australia"
+    return ", ".join(x for x in (p.get("city"), p.get("province_state")) if x) or market.current(profile).country
 
 
 def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
@@ -88,9 +91,16 @@ def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
                      "one whose ad says nothing about visas (silence is not a dealbreaker: judge the rest as usual). "
                      "Only an ad that requires permanent residency or citizenship, or says no visa holders or no "
                      "sponsorship, is a work-rights dealbreaker.")
+    if "youth mobility" in str(auth.get("work_permit_type") or "").lower():
+        lines.append("Youth Mobility Scheme visa: full right to work in the UK for up to 2 years (3 for some), any "
+                     "employer, no sponsorship needed. Contract, temporary and fixed-term roles fit best; a "
+                     "permanent role is still fine. Only an ad that requires British citizenship, settled status or "
+                     "long UK residency (e.g. for security clearance) is a work-rights dealbreaker; \"no "
+                     "sponsorship\" is not.")
     if salary_floor(profile):
-        lines.append(f"Minimum salary: {salary_floor(profile)} {comp.get('salary_currency') or 'AUD'} "
-                     "base, excluding super")
+        mk = market.current(profile)
+        lines.append(f"Minimum salary: {salary_floor(profile)} {comp.get('salary_currency') or mk.currency} "
+                     f"{mk.pay_note}")
     return "\n".join(lines)
 
 
@@ -100,10 +110,17 @@ def work_rights(profile: dict) -> str:
     permit = str(auth.get("work_permit_type") or "").strip()
     if permit:
         low = permit.lower()
+        if "british" in low and "irish" in low:
+            return "British Citizen"
         if "citizen" in low:
-            return "Australian Citizen" if "australia" in low or low == "citizen" else permit
+            return "Australian Citizen" if "australia" in low or low == "citizen" else permit.title()
         if "permanent" in low:
             return "Permanent Resident"
+        # UK: settled, pre-settled and Graduate visa holders can work without sponsorship
+        if "pre-settled" in low or "graduate" in low or "settled" in low or "indefinite leave" in low:
+            return "Right to work in the UK"
+        if "youth mobility" in low:
+            return "Youth Mobility Scheme visa"
         return permit
     yes = lambda v: str(v).strip().lower() in ("yes", "true", "y")  # noqa: E731
     if yes(auth.get("legally_authorized_to_work")) and not yes(auth.get("require_sponsorship")):
