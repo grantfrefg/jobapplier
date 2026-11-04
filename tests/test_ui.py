@@ -601,3 +601,15 @@ def test_layout_thumbnails_render_each_layout(client):
     style = lambda page: page.split("<style>")[1].split("</style>")[0]  # noqa: E731
     assert style(modern) != style(classic)
     assert client.get("/api/resume-preview?layout=bogus").status_code == 200  # falls back to the saved look
+
+
+def test_jobs_list_says_each_jobs_type(client):
+    _seed_scored("https://example.com/perm", 8)
+    conn = database.get_connection()
+    conn.execute("""INSERT INTO jobs (url, title, site, location, fit_score, full_description, application_url)
+                    VALUES ('https://example.com/c', 'Analyst (Contract)', 'linkedin', 'Sydney', 7,
+                            'Six month contract, day rate', 'https://example.com/c')""")
+    conn.commit()
+    kinds = {j["url"].rsplit("/", 1)[1]: j["kind"] for j in client.get("/api/jobs?view=all").json()}
+    assert kinds == {"perm": "Not stated", "c": "Contract"}
+    assert all("description" not in j for j in client.get("/api/jobs?view=all").json())

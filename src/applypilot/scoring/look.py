@@ -84,6 +84,42 @@ def short_term_role(job: dict | None) -> bool:
     return bool(_CONTRACT.search(text)) and not _PERMANENT.search(text)
 
 
+# The kind of work an ad offers, for the Apply jobs list (filter and sort)
+JOB_KINDS = ["Permanent", "Contract", "Fixed term", "Temp", "Casual", "Temp to perm", "Not stated"]
+_TEMP_TO_PERM = re.compile(r"\btemp(orary)?[- ]to[- ]perm(anent)?\b", re.I)
+_FIXED_TERM = re.compile(
+    r"\b(fixed[- ]term|(maternity|parental)( leave)? (cover|contract)|\d{1,2}[- ]?(month|week)s? (fixed|contract|role|"
+    r"assignment|position|engagement)|(contract|assignment) of \d{1,2} (months|weeks))\b", re.I)
+_TEMP = re.compile(r"\b(temp|temporary|locum|seasonal|harvest)\b(?! (residen|visa|graduate|skill))", re.I)
+_CASUAL = re.compile(r"(?<!smart )"
+                     r"\bcasual\b(?! (dress|attire|environment|atmosphere|culture|vibe|office|chat))", re.I)
+_CONTRACT_KIND = re.compile(r"\b(contract(or)?|day rate|daily rate|per day|p/d|outside ir35|inside ir35)\b", re.I)
+
+
+def job_kind(job: dict | None) -> str:
+    """Permanent, Contract, Fixed term, Temp, Casual, Temp to perm, or Not stated (from the title, then the ad)."""
+    if not job:
+        return "Not stated"
+    title = job.get("title") or ""
+    body = (job.get("full_description") or job.get("description") or "")[:8000]
+    salary = job.get("salary") or ""
+    for text in (title, f"{title}\n{salary}\n{body}"):
+        if _TEMP_TO_PERM.search(text):
+            return "Temp to perm"
+        if _FIXED_TERM.search(text):
+            return "Fixed term"
+        if _CASUAL.search(text):
+            return "Casual"
+        if _TEMP.search(text):
+            return "Temp"
+        permanent = bool(_PERMANENT.search(text))
+        if _CONTRACT_KIND.search(text) and not permanent:
+            return "Contract"
+        if permanent:
+            return "Permanent"
+    return "Not stated"
+
+
 def shown_work_rights(line: str, job: dict | None = None, decided: bool = False) -> str:
     """The work-rights wording for the header, or "" to leave it off.
 

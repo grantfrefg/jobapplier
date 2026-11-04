@@ -587,6 +587,15 @@
         <option value="ready">Ready to apply</option><option value="quick">Ready: no employer account</option>
         <option value="applied">Applied</option>
         <option value="all">All jobs</option></select>
+      <select id="job-kind" style="width:auto" title="Show only one kind of work (read from each ad)">
+        <option value="">Any job type</option><option value="Permanent">Permanent</option>
+        <option value="Contract">Contract</option><option value="Fixed term">Fixed term</option>
+        <option value="Temp">Temp</option><option value="Casual">Casual</option>
+        <option value="Temp to perm">Temp to perm</option><option value="short">Contract, temp or casual</option>
+        <option value="Not stated">Not stated</option></select>
+      <select id="job-sort" style="width:auto" title="Order of the list">
+        <option value="score">Sort: best fit</option><option value="kind">Sort: job type</option>
+        <option value="newest">Sort: newest</option><option value="applicants">Sort: fewest applicants</option></select>
       <button class="btn secondary" id="refresh-jobs">Refresh</button>
       <button class="btn secondary" id="locate-jobs" title="Open each ready job in the browser and note where its application is (Greenhouse, Workday, SEEK...) and whether it needs an account. No AI requests.">Check where to apply</button>
       <button class="btn secondary" id="redo-all" title="Rewrite every resume and cover letter not yet sent, with the current prompts and site preference (LinkedIn > Indeed > Jora)">Redo all documents</button>
@@ -597,7 +606,10 @@
         <dd><b>Score</b> is how well the job fits you (1–10). Click the job title to open the ad. <b>Resume</b> and
           <b>Cover letter</b> open the PDFs written for that job; <b>ATS</b> is the resume check (below). The views:
           <i>Ready to apply</i> (has documents, not applied yet), <i>Ready: no employer account</i> (quick ones),
-          <i>Applied</i>, and <i>All jobs</i> (including ones that got no documents, with the reason).</dd>
+          <i>Applied</i>, and <i>All jobs</i> (including ones that got no documents, with the reason).
+          The <b>job type</b> menu shows just permanent, contract, fixed-term, temp or casual work (read from each ad's
+          wording; "Not stated" when the ad doesn't say), and <b>Sort</b> orders the list by fit, job type, newest
+          or fewest applicants. The job type also shows under each title.</dd>
         <dt>Applying with the app</dt>
         <dd>1. Optional: press <b>Check where to apply</b> to see which jobs need an employer account (no AI).<br>
           2. Press <b>Apply</b> on a job. A browser opens the ad, follows its Apply link, fills in your details and
@@ -1792,6 +1804,8 @@ async function loadJobs() {
   const view = $("#job-view").value;
   const query = view === "quick" ? "ready&quick=true" : view;
   let jobs; try { jobs = await api("/api/jobs?view=" + query); } catch (e) { return toast(e.message, true); }
+  const total = jobs.length;
+  jobs = sortJobs(jobs.filter(kindMatches));
   const busy = applyState && applyState.busy;
   $("#jobs").replaceChildren(...jobs.map((j) => {
     const link = j.link;
@@ -1851,7 +1865,8 @@ async function loadJobs() {
       el("td", { class: "score", title: j.score_reason ? "Why this score: " + j.score_reason : "",
         style: j.score_reason ? "cursor:help" : "" }, j.fit_score ?? "–"),
       el("td", {}, el("a", { href: link, target: "_blank", rel: "noopener" }, j.title || link),
-        el("div", { class: "muted" }, [j.company, j.site, j.location, j.applicants].filter(Boolean).join(" · ")),
+        el("div", { class: "muted" }, [j.kind !== "Not stated" ? j.kind : "", j.company, j.site, j.location,
+          j.salary, j.applicants].filter(Boolean).join(" · ")),
         j.apply_site_name ? el("div", { class: "muted", title: ACCOUNT_HELP[j.apply_account] || "" },
           "Applies on " + j.apply_site_name + " · " + (ACCOUNT_LABEL[j.apply_account] || j.apply_account)) : "",
         j.also_on ? el("div", { class: "muted" }, "Also on: " + j.also_on) : ""),
@@ -1860,11 +1875,36 @@ async function loadJobs() {
       el("td", { style: "white-space:nowrap" }, actions));
   }));
   $("#jobs-empty").textContent = jobs.length ? "" :
-    $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first."
+    total ? "No " + $("#job-kind").selectedOptions[0].textContent.toLowerCase() + " jobs in this view (" + total +
+      " of other types). Choose \"Any job type\" to see them."
+    : $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first."
     : $("#job-view").value === "quick" ? "None found yet. Press \"Check where to apply\" to look up where each job applies."
     : "Nothing here yet.";
 }
 $("#job-view").addEventListener("change", loadJobs);
+
+// Job type filter and sort (Apply jobs). The type is read from each ad: see look.job_kind.
+const KIND_ORDER = ["Permanent", "Temp to perm", "Fixed term", "Contract", "Temp", "Casual", "Not stated"];
+const SHORT_KINDS = ["Contract", "Fixed term", "Temp", "Casual", "Temp to perm"];
+function kindMatches(j) {
+  const want = $("#job-kind").value;
+  return !want || (want === "short" ? SHORT_KINDS.includes(j.kind) : j.kind === want);
+}
+function sortJobs(jobs) {
+  const by = $("#job-sort").value, score = (j) => j.fit_score ?? -1;
+  const keys = {
+    kind: (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || score(b) - score(a),
+    newest: (a, b) => String(b.discovered_at || "").localeCompare(String(a.discovered_at || "")),
+    applicants: (a, b) => (a.applicants_count ?? Infinity) - (b.applicants_count ?? Infinity) || score(b) - score(a),
+  };
+  return keys[by] ? [...jobs].sort(keys[by]) : jobs;
+}
+for (const id of ["#job-kind", "#job-sort"]) {
+  const box = $(id);
+  try { const saved = localStorage.getItem("apply" + id); if (saved !== null) box.value = saved; } catch (e) {}
+  if (box.selectedIndex < 0) box.selectedIndex = 0;
+  box.addEventListener("change", () => { try { localStorage.setItem("apply" + id, box.value); } catch (e) {} loadJobs(); });
+}
 
 // Searches a job board blocked or failed last time: Discover → retry just those
 const BOARD_NAMES = { linkedin: "LinkedIn", indeed: "Indeed", glassdoor: "Glassdoor", zip_recruiter: "ZipRecruiter" };
