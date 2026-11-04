@@ -212,7 +212,7 @@ def _entries_html(text: str, job: bool = True) -> str:
     return items
 
 
-def build_html(resume: dict, fit: int = 0) -> str:
+def build_html(resume: dict, fit: int = 0, layout: str | None = None, accent: str | None = None) -> str:
     """Build an ATS-friendly A4 resume page from parsed data.
 
     One column, real text, standard section headings, no tables or images.
@@ -246,7 +246,7 @@ def build_html(resume: dict, fit: int = 0) -> str:
 <meta charset="utf-8">
 <title>{name} - {market.current().doc_title}</title>
 <meta name="author" content="{name}">
-<style>{look.resume_css()}{look.fit_css(fit) if fit else ''}</style>
+<style>{look.resume_css(layout, accent)}{look.fit_css(fit) if fit else ''}</style>
 </head>
 <body>
 <div class="header">

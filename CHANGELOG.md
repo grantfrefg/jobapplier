@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-04
+
+### Added
+- **Pictures of each layout** in Setup → Resume look: a small live preview of every layout (Modern, Classic, Compact, Traditional, Match my resume, My Word file) in your chosen colour, using your newest resume. Click one to choose it.
+
 ## [0.11.0] - 2026-11-04
 
 ### Added
