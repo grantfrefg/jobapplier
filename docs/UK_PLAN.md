@@ -1,6 +1,6 @@
 # Plan: UK (London) support — 0.11.0
 
-Status: agreed 2026-11-04. Decisions: Reed via its official API (no page-reading of Reed or
+Status: built in 0.11.0 (2026-11-04). Decisions: Reed via its official API (no page-reading of Reed or
 Totaljobs); documents are called "CV" for UK users; UK only for now (other countries can slot
 into the same structure later).
 
