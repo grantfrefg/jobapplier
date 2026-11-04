@@ -336,6 +336,13 @@
         <option value="contract">Contract or temp (e.g. on a working holiday visa)</option></select>
       <p class="sub">Filters LinkedIn, Indeed and Glassdoor searches. Other sources can't filter by type, so your
         profile's Availability (full time / contract) also feeds the score.</p>
+      <div id="uk-search" style="display:none">
+        <p class="sub">UK searches use Indeed UK, LinkedIn, Hays and Randstad, and <b>Reed</b> through Reed's official
+          API. For Reed, get a free key at <a href="https://www.reed.co.uk/developers/jobseeker" target="_blank"
+          rel="noopener">reed.co.uk/developers</a> and paste it here (without one, Reed is skipped).</p>
+        <label for="reed">Reed API key</label>
+        <input type="password" id="reed" autocomplete="off" placeholder="Paste your key">
+      </div>
       <label for="s-roles">Job titles, comma separated</label>
       <input type="text" id="s-roles" placeholder="Data Analyst, Business Analyst">
       <label for="s-exclude">Skip jobs whose title contains (comma separated)</label>
@@ -1170,7 +1177,8 @@ async function loadSettings() {
   $("#daily-limit").value = s.GEMINI_DAILY_LIMIT || "";
   $("#apply-reserve").value = s.GEMINI_APPLY_RESERVE || "";
   for (const [id, key] of [["gemini", "GEMINI_API_KEY"], ["openai", "OPENAI_API_KEY"],
-                           ["anthropic", "ANTHROPIC_API_KEY"], ["capsolver", "CAPSOLVER_API_KEY"]]) {
+                           ["anthropic", "ANTHROPIC_API_KEY"], ["capsolver", "CAPSOLVER_API_KEY"],
+                           ["reed", "REED_API_KEY"]]) {
     $("#" + id).value = "";
     $("#" + id).placeholder = s[key].set ? "Saved " + s[key].hint + " (leave blank to keep)" : "Paste your key";
   }
@@ -1281,9 +1289,17 @@ async function loadSearches() {
     $("#s-roles").value = s.simple.roles.join(", ");
     $("#s-exclude").value = (s.simple.exclude_titles || []).join(", ");
     $("#s-jobtype").value = s.simple.job_type || "";
+    showCountry();
   }
 }
+function showCountry() {
+  const uk = ["uk", "united kingdom"].includes($("#s-country").value);
+  $("#uk-search").style.display = uk ? "" : "none";
+  $("#s-location").placeholder = uk ? "e.g. London" : "e.g. Sydney, NSW";
+}
+$("#s-country").addEventListener("change", showCountry);
 $("#save-searches").addEventListener("click", () => guarded(async () => {
+  if ($("#reed").value.trim()) { await post("/api/settings", { REED_API_KEY: $("#reed").value.trim() }); }
   await post("/api/searches", {
     location: $("#s-location").value, country: $("#s-country").value, include_remote: $("#s-remote").checked,
     roles: $("#s-roles").value.split(","),
