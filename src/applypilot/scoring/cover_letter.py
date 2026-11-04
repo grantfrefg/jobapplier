@@ -16,6 +16,7 @@ from applypilot.config import COVER_LETTER_DIR, RESUME_PATH, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
 from applypilot.scoring import voice
+from applypilot import market
 from applypilot.scoring.context import AU_STYLE, current_title, years
 from applypilot.scoring.validator import (
     BANNED_WORDS,
@@ -38,7 +39,21 @@ def sign_off_name(profile: dict) -> str:
     return personal.get("preferred_name") or personal.get("full_name", "")
 
 
+# The letter rules for UK jobs (market.py): the passages that differ
+UK_LETTER_SWAPS = [
+    ("selection criteria (common in Australian government and\nuniversity roles)",
+     "competency-based questions (common in UK public sector and\nuniversity roles)"),
+    ("Australian tone", "British tone"),
+    (AU_STYLE, market.UK.style),
+]
+
+
 def cover_letter_rules(profile: dict) -> str:
+    """The letter-writing rules for the market in use."""
+    return market.localise(_cover_letter_rules_au(profile), UK_LETTER_SWAPS, market.current(profile))
+
+
+def _cover_letter_rules_au(profile: dict) -> str:
     """The cover letter writing rules (structure, voice, banned words, skills).
 
     Shared by the standalone prompt below and the combined resume + cover

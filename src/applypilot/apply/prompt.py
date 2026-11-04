@@ -10,7 +10,7 @@ import os
 import shutil
 from datetime import datetime
 
-from applypilot import config
+from applypilot import config, market
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def _build_profile_summary(profile: dict) -> str:
         lines.append(f"Work Permit: {work_auth['work_permit_type']}")
 
     # Compensation
-    currency = comp.get("salary_currency", "AUD")
+    currency = comp.get("salary_currency") or market.current(p).currency
     from applypilot.scoring.context import salary_ask, salary_floor
     if salary_ask(p):
         lines.append(f"Salary Expectation: ${salary_ask(p)} {currency} base (minimum ${salary_floor(p)})")
@@ -128,7 +128,7 @@ def _build_salary_section(profile: dict) -> str:
     """
     from applypilot.scoring.context import salary_ask, salary_floor
     comp = profile["compensation"]
-    currency = comp.get("salary_currency", "AUD")
+    currency = comp.get("salary_currency") or market.current(profile).currency
     floor = salary_floor(profile)
     ask = salary_ask(profile)
     if floor is None:
@@ -137,8 +137,9 @@ def _build_salary_section(profile: dict) -> str:
     range_max = "".join(ch for ch in str(comp.get("salary_range_max") or "") if ch.isdigit()) or str(ask + 20000)
     conversion_note = comp.get("currency_conversion_note", "")
 
-    # Australian full-time hours (38 a week) and working days for hourly / day rates
-    hours, days = 38 * 52, 230
+    # Full-time hours (38 a week in Australia, 37.5 in the UK) and working days for hourly / day rates
+    mk = market.current(profile)
+    hours, days = int(mk.hours * 52), mk.days
     hourly_line = f"${ask // 1000}K = ${ask // hours}/hr = ${ask // days}/day; never below ${floor // hours}/hr"
 
     # Currency conversion guidance
@@ -147,7 +148,7 @@ def _build_salary_section(profile: dict) -> str:
     else:
         convert_line = "Posting is in a different currency? -> Target midpoint of their range. Convert if needed."
 
-    return f"""== SALARY (think, don't just copy) ==
+    return market.localise(f"""== SALARY (think, don't just copy) ==
 ${floor} {currency} BASE (excluding superannuation) is the MINIMUM. Never go below it.
 ${ask} {currency} is what to ask for when the ad gives no pay.
 
@@ -159,7 +160,26 @@ Decision tree:
    (or the posted midpoint -10% to +10% if that is higher).
 5. Base vs package: these figures are base. If the question asks for a package / "including super" /
    total remuneration, add the 12% super guarantee (base x 1.12). In free text write e.g. "$120,000 plus super".
-6. Hourly or day rate (contract roles)? -> {hourly_line} (38-hour week; about {days} working days a year)."""
+6. Hourly or day rate (contract roles)? -> {hourly_line} (38-hour week; about {days} working days a year).""",
+                           UK_SALARY_SWAPS, mk).replace("$", "£" if mk.key == "uk" else "$")
+
+
+# The salary and screening sections for UK jobs (market.py): the passages that differ
+UK_SALARY_SWAPS = [
+    ("BASE (excluding superannuation)", "BASE (excluding pension)"),
+    ("""5. Base vs package: these figures are base. If the question asks for a package / "including super" /
+   total remuneration, add the 12% super guarantee (base x 1.12). In free text write e.g. "$120,000 plus super".""",
+     """5. Base vs package: UK salaries are quoted before pension, so give these base figures. In free text
+   write e.g. "$55,000 plus pension". If asked about London weighting, include it only if the ad states one."""),
+    ("(38-hour week;", "(37.5-hour week;"),
+]
+UK_SCREENING_SWAPS = [
+    ('"Willing to obtain" -> yes only if an Australian citizen.',
+     '"Willing to obtain" -> yes only for British citizens or long-term UK residents (SC and DV need about 5 '
+     "years' UK residence).\n  - Right to work in the UK: answer from the profile. A right-to-work share code "
+     "belongs to the candidate: leave it for them."),
+    ("Australian English spelling.", "British English spelling."),
+]
 
 
 def _build_screening_section(profile: dict) -> str:
@@ -173,7 +193,7 @@ def _build_screening_section(profile: dict) -> str:
     relocate = profile.get("availability", {}).get("willing_to_relocate") or "No"
     clearance = work_auth.get("security_clearance") or "none held"
 
-    return f"""== SCREENING QUESTIONS (be strategic) ==
+    return market.localise(f"""== SCREENING QUESTIONS (be strategic) ==
 Hard facts -> answer truthfully from the profile. No guessing. This includes:
   - Location/relocation: lives in {city}; willing to relocate: {relocate}
   - Work authorization: {work_auth.get('legally_authorized_to_work', 'see profile')}
@@ -186,7 +206,8 @@ Skills and tools -> be confident but truthful. This candidate is a {target_role}
 
 Open-ended questions ("Why do you want this role?", "Tell us about yourself", "What interests you?") -> Write 2-3 sentences. Be specific to THIS job. Reference something from the job description. Connect it to a real achievement from the resume. No generic fluff. No "I am passionate about..." -- sound like a real person. Australian English spelling.
 
-EEO/demographics -> "Decline to self-identify" or "Prefer not to say" for everything."""
+EEO/demographics -> "Decline to self-identify" or "Prefer not to say" for everything.""", UK_SCREENING_SWAPS,
+                           market.current(profile))
 
 
 def _build_hard_rules(profile: dict) -> str:
