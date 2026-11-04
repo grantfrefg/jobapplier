@@ -44,6 +44,33 @@ OPTIONS: dict[str, list[str]] = {
     "eeo_voluntary.veteran_status": ["Prefer not to say", "No", "Yes (Australian Defence Force)"],
 }
 
+# The UK's values for the fields that differ (market.py); the form shows the list for the market in use
+UK_OPTIONS: dict[str, list[str]] = {
+    "personal.province_state": ["England", "Scotland", "Wales", "Northern Ireland"],
+    "work_authorization.work_permit_type": [
+        "", "British citizen", "Irish citizen", "Settled status (ILR)", "Pre-settled status", "Graduate visa",
+        "Skilled Worker visa (needs sponsorship)", "Youth Mobility Scheme visa", "Student visa",
+        "Other visa with full right to work",
+    ],
+    "work_authorization.security_clearance": ["", "BPSS", "CTC", "SC", "DV"],
+    "compensation.salary_currency": ["GBP", "EUR", "USD", "AUD"],
+    "eeo_voluntary.veteran_status": ["Prefer not to say", "No", "Yes (UK Armed Forces)"],
+}
+_AU_ONLY = {"eeo_voluntary.aboriginal_or_torres_strait_islander"}  # not asked for UK jobs
+
+
+def options_for(mk) -> dict[str, list[str]]:
+    """The drop-down values for the market in use."""
+    if getattr(mk, "key", "au") != "uk":
+        return {path: list(values) for path, values in _AU_OPTIONS.items()}
+    return {path: list(UK_OPTIONS.get(path, values)) for path, values in _AU_OPTIONS.items()
+            if path not in _AU_ONLY}
+
+
+# Every value either market allows (what saved profiles are checked against)
+_AU_OPTIONS = dict(OPTIONS)
+OPTIONS = {path: list(dict.fromkeys(values + UK_OPTIONS.get(path, []))) for path, values in _AU_OPTIONS.items()}
+
 EMPTY_LABELS = {
     "work_authorization.work_permit_type": "Not set",
     "work_authorization.security_clearance": "None",
@@ -67,6 +94,10 @@ _ALIASES = {
     "new south wales": "NSW", "victoria": "VIC", "queensland": "QLD", "western australia": "WA",
     "south australia": "SA", "tasmania": "TAS", "australian capital territory": "ACT",
     "northern territory": "NT", "usa": "United States", "uk": "United Kingdom",
+    "british": "British citizen", "british citizen": "British citizen", "ilr": "Settled status (ILR)",
+    "settled status": "Settled status (ILR)", "indefinite leave to remain": "Settled status (ILR)",
+    "youth mobility": "Youth Mobility Scheme visa", "youth mobility scheme": "Youth Mobility Scheme visa",
+    "skilled worker visa": "Skilled Worker visa (needs sponsorship)",
 }
 
 

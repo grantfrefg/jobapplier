@@ -161,6 +161,8 @@ _EMPLOYER_SUFFIX = re.compile(rf"(?:\s*,?\s+(?:{_SUFFIX_WORDS})\.?)+$", re.IGNOR
 _AFTER_EMPLOYER = (r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\d|present\b|current\b|remote\b|"
                    r"hybrid\b|sydney|melbourne|brisbane|perth|adelaide|canberra|hobart|darwin|gold coast|"
                    r"newcastle|wollongong|geelong|(nsw|vic|qld|wa|sa|tas|act|nt|nz|auckland|wellington)\b|"
+                   r"london|manchester|birmingham|edinburgh|glasgow|leeds|bristol|cardiff|belfast|"
+                   r"(uk|england|scotland|wales|northern ireland)\b|"
                    r"(new south wales|victoria|queensland|western australia|south australia|tasmania)\b")
 
 

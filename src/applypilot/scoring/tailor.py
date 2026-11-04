@@ -22,6 +22,7 @@ from applypilot.config import RESUME_PATH, TAILORED_DIR, load_profile
 from applypilot.database import finish_redo, get_connection, get_jobs_by_stage, mark_duplicates
 from applypilot.llm import get_client
 from applypilot.scoring import facts, look, voice
+from applypilot import market
 from applypilot.scoring.context import AU_STYLE, current_title, location_line, work_rights
 from applypilot.scoring.cover_letter import (
     COVER_LETTER_DIR,
@@ -100,6 +101,13 @@ def _tailor_rules(profile: dict) -> str:
     # what will be rejected — the validator checks for these automatically.
     banned_str = ", ".join(BANNED_WORDS)
 
+    return market.localise(_tailor_rules_au(profile, title_now, skills_block, companies_str, projects_str,
+                                            school, metrics_str, banned_str), UK_TAILOR_SWAPS,
+                           market.current(profile))
+
+
+def _tailor_rules_au(profile, title_now, skills_block, companies_str, projects_str, school, metrics_str,
+                     banned_str) -> str:
     return f"""You are a senior engineering recruiter in Australia rewriting a resume so this candidate
 gets an interview for the target job. Return the tailored resume as a JSON object.
 
@@ -189,6 +197,14 @@ Australian recruiters read hundreds of these and reject the ones that sound gene
 - Preserved school: {school}"""
 
 
+# The tailoring rules for UK jobs (market.py): the passages that differ
+UK_TAILOR_SWAPS = [
+    ("recruiter in Australia rewriting a resume", "recruiter in the UK rewriting a CV"),
+    ("Australian recruiters read hundreds", "UK recruiters read hundreds"),
+    (market.AU.style, market.UK.style),
+]
+
+
 def _resume_shape(profile: dict) -> str:
     """Example of the resume JSON object the LLM must return."""
     school = profile.get("resume_facts", {}).get("preserved_school", "")
@@ -208,7 +224,8 @@ def _resume_shape(profile: dict) -> str:
 def _style_rules() -> str:
     """Light touch (TAILOR_STYLE=light): keep the candidate's own wording (scoring/voice.py)."""
     from applypilot.scoring import voice
-    return "\n\n" + voice.LIGHT_TOUCH_RULES if voice.style() == "light" else ""
+    rules = market.localise(voice.LIGHT_TOUCH_RULES, [("Australian spelling", "British spelling")])
+    return "\n\n" + rules if voice.style() == "light" else ""
 
 
 def _build_tailor_prompt(profile: dict) -> str:

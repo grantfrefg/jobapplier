@@ -284,7 +284,8 @@ def fill(resume_text: str, out_path: Path, template: Path | None = None) -> dict
     if not any(done.values()):
         raise FillError("Nothing in your Word resume matched the tailored sections")
     # A working holiday visa follows what tailoring chose for this job (shown for contract work)
-    _hide_work_rights(header, "working holiday" in parsed.get("location", "").lower())
+    location = parsed.get("location", "").lower()
+    _hide_work_rights(header, "working holiday" in location or "youth mobility" in location)
     out_path = Path(out_path)
     doc.save(str(out_path))
     return done

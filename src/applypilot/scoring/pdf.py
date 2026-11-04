@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from applypilot.config import TAILORED_DIR
+from applypilot import market
 from applypilot.scoring import look
 from applypilot.scoring.context import location_line
 
@@ -243,7 +244,7 @@ def build_html(resume: dict, fit: int = 0) -> str:
 <html lang="en-AU">
 <head>
 <meta charset="utf-8">
-<title>{name} - Resume</title>
+<title>{name} - {market.current().doc_title}</title>
 <meta name="author" content="{name}">
 <style>{look.resume_css()}{look.fit_css(fit) if fit else ''}</style>
 </head>

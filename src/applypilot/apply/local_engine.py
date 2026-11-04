@@ -140,11 +140,18 @@ def _walk_sensitive(obj, prefix: str = "") -> list[tuple[str, str]]:
 
 
 def _international_phone(phone: str, country: str) -> str:
-    """+61 format for phone fields with a country picker (0412 345 678 -> +61 412 345 678)."""
+    """International format for phone fields with a country picker
+    (0412 345 678 -> +61 412 345 678; 07700 900123 -> +44 7700 900123)."""
     phone = (phone or "").strip()
     if phone.startswith("+"):
         return phone
     digits = "".join(c for c in phone if c.isdigit())
+    from applypilot import market
+    uk = market.from_country(country) is market.UK
+    if digits.startswith("0") and uk:
+        rest = digits[1:]
+        mobile = len(rest) == 10 and rest.startswith("7")
+        return "+44 " + (f"{rest[:4]} {rest[4:]}" if mobile else rest)
     if digits.startswith("0") and (not country or "australia" in country.lower()):
         rest = digits[1:]
         mobile = len(rest) == 9 and rest.startswith("4")
@@ -551,6 +558,46 @@ Screening questions (the applicant is an engineer applying in Australia):
 - Pick option text EXACTLY as it appears in "options".
 - Output ONLY the JSON object."""
 
+# The form rules for UK jobs (market.py): the passages that differ
+_UK_SWAPS = [
+    ('(e.g. "Australia")', '(e.g. "United Kingdom")'),
+    ("(the applicant is an engineer applying in Australia)", "(the applicant is an engineer applying in the UK)"),
+    ("""- Right to work / visa / citizenship / permanent residency: answer from work_authorization.
+- Security clearance (Baseline, NV1, NV2): from work_authorization.security_clearance; if it's
+  not stated, answer that they hold none. "Willing to obtain": yes only if they're a citizen.""",
+     """- Right to work in the UK / visa / sponsorship / settled status: answer from work_authorization.
+  A right-to-work share code belongs to the applicant: add a needs_attention note instead.
+- Security clearance (BPSS, CTC, SC, DV): from work_authorization.security_clearance; if it's
+  not stated, answer that they hold none. "Willing to obtain": yes only for British citizens or
+  long-term UK residents."""),
+    ("""- Salary: AUD, from compensation. Give salary_expectation; never less than salary_range_min (their
+  minimum); for a range, salary_range_min-salary_range_max. These figures are BASE salary,
+  excluding superannuation. If the question asks for a package or
+  "including super" (total remuneration), add the 12% super guarantee (e.g. 120000 base ->
+  134400 including super). In free text, write e.g. "$120,000 plus super".""",
+     """- Salary: GBP, from compensation. Give salary_expectation; never less than salary_range_min (their
+  minimum); for a range, salary_range_min-salary_range_max. These figures are BASE salary, before
+  pension (UK salaries are quoted that way). In free text, write e.g. "£55,000 plus pension". A day
+  rate for a contract: salary / 225, rounded."""),
+    ('"LinkedIn", "Indeed", "Jora", "SEEK";', '"LinkedIn", "Indeed", "Reed", "Hays";'),
+    ("""- Aboriginal or Torres Strait Islander, gender, disability and other diversity questions: use
+  eeo_voluntary values; otherwise pick "Prefer not to say".""",
+     """- Ethnicity, gender, disability, sexual orientation, religion and other diversity monitoring
+  questions: use eeo_voluntary values; otherwise pick "Prefer not to say"."""),
+    ("police check / Working with Children Check details", "DBS check details"),
+    ("""- Selection criteria / "address the following" (Australian government, university and council
+  forms):""", """- Competency-based questions / "give an example of a time" (UK public sector, Civil Service
+  "behaviours", university forms):"""),
+    ("plain Australian English, no", "plain British English, no"),
+    ("Australian English spelling.", "British English spelling."),
+]
+
+
+def _system_prompt() -> str:
+    """The form-filling rules for the market in use."""
+    from applypilot import market
+    return market.localise(_SYSTEM_PROMPT, _UK_SWAPS)
+
 
 def _call_ai(prompt: str, api_key: str, model: str) -> dict:
     """Ask the form AI (the provider chosen in Settings) and parse its JSON reply."""
@@ -558,7 +605,7 @@ def _call_ai(prompt: str, api_key: str, model: str) -> dict:
     if provider not in (None, config.PROVIDER_GEMINI):
         from applypilot.llm import get_client
         client = get_client()  # OpenAI, Claude or a local server: no daily budget to keep
-        text = client.chat([{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+        text = client.chat([{"role": "system", "content": _system_prompt()}, {"role": "user", "content": prompt}],
                            temperature=0.0, max_tokens=4096, json_mode=True)
         return parse_json_response(text)
     return _call_gemini_api(prompt, api_key, model)
@@ -567,7 +614,7 @@ def _call_ai(prompt: str, api_key: str, model: str) -> dict:
 def _call_gemini_api(prompt: str, api_key: str, model: str) -> dict:
     """POST to Gemini generateContent and parse the JSON response."""
     payload = {
-        "systemInstruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
+        "systemInstruction": {"parts": [{"text": _system_prompt()}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"},
     }
@@ -1241,7 +1288,9 @@ def _load_documents(job: dict, profile: dict) -> tuple[dict[str, str], dict[str,
     # Your own resume / cover letter for this job when you gave one, else the generated ones
     from applypilot.own_docs import documents
     docs = documents(job)
-    for kind, name, text_key, file_key in (("resume", "Resume", "{{RESUME_TEXT}}", "{{RESUME_PDF}}"),
+    from applypilot import market
+    doc_name = market.current(profile).doc_title  # "Resume", or "CV" for UK jobs
+    for kind, name, text_key, file_key in (("resume", doc_name, "{{RESUME_TEXT}}", "{{RESUME_PDF}}"),
                                            ("cover", "Cover_Letter", "{{COVER_LETTER_TEXT}}", "{{COVER_LETTER_PDF}}")):
         doc = docs[kind]
         if doc["text"]:
@@ -1260,8 +1309,8 @@ def staged_uploads() -> list[Path]:
     if not folder.is_dir():
         return []
     return sorted(p for p in folder.iterdir()
-                  if p.is_file() and p.name.endswith(("_Resume.pdf", "_Cover_Letter.pdf",
-                                                      "_Resume.docx", "_Cover_Letter.docx")))
+                  if p.is_file() and p.name.endswith(("_Resume.pdf", "_CV.pdf", "_Cover_Letter.pdf",
+                                                      "_Resume.docx", "_CV.docx", "_Cover_Letter.docx")))
 
 
 def _call_gate(gate, page, needs: list[str], dry_run: bool, snapshot) -> str:
