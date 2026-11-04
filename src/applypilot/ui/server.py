@@ -727,6 +727,7 @@ def create_app() -> FastAPI:
     @app.get("/api/jobs")
     def list_jobs(view: str = "ready", quick: bool = False) -> list[dict]:
         from applypilot.database import mark_duplicates
+        from applypilot.scoring import look
         mark_duplicates(get_connection())
         where = {
             "ready": f"{HAS_RESUME} AND applied_at IS NULL AND duplicate_of IS NULL "
@@ -745,7 +746,7 @@ def create_app() -> FastAPI:
             raise HTTPException(400, "view must be ready, applied, all, choose or skipped")
         rows = get_connection().execute(f"""
             SELECT url, title, company, site, location, salary, applicants, applicants_count, fit_score,
-                   application_url, apply_status,
+                   application_url, apply_status, description, discovered_at,
                    apply_error, applied_at, duplicate_of, redo_requested, tailor_status, tailor_issues,
                    COALESCE(tailor_attempts, 0) AS tailor_attempts,
                    apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
@@ -778,7 +779,8 @@ def create_app() -> FastAPI:
             keywords, _, reason = (job.pop("score_reasoning", None) or "").partition("\n")
             job["score_reason"] = (reason or keywords).strip()
             job["score_keywords"] = keywords.strip() if reason else ""
-            for k in ("tailored_resume_path", "cover_letter_path", "full_description"):
+            job["kind"] = look.job_kind(job)
+            for k in ("tailored_resume_path", "cover_letter_path", "full_description", "description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})
         return out
