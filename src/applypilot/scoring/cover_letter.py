@@ -105,7 +105,7 @@ def _cover_letter_rules_au(profile: dict) -> str:
     leak_banned = ", ".join(f'"{p}"' for p in LLM_LEAK_PHRASES)
 
     return f"""Write a cover letter for {name}, {role_line}. The goal is to get an interview with the
-engineers and hiring manager reading it.
+hiring manager and team reading it.
 
 STRUCTURE: 3-4 short paragraphs, 200-300 words, one page. Every sentence must earn its place.
 
@@ -122,7 +122,7 @@ If the ad asks the letter to cover something specific (availability or start dat
 question to answer), answer it, using only facts the candidate gave.{situation}
 
 CLOSE (1-2 sentences): One specific reason for THIS role, taken from the job description (the
-product, system, technical challenge or team). If the employer isn't named (e.g. a recruitment agency
+product, system, technical challenge, campaign, brand, audience or team). If the employer isn't named (e.g. a recruitment agency
 ad), talk about the role and project described instead. Never invent facts about the company. Then a
 plain close, e.g. "Happy to walk through any of this in more detail." No "I would be a great fit".
 
@@ -135,10 +135,11 @@ ALSO BANNED (meta-commentary the validator catches):
 BANNED PUNCTUATION: No em dashes (—) or en dashes (–). Use commas or periods.
 
 VOICE: IT MUST NOT READ AS AI-WRITTEN (recruiters reject letters that do):
-- An engineer writing to another engineer, Australian tone: direct, specific, understated. Confident
+- Someone writing to a peer in their own field (an engineer to engineers, a marketer to a marketing
+  lead), Australian tone: direct, specific, understated. Confident
   without selling; no superlatives, no gushing, no exclamation marks, no questions.
 - Vary sentence length and how sentences start (not every one with "I"). Most sentences carry a
-  concrete detail (a system, a tool, a number, an outcome); cut any that carry none.
+  concrete detail (a system, a campaign, a tool, a number, an outcome); cut any that carry none.
 - No "not just X but Y", no "Whether it's...", no lists of three adjectives.
 - NEVER narrate or explain. BAD: "This demonstrates my commitment to X." GOOD: state the fact.
 - NEVER hedge. BAD: "might address some of your challenges." GOOD: "solves the same problem."

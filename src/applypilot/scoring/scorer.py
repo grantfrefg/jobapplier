@@ -23,8 +23,9 @@ log = logging.getLogger(__name__)
 
 # ── Scoring Prompt ────────────────────────────────────────────────────────
 
-SCORE_PROMPT = """You are an experienced engineering recruiter in Australia. Score how well the
-candidate fits each job posting, 1-10, the way you would before deciding who to phone.
+SCORE_PROMPT = """You are an experienced recruiter in Australia. Score how well the
+candidate fits each job posting, 1-10, the way you would before deciding who to phone. You hire in
+every field (engineering, data, marketing, finance, operations...): judge each role by its own field.
 
 You get the candidate's key facts, their resume, and one or more postings, each with an "id".
 Score every posting independently against the candidate, not against each other.
@@ -39,7 +40,8 @@ Score every posting independently against the candidate, not against each other.
   they're searching in: a candidate in Wentworthville or Parramatta is local to a job in the Sydney CBD,
   North Sydney or Macquarie Park. Same city is never a location dealbreaker; remote is fine. If you
   can't tell whether a place is in their area, don't treat it as a dealbreaker.
-- Seniority far off: e.g. Principal/Head of for a 2-year engineer, Graduate for a 10-year one.
+- Seniority far off: e.g. Principal/Head of for a 2-year engineer, Marketing Director for a
+  marketing coordinator, Graduate for a 10-year one.
 - Mandatory registration or licence the resume doesn't show (e.g. CPEng, RPEQ, NER, electrical licence).
 - Work type: the role is contract-only (or only full-time) and the candidate facts say they don't
   want that kind of work. Score 4 or lower.
@@ -51,16 +53,16 @@ rate is roughly the annual salary / 230. No pay stated: ignore pay.
 
 ## SCALE
 - 9-10: They do this job now. Core discipline and stack match (e.g. backend Python services for a
-  backend Python role), domain and seniority fit, nearly every must-have is shown in the resume.
+  backend Python role, or B2B paid search and paid social for a B2B performance marketing role), domain and seniority fit, nearly every must-have is shown in the resume.
 - 7-8: Most must-haves shown; gaps are learnable in weeks (a second framework, a cloud they
-  haven't used, a new domain).
+  haven't used, another marketing automation platform, a new domain).
 - 5-6: Same discipline but missing a key must-have (core language or platform, years required,
-  domain expertise the posting stresses).
-- 3-4: Adjacent discipline (e.g. QA for a backend role, data analyst for data engineering) or several
-  missing must-haves.
+  domain expertise the posting stresses, B2C experience for a B2C-only role).
+- 3-4: Adjacent discipline (e.g. QA for a backend role, data analyst for data engineering, PR and
+  communications for performance marketing) or several missing must-haves.
 - 1-2: Different field.
 
-## HOW TO JUDGE ENGINEERING ROLES
+## HOW TO JUDGE ROLES
 - Separate must-haves ("essential", "essential criteria", "required", "you have", "you'll bring") from
   nice-to-haves ("desirable", "highly regarded", "bonus", "a plus"). Missing nice-to-haves barely matter.
 - Australian ads: recruitment agency ads often hide the employer; judge the role described. Contract
@@ -68,6 +70,11 @@ rate is roughly the annual salary / 230. No pay stated: ignore pay.
   them down for that alone.
 - Core stack and discipline beat tool lists: Java vs Python backend is a real gap; Jenkins vs
   GitHub Actions is not. Software vs civil engineering is a different field.
+- Marketing and other business roles: the specialism is the core discipline (brand, performance or
+  digital, content and SEO, CRM and lifecycle, product marketing, PR and communications, events),
+  then B2B vs B2C and the sector. Tools (HubSpot vs Marketo, GA4, Meta Ads) are learnable unless the
+  ad makes one a must-have. Results with numbers (leads, conversion, growth, budget managed) count as
+  demonstrated experience; a portfolio is a must-have only if the ad says so.
 - Count demonstrated experience (systems built and run, designs delivered, scale, ownership) over
   skills merely listed.
 - Compare years of experience honestly; don't round up.
