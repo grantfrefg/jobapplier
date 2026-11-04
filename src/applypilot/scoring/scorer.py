@@ -11,6 +11,7 @@ import re
 import time
 from datetime import datetime, timezone
 
+from applypilot import market
 from applypilot.budget import BudgetExhausted
 from applypilot.config import DEFAULTS, RESUME_PATH, load_profile, load_search_config
 from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
@@ -77,6 +78,41 @@ Return ONLY a JSON object of this shape, with exactly one entry per posting:
               "keywords": "<comma-separated must-haves from the posting that the resume shows>",
               "reasoning": "<2-3 sentences: the main reason for the score, the biggest gap or dealbreaker>"}]}"""
 
+# The same prompt for UK jobs (market.py): the passages that differ
+UK_SWAPS = [
+    ("recruiter in Australia.", "recruiter in the UK."),
+    ("""- Security clearance: the posting requires a clearance (Baseline, NV1, NV2, PV) the candidate
+  doesn't hold. "Must be able to obtain" is fine only for Australian citizens.""",
+     """- Security clearance: the posting requires a clearance (BPSS, CTC, SC, DV) the candidate doesn't
+  hold. "Must be able to obtain" SC or DV usually needs 5+ years' UK residence: fine for British
+  citizens and long-term residents, not for recent arrivals."""),
+    ("""a candidate in Wentworthville or Parramatta is local to a job in the Sydney CBD,
+  North Sydney or Macquarie Park.""",
+     """a candidate in Croydon or Stratford is local to a job in the City, Canary Wharf,
+  Shoreditch or Westminster: all of Greater London is one area."""),
+    ("(e.g. CPEng, RPEQ, NER, electrical licence)", "(e.g. CEng, IEng, chartership, Gas Safe, SIA licence)"),
+    ("""Compare like
+with like: Australian ads often quote a package "including super" (base is about 1/1.12 of it); a day
+rate is roughly the annual salary / 230.""",
+     """Compare like
+with like: UK ads quote base salary before pension, often as a range or "up to"; London roles may
+add a London weighting; a day rate is roughly the annual salary / 225."""),
+    ("""- Australian ads: recruitment agency ads often hide the employer; judge the role described. Contract
+  roles with a day rate are fine if the candidate takes contract work (see Work type); don't mark
+  them down for that alone.""",
+     """- UK ads: recruitment agency ads often hide the employer; judge the role described. Contract roles
+  quote a day rate and an IR35 status (inside or outside); both are fine if the candidate takes
+  contract work (see Work type). "Must have the right to work in the UK" is not a dealbreaker for a
+  candidate who has it; "no sponsorship" only matters if they need sponsorship."""),
+]
+
+
+def score_prompt(mk=None) -> str:
+    """The scoring prompt for the market in use (Australia unless the search is in the UK)."""
+    from applypilot import market
+    return market.localise(SCORE_PROMPT, UK_SWAPS, mk)
+
+
 # Description characters sent per job (most postings are well under this)
 _MAX_DESCRIPTION_CHARS = 6000
 
@@ -121,7 +157,7 @@ def score_batch(resume_text: str, jobs: list[dict], profile: dict | None = None,
     ids = {f"j{i}": job for i, job in enumerate(jobs, 1)}
     postings = "\n\n".join(_job_block(job_id, job) for job_id, job in ids.items())
     messages = [
-        {"role": "system", "content": SCORE_PROMPT},
+        {"role": "system", "content": score_prompt(market.current(profile))},
         {"role": "user", "content": (f"CANDIDATE FACTS:\n{candidate_brief(profile or {}, local_areas)}\n\n"
                                      f"RESUME:\n{resume_text}\n\n---\n\nJOB POSTINGS ({len(ids)}):\n\n{postings}")},
     ]

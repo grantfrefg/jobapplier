@@ -211,7 +211,15 @@ COUNTRY_SOURCES = {
         "site_priority": ["linkedin", "indeed", "jora", "workforce australia", "randstad australia",
                           "hays australia"],
     },
+    "uk": {
+        "boards": ["indeed", "linkedin"],
+        "smart_extract_sites": ["Hays UK", "Randstad UK"],  # Reed: its API, with a key (discovery/reed.py)
+        "workday_employers": [],
+        "site_priority": ["linkedin", "indeed", "reed", "hays uk", "randstad uk"],
+    },
 }
+COUNTRY_SOURCES["united kingdom"] = COUNTRY_SOURCES["uk"]
+_REMOTE_LABEL = {"uk": "United Kingdom", "united kingdom": "United Kingdom", "usa": "United States"}
 
 
 def build_search_yaml(location: str, roles: list[str], country: str = "australia",
@@ -245,7 +253,7 @@ def build_search_yaml(location: str, roles: list[str], country: str = "australia
         "    remote: false",
     ]
     if include_remote:
-        lines += [f"  - location: {q(country.title())}", "    remote: true"]
+        lines += [f"  - location: {q(_REMOTE_LABEL.get(country, country.title()))}", "    remote: true"]
 
     accept = location_accept_patterns(location)
     lines += ["", "# Keep only jobs whose location matches one of these (remote jobs are always kept)",

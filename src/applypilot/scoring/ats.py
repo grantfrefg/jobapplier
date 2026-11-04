@@ -40,9 +40,12 @@ _DATE_RANGE = re.compile(
     re.IGNORECASE,
 )
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
-_PHONE = re.compile(r"(?:\+61|\(0\d\)|0)[\d\s()-]{8,}")
+_PHONE = re.compile(r"(?:\+61|\+44|\(0\d\)|0)[\d\s()-]{8,}")
 _AU_STATES = re.compile(r"\b(NSW|VIC|QLD|WA|SA|TAS|ACT|NT|New South Wales|Victoria|Queensland|Tasmania|"
                         r"Australian Capital Territory|Northern Territory|Western Australia|South Australia)\b")
+_UK_PLACE = re.compile(r"\b(London|England|Scotland|Wales|Northern Ireland|United Kingdom|UK|Manchester|"
+                       r"Birmingham|Edinburgh|Glasgow|Leeds|Bristol|Cardiff|Belfast|"
+                       r"[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})\b")  # or a postcode
 _WORK_RIGHTS = re.compile(r"citizen|permanent resident|working rights|work rights|visa|right to work", re.I)
 _TITLE_STOP = {"senior", "junior", "lead", "principal", "staff", "graduate", "level", "and", "the", "of",
                "australia", "sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra", "remote",
@@ -120,21 +123,26 @@ def check(resume_text: str, job: dict | None = None, original_text: str = "", pd
         passed.append(f"{real} page(s)" if real else f"Length about {max(pages, 1):g} page(s)")
 
     # -- Knockout facts ----------------------------------------------------------
+    from applypilot import market
     from applypilot.scoring import look
+    mk = market.current()
+    uk = mk.key == "uk"
     if _WORK_RIGHTS.search(header):
-        passed.append("Work rights stated (a hard filter for Australian employers)")
+        passed.append(f"Work rights stated (a hard filter for {mk.adjective} employers)")
     elif look.work_rights_left_off(job):
-        passed.append("Work rights left off the resume (Setup -> Resume look); forms still ask, and the "
+        passed.append(f"Work rights left off the {mk.doc} (Setup -> Resume look); forms still ask, and the "
                       "apply step answers them")
     else:
-        issues.append("Work rights not stated in the header (e.g. 'Australian Citizen'): employers filter on it."
+        example = "Right to work in the UK" if uk else "Australian Citizen"
+        issues.append(f"Work rights not stated in the header (e.g. '{example}'): employers filter on it."
                       " Set it in Setup -> profile -> work_authorization")
-    if _AU_STATES.search(header):
-        passed.append("Location (suburb/city and state) stated")
+    if (_UK_PLACE if uk else _AU_STATES).search(header):
+        passed.append("Location (city or area) stated" if uk else "Location (suburb/city and state) stated")
     else:
-        issues.append("No city and state in the header: recruiters filter by location")
+        issues.append("No city in the header: recruiters filter by location" if uk
+                      else "No city and state in the header: recruiters filter by location")
     if re.search(r"date of birth|\bdob\b|marital status|\bphoto\b", resume_text or "", re.I):
-        issues.append("Remove personal details (date of birth, marital status, photo): not used in Australia")
+        issues.append(f"Remove personal details (date of birth, marital status, photo): not used {mk.in_country}")
 
     # -- Keywords ----------------------------------------------------------------
     body = facts.normalize(resume_text)
@@ -172,7 +180,7 @@ def check(resume_text: str, job: dict | None = None, original_text: str = "", pd
     if american:
         issues.append(f"American spelling: {', '.join(american[:5])}")
     else:
-        passed.append("Australian English spelling")
+        passed.append(f"{market.current().spelling} spelling")
 
     odd = misread_characters(resume_text)
     if odd:
