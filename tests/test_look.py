@@ -141,3 +141,19 @@ def test_working_holiday_visa_is_shown_per_job(monkeypatch):
     monkeypatch.setattr(config, "load_profile", lambda: profile)
     assert look.work_rights_left_off(permanent) and not look.work_rights_left_off(contract)
     assert look.shown_work_rights("Student visa", job=contract) == ""  # other limited visas stay off
+
+
+def test_job_kind_reads_the_ad():
+    from applypilot.scoring.look import job_kind
+    kind = lambda title, body="", salary="": job_kind({"title": title, "description": body, "salary": salary})  # noqa: E731
+    assert kind("Data Analyst - 6 month contract") == "Fixed term"
+    assert kind("Data Analyst", "Initial 12-month fixed-term role") == "Fixed term"
+    assert kind("Data Analyst (Contract)") == "Contract"
+    assert kind("Data Engineer", "Outside IR35, London", "£500 per day") == "Contract"
+    assert kind("Payroll Officer", "Temp to perm opportunity") == "Temp to perm"
+    assert kind("Admin Assistant - Temp") == "Temp"
+    assert kind("Barista", "Casual role, weekend shifts") == "Casual"
+    assert kind("Analyst", "Permanent role. Smart casual dress, contract management skills") == "Permanent"
+    assert kind("Analyst", "Join our team. Casual dress Fridays.") == "Not stated"
+    assert kind("Analyst", "Applicants need temporary residence visas") == "Not stated"
+    assert job_kind(None) == "Not stated"

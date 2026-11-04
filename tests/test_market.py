@@ -127,3 +127,12 @@ def test_uk_ats_check_and_cv_naming(uk, monkeypatch):
     assert "British English spelling" in report["passed"]
     assert any("UK employers" in p for p in report["passed"])
     assert "<title>Jane Morgan - CV</title>" in pdf.build_html(pdf.parse_resume(text))
+
+
+def test_prompts_work_for_marketing_as_well_as_tech():
+    from applypilot.scoring import scorer, tailor
+    for mk in (market.AU, market.UK):
+        prompt = scorer.score_prompt(mk)
+        assert "HOW TO JUDGE ROLES" in prompt and "Marketing and other business roles" in prompt
+    assert "engineering recruiter" not in scorer.SCORE_PROMPT
+    assert "for\nmarketing: Channels" in tailor._tailor_rules_au({}, "Analyst", "", "", "", "", "", "")
