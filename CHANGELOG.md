@@ -8,6 +8,18 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-04
+
+### Added
+- **UK (London) job hunting.** Set Country to United Kingdom in Setup → What jobs to look for (plan: docs/UK_PLAN.md). Then:
+  - **Everything the AI writes follows the UK:** British English, GBP salaries quoted before pension (no super), London weighting and day rates on 37.5-hour weeks, IR35 for contracts, competency-based questions instead of selection criteria, UK security clearances (BPSS, CTC, SC, DV), DBS checks and UK diversity monitoring on forms, +44 phone numbers. Documents are called CVs.
+  - **UK work rights** in your profile: British or Irish citizen, Settled status (ILR), Pre-settled status, Graduate visa, Skilled Worker visa (needs sponsorship), Youth Mobility Scheme visa, Student visa. CVs say "Right to work in the UK" where that's true; a Youth Mobility Scheme visa is shown for contract and temp roles, like a working holiday visa in Australia. "No sponsorship" only counts against you if you need sponsorship.
+  - **London locations:** Greater London areas boards list on their own (Croydon, Canary Wharf, Shoreditch, Stratford, Wembley, Heathrow...) count as London, and all of Greater London is local for scoring.
+  - **UK job sources:** Indeed UK, LinkedIn, Hays UK, Randstad UK, and **Reed through its official API** with your own free key (Setup; Reed also gives applicant counts).
+  - The ATS check looks for a UK city or postcode and British spelling.
+
+Australian searches work exactly as before.
+
 ## [0.10.1] - 2026-11-02
 
 ### Added

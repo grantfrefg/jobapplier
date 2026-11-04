@@ -487,7 +487,7 @@ def build_prompt(job: dict, tailored_resume: str,
     name_slug = full_name.replace(" ", "_")
     dest_dir = config.APPLY_WORKER_DIR / "current"
     dest_dir.mkdir(parents=True, exist_ok=True)
-    upload_pdf = dest_dir / f"{name_slug}_Resume{src_pdf.suffix.lower()}"
+    upload_pdf = dest_dir / f"{name_slug}_{market.current(profile).doc_title}{src_pdf.suffix.lower()}"
     shutil.copy(str(src_pdf), str(upload_pdf))
     pdf_path = str(upload_pdf)
 

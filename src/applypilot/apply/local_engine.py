@@ -1288,7 +1288,9 @@ def _load_documents(job: dict, profile: dict) -> tuple[dict[str, str], dict[str,
     # Your own resume / cover letter for this job when you gave one, else the generated ones
     from applypilot.own_docs import documents
     docs = documents(job)
-    for kind, name, text_key, file_key in (("resume", "Resume", "{{RESUME_TEXT}}", "{{RESUME_PDF}}"),
+    from applypilot import market
+    doc_name = market.current(profile).doc_title  # "Resume", or "CV" for UK jobs
+    for kind, name, text_key, file_key in (("resume", doc_name, "{{RESUME_TEXT}}", "{{RESUME_PDF}}"),
                                            ("cover", "Cover_Letter", "{{COVER_LETTER_TEXT}}", "{{COVER_LETTER_PDF}}")):
         doc = docs[kind]
         if doc["text"]:
@@ -1307,8 +1309,8 @@ def staged_uploads() -> list[Path]:
     if not folder.is_dir():
         return []
     return sorted(p for p in folder.iterdir()
-                  if p.is_file() and p.name.endswith(("_Resume.pdf", "_Cover_Letter.pdf",
-                                                      "_Resume.docx", "_Cover_Letter.docx")))
+                  if p.is_file() and p.name.endswith(("_Resume.pdf", "_CV.pdf", "_Cover_Letter.pdf",
+                                                      "_Resume.docx", "_CV.docx", "_Cover_Letter.docx")))
 
 
 def _call_gate(gate, page, needs: list[str], dry_run: bool, snapshot) -> str:

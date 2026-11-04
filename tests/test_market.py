@@ -117,3 +117,13 @@ def test_uk_employer_lines_are_recognised():
     from applypilot.scoring import facts
     source = facts.Source("Jane Doe\nExperience\nData Analyst, Monzo Bank, London\n- Built dashboards\n")
     assert source.names_employer("Monzo Bank")
+
+
+def test_uk_ats_check_and_cv_naming(uk, monkeypatch):
+    from applypilot.scoring import ats, look, pdf
+    text = look.SAMPLE.replace("Wentworthville, NSW | Australian Citizen", "London, England | Right to work in the UK")
+    report = ats.check(text.replace("0412 345 678", "07700 900123"))
+    assert not any("city" in i.lower() or "phone" in i.lower() for i in report["issues"])
+    assert "British English spelling" in report["passed"]
+    assert any("UK employers" in p for p in report["passed"])
+    assert "<title>Jane Morgan - CV</title>" in pdf.build_html(pdf.parse_resume(text))
