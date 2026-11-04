@@ -166,8 +166,21 @@ AU_STATES = {
 }
 
 
+# Places in Greater London that job boards name on their own ("Croydon", "Canary Wharf"):
+# a search in London keeps them ("City of London", "East London" already contain "London")
+LONDON_AREAS = (
+    "Canary Wharf", "Shoreditch", "Westminster", "Mayfair", "Holborn", "Farringdon", "Clerkenwell",
+    "King's Cross", "Kings Cross", "Paddington", "Southwark", "Lambeth", "Camden",
+    "Islington", "Hackney", "Tower Hamlets", "Stratford", "Greenwich", "Lewisham", "Croydon",
+    "Bromley", "Wimbledon", "Kingston upon Thames", "Richmond", "Hammersmith", "Fulham",
+    "Kensington", "Chelsea", "Ealing", "Hounslow", "Heathrow", "Uxbridge", "Harrow", "Wembley",
+    "Barnet", "Enfield", "Romford", "Ilford", "Sutton", "Bexley", "Woolwich", "Docklands",
+)
+
+
 def location_accept_patterns(location: str) -> list[str]:
-    """Accept patterns for a location like "Sydney, NSW" -> Sydney, NSW, New South Wales."""
+    """Accept patterns for a location like "Sydney, NSW" -> Sydney, NSW, New South Wales
+    (and "London" -> London plus the London areas boards name on their own)."""
     patterns: list[str] = []
     for part in (p.strip() for p in location.split(",")):
         if not part or part.lower() in _REMOTE_WORDS:
@@ -176,6 +189,8 @@ def location_accept_patterns(location: str) -> list[str]:
         full = AU_STATES.get(part.lower())
         if full:
             patterns.append(full)
+        if part.lower() in ("london", "greater london"):
+            patterns += ["London", *LONDON_AREAS]
     return list(dict.fromkeys(patterns))
 
 

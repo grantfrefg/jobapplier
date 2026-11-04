@@ -97,3 +97,23 @@ def test_the_profile_form_offers_the_markets_options(uk):
     assert "eeo_voluntary.aboriginal_or_torres_strait_islander" not in shown
     assert "NSW" in po.options_for(market.AU)["personal.province_state"]
     assert po.normalise("work_authorization.work_permit_type", "ILR") == "Settled status (ILR)"
+
+
+@pytest.mark.parametrize("place, kept", [
+    ("London, England, United Kingdom", True),
+    ("City of London", True),
+    ("Croydon, England, United Kingdom", True),
+    ("Canary Wharf", True),
+    ("United Kingdom (Remote)", True),
+    ("Manchester, England, United Kingdom", False),
+    ("Victoria, Australia", False),
+])
+def test_a_london_search_keeps_greater_london(place, kept):
+    accept = config.location_accept_patterns("London")
+    assert config.location_ok(place, accept, []) is kept
+
+
+def test_uk_employer_lines_are_recognised():
+    from applypilot.scoring import facts
+    source = facts.Source("Jane Doe\nExperience\nData Analyst, Monzo Bank, London\n- Built dashboards\n")
+    assert source.names_employer("Monzo Bank")
