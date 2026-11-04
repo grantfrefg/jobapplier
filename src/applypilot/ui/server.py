@@ -609,8 +609,15 @@ def create_app() -> FastAPI:
         template = json.loads(PROFILE_TEMPLATE_PATH.read_text(encoding="utf-8"))
         saved = json.loads(config.PROFILE_PATH.read_text(encoding="utf-8")) if config.PROFILE_PATH.exists() else None
         profile = po.normalise_profile(_deep_merge(template, saved or {}))
+        from applypilot import market
+        shown = po.options_for(market.current(profile))
+        for path, values in shown.items():  # a saved value from the other market stays selectable
+            section, key = path.split(".", 1)
+            saved_value = (profile.get(section) or {}).get(key)
+            if saved_value in po.OPTIONS[path] and saved_value not in values:
+                values.append(saved_value)
         options = {path: [{"value": v, "label": v or po.EMPTY_LABELS.get(path, "Not set")} for v in values]
-                   for path, values in po.OPTIONS.items()}
+                   for path, values in shown.items()}
         confirmed = bool(profile.pop("skills_confirmed", False))
         return {"exists": saved is not None, "profile": profile, "template": template,
                 "options": options, "numbers": sorted(po.NUMBERS), "skills_confirmed": confirmed}
