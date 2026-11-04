@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-04
+
+### Added
+- **Job type in Apply jobs.** Each job shows its type under the title (Permanent, Contract, Fixed term, Temp, Casual, Temp to perm), read from the ad's wording. A new menu shows just one type, or "Contract, temp or casual" together (handy on a working holiday or Youth Mobility visa). A Sort menu orders the list by best fit, job type, newest or fewest applicants. Both choices are remembered.
+
 ## [0.11.1] - 2026-11-04
 
 ### Added
