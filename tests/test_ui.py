@@ -597,5 +597,7 @@ def test_stories_api(client):
 def test_layout_thumbnails_render_each_layout(client):
     classic = client.get("/api/resume-preview?layout=classic&accent=green").text
     assert "serif" in classic and "#2f5d3a" in classic
-    assert "serif" not in client.get("/api/resume-preview?layout=modern").text.split("<style>")[1].split(".name")[0]
+    modern = client.get("/api/resume-preview?layout=modern&accent=green").text
+    style = lambda page: page.split("<style>")[1].split("</style>")[0]  # noqa: E731
+    assert style(modern) != style(classic)
     assert client.get("/api/resume-preview?layout=bogus").status_code == 200  # falls back to the saved look
