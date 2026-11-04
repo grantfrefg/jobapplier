@@ -921,9 +921,12 @@ def create_app() -> FastAPI:
         return Path(path)
 
     @app.get("/api/resume-preview", response_class=HTMLResponse)
-    def resume_preview() -> str:
-        """Your newest tailored resume (or a sample) in the chosen Resume look."""
+    def resume_preview(layout: str = "", accent: str = "") -> str:
+        """Your newest tailored resume (or a sample) in the chosen Resume look, or in `layout` /
+        `accent` for the layout thumbnails."""
         from applypilot.scoring import look, pdf
+        layout = layout if layout in look.LAYOUTS else ""
+        accent = look.ACCENTS.get(accent, "") if accent else ""
         newest = sorted((p for p in config.TAILORED_DIR.glob("*.txt")
                          if not p.name.endswith(("_CL.txt", "_JOB.txt", ".edit.txt"))),
                         key=lambda p: p.stat().st_mtime, reverse=True) if config.TAILORED_DIR.exists() else []
@@ -933,7 +936,7 @@ def create_app() -> FastAPI:
             if not pdf.is_cover_letter(candidate):
                 text = candidate
                 break
-        return pdf.build_html(pdf.parse_resume(text))
+        return pdf.build_html(pdf.parse_resume(text), layout=layout or None, accent=accent or None)
 
     @app.get("/api/jobs/text")
     def job_text(url: str, kind: str = "resume") -> dict:

@@ -111,6 +111,16 @@
     padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0 4px; }
   .guide .note { border-left: 3px solid var(--accent); padding: 6px 12px; margin: 10px 0; color: var(--muted); }
   .guide table { font-size: 13px; margin: 8px 0; }
+  .look-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px;
+                 margin: 6px 0 12px; }
+  .look-thumb { border: 2px solid var(--border); border-radius: 8px; padding: 6px; background: var(--panel);
+                cursor: pointer; text-align: center; font: inherit; color: inherit; }
+  .look-thumb[aria-checked="true"] { border-color: var(--accent); }
+  .look-thumb .frame { width: 100%; aspect-ratio: 210 / 150; overflow: hidden; position: relative;
+                       background: #fff; border-radius: 4px; }
+  .look-thumb iframe { width: 794px; height: 1123px; border: 0; transform-origin: 0 0; position: absolute;
+                       top: 0; left: 0; pointer-events: none; }
+  .look-thumb span { display: block; font-size: 12px; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -280,6 +290,7 @@
       <p class="sub">How tailored resumes look as PDFs. Every layout is one column of real text, so applicant
         tracking systems read them the same way. Changes apply to new resumes; to restyle ones already made, use
         <b>Run a step again → PDF</b> on the Find tab (no AI needed).</p>
+      <div id="look-thumbs" class="look-thumbs" role="radiogroup" aria-label="Layout"></div>
       <div class="row">
         <label style="margin:0">Layout
           <select id="look-layout" style="width:auto">
@@ -1428,7 +1439,32 @@ $("#save-writing").addEventListener("click", () => guarded(async () => {
   await post("/api/writing-sample", { text: $("#writing-sample").value }); await loadWriting();
 }, "Saved"));
 let resumeFiles = {};
-function refreshLookPreview() { $("#look-preview").src = "/api/resume-preview?t=" + Date.now(); lookNote(); }
+const THUMB_NAMES = { modern: "Modern", classic: "Classic", compact: "Compact", traditional: "Traditional",
+                      mine: "Match my resume", word: "My Word file" };
+function buildLookThumbs() {
+  const box = $("#look-thumbs"), accent = $("#look-accent").value, current = $("#look-layout").value;
+  box.replaceChildren(...Object.entries(THUMB_NAMES).map(([value, name]) => {
+    const frame = el("iframe", { title: name + " layout", loading: "lazy", tabindex: "-1",
+      src: `/api/resume-preview?layout=${value}&accent=${accent}&t=${Date.now()}` });
+    const button = el("button", { type: "button", class: "look-thumb", role: "radio",
+      "aria-checked": String(value === current), onclick: () => {
+        $("#look-layout").value = value; $("#look-layout").dispatchEvent(new Event("change"));
+      } }, el("div", { class: "frame" }, frame), el("span", {}, name));
+    return button;
+  }));
+  scaleLookThumbs();
+}
+function scaleLookThumbs() {
+  for (const f of document.querySelectorAll(".look-thumb iframe")) {
+    f.style.transform = `scale(${f.parentElement.clientWidth / 794})`;
+  }
+}
+// Also when the Setup tab is first shown (a hidden tab has no width to scale to)
+if (window.ResizeObserver) new ResizeObserver(scaleLookThumbs).observe($("#look-thumbs"));
+else window.addEventListener("resize", scaleLookThumbs);
+function refreshLookPreview() {
+  $("#look-preview").src = "/api/resume-preview?t=" + Date.now(); lookNote(); buildLookThumbs();
+}
 function lookNote() {
   const layout = $("#look-layout").value, note = $("#look-note");
   const text = layout === "mine" ? (resumeFiles.has_style
