@@ -73,7 +73,7 @@ def _print_budget() -> None:
 
 def _run_discover(workers: int = 1) -> dict:
     """Stage: Job discovery — JobSpy, Workday, and smart-extract scrapers."""
-    stats: dict = {"jobspy": None, "workday": None, "smartextract": None}
+    stats: dict = {"jobspy": None, "workday": None, "smartextract": None, "reed": None}
 
     # JobSpy
     console.print("  [cyan]JobSpy full crawl...[/cyan]")
@@ -85,6 +85,17 @@ def _run_discover(workers: int = 1) -> dict:
         log.error("JobSpy crawl failed: %s", e)
         console.print(f"  [red]JobSpy error:[/red] {e}")
         stats["jobspy"] = f"error: {e}"
+
+    # Reed (UK searches with a Reed API key)
+    try:
+        from applypilot.discovery.reed import run_reed_discovery
+        result = run_reed_discovery()
+        if not result.get("skipped"):
+            console.print(f"  [cyan]Reed:[/cyan] {result.get('new', 0)} new")
+        stats["reed"] = result.get("skipped") or "ok"
+    except Exception as e:
+        log.error("Reed search failed: %s", e)
+        stats["reed"] = f"error: {e}"
 
     # Workday corporate scraper
     console.print("  [cyan]Workday corporate scraper...[/cyan]")

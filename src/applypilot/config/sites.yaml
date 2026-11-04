@@ -56,6 +56,8 @@ base_urls:
   "Workforce Australia": "https://www.workforceaustralia.gov.au"
   "Randstad Australia": "https://www.randstad.com.au"
   "Hays Australia": "https://www.hays.com.au"
+  "Hays UK": "https://www.hays.co.uk"
+  "Randstad UK": "https://www.randstad.co.uk"
 
 sites:
   # ── Searchable sites (URL includes query + location params) ──────────
@@ -81,6 +83,17 @@ sites:
 
   - name: "Hays Australia"
     url: "https://www.hays.com.au/job-search?q={query_encoded}&location={city_encoded}"
+    type: search
+
+  # United Kingdom. Reed comes through its official API (discovery/reed.py, with your
+  # key); Totaljobs isn't read (terms), CV-Library, Jora UK and Adzuna block automated
+  # browsers. Indeed UK and LinkedIn come from JobSpy.
+  - name: "Hays UK"
+    url: "https://www.hays.co.uk/job-search?q={query_encoded}&location={city_encoded}"
+    type: search
+
+  - name: "Randstad UK"
+    url: "https://www.randstad.co.uk/jobs/q-{query_slug}/"
     type: search
 
   # Canada-specific
