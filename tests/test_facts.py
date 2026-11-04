@@ -184,3 +184,8 @@ def test_profile_only_skills_stay_in_the_skills_list():
     role["bullets"] = ["Deployed recommender systems on Kubernetes for 10 million customers."]
     errors = check({**GOOD, "experience": [role]}, profile=profile)["errors"]
     assert any("names Kubernetes" in e and "SKILLS only" in e for e in errors), errors
+
+
+def test_marketing_tools_the_candidate_never_used_are_caught():
+    src = facts.Source("Marketing Coordinator. Ran emails in Mailchimp; tracked results in Google Analytics 4.")
+    assert facts.new_tools("Built HubSpot flows, GA4 reports and Mailchimp journeys on a canvas", src) == ["hubspot"]

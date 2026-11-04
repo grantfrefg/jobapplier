@@ -13,6 +13,10 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ### Added
 - **Job type in Apply jobs.** Each job shows its type under the title (Permanent, Contract, Fixed term, Temp, Casual, Temp to perm), read from the ad's wording. A new menu shows just one type, or "Contract, temp or casual" together (handy on a working holiday or Youth Mobility visa). A Sort menu orders the list by best fit, job type, newest or fewest applicants. Both choices are remembered.
 
+### Changed
+- **Works for marketing and other non-tech jobs, not just tech.** The fit scoring, CV and cover letter instructions were written for engineering roles. They now judge each role by its own field. For marketing, that means the specialism (brand, performance, content and SEO, CRM, PR and comms), B2B vs B2C, and results with numbers count, while tools like HubSpot or GA4 are learnable unless the ad requires one. CVs group skills to suit the field (e.g. Channels, Platforms & Tools, Analytics), and letters write as a peer in that field. Tech jobs are judged as before.
+- The fact-check and ATS check now know common marketing and design tools (HubSpot, Marketo, Mailchimp, Google Analytics/GA4, Google Ads, Meta Ads, SEMrush, Canva, Figma, Adobe apps, Shopify, WordPress and more). A CV that names one you've never used is caught, and ads asking for them are matched against your CV.
+
 ## [0.11.1] - 2026-11-04
 
 ### Added

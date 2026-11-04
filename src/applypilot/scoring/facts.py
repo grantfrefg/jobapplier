@@ -44,6 +44,13 @@ TECH_TERMS = (
     # practices and tools that are often padded
     "ci/cd", "jenkins", "github actions", "gitlab", "circleci", "jira", "confluence", "salesforce", "sap",
     "servicenow", "linux", "unix",
+    # marketing, content and design
+    "hubspot", "marketo", "pardot", "mailchimp", "klaviyo", "braze", "salesforce marketing cloud",
+    "google analytics", "ga4", "adobe analytics", "looker studio", "google tag manager", "google ads",
+    "search ads 360", "dv360", "meta ads", "facebook ads", "linkedin ads", "tiktok ads", "semrush", "ahrefs",
+    "screaming frog", "hootsuite", "sprout social", "hotjar", "optimizely", "wordpress", "shopify",
+    "contentful", "canva", "figma", "photoshop", "illustrator", "indesign", "premiere pro", "after effects",
+    "adobe creative cloud", "adobe creative suite",
     # certifications
     "certified", "certification", "certificate", "pmp", "scrum master", "safe agilist", "itil", "togaf",
     "cissp", "cpeng", "rpeq",
@@ -104,6 +111,12 @@ ALIASES: list[set[str]] = [
     {"sre", "site reliability engineering"},
     {"oop", "object-oriented programming", "object oriented programming"},
     {"ux", "user experience"},
+    {"google analytics", "google analytics 4", "ga4"},
+    {"meta ads", "facebook ads", "meta ads manager", "facebook ads manager"},
+    {"seo", "search engine optimisation", "search engine optimization"},
+    {"ppc", "pay per click", "pay-per-click"},
+    {"crm", "customer relationship management"},
+    {"adobe creative cloud", "adobe creative suite"},
     {"qa", "quality assurance"},
     # other engineering disciplines
     {"cad", "computer-aided design", "computer aided design"},
