@@ -117,7 +117,8 @@ def work_rights(profile: dict) -> str:
         if "permanent" in low:
             return "Permanent Resident"
         # UK: settled, pre-settled and Graduate visa holders can work without sponsorship
-        if "pre-settled" in low or "graduate" in low or "settled" in low or "indefinite leave" in low:
+        if ("pre-settled" in low or "graduate" in low or "settled" in low or "indefinite leave" in low
+                or "full right to work" in low):
             return "Right to work in the UK"
         if "youth mobility" in low:
             return "Youth Mobility Scheme visa"

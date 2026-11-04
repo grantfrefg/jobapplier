@@ -57,3 +57,43 @@ def test_a_missing_passage_is_caught():
 def test_uk_phone_numbers():
     assert local_engine._international_phone("07700 900123", "United Kingdom") == "+44 7700 900123"
     assert local_engine._international_phone("0412 345 678", "Australia") == "+61 412 345 678"
+
+
+@pytest.mark.parametrize("permit, header", [
+    ("British citizen", "British Citizen"),
+    ("Irish citizen", "Irish Citizen"),
+    ("Settled status (ILR)", "Right to work in the UK"),
+    ("Pre-settled status", "Right to work in the UK"),
+    ("Graduate visa", "Right to work in the UK"),
+    ("Other visa with full right to work", "Right to work in the UK"),
+    ("Skilled Worker visa (needs sponsorship)", ""),  # Automatic leaves it off
+    ("Student visa", ""),
+])
+def test_uk_work_rights_in_the_header(monkeypatch, permit, header):
+    from applypilot.scoring import look
+    from applypilot.scoring.context import work_rights
+    monkeypatch.setenv("SHOW_WORK_RIGHTS", "auto")
+    assert look.shown_work_rights(work_rights({"work_authorization": {"work_permit_type": permit}})) == header
+
+
+def test_youth_mobility_is_shown_per_job_like_a_working_holiday_visa(monkeypatch, uk):
+    from applypilot.scoring import look
+    from applypilot.scoring.context import candidate_brief, work_rights
+    monkeypatch.setenv("SHOW_WORK_RIGHTS", "auto")
+    line = work_rights({"work_authorization": {"work_permit_type": "Youth Mobility Scheme visa"}})
+    contract = {"title": "Analyst", "full_description": "6 month contract, outside IR35"}
+    assert look.shown_work_rights(line, job=contract) == "Youth Mobility Scheme visa"
+    assert look.shown_work_rights(line, job={"title": "Analyst", "full_description": "Permanent role"}) == ""
+    brief = candidate_brief({**PROFILE, "work_authorization": {"work_permit_type": "Youth Mobility Scheme visa"}})
+    assert "up to 2 years" in brief and "GBP base, excluding pension" in brief
+
+
+def test_the_profile_form_offers_the_markets_options(uk):
+    from applypilot import profile_options as po
+    shown = po.options_for(market.UK)
+    assert "Youth Mobility Scheme visa" in shown["work_authorization.work_permit_type"]
+    assert "Australian citizen" not in shown["work_authorization.work_permit_type"]
+    assert shown["personal.province_state"][0] == "England" and "SC" in shown["work_authorization.security_clearance"]
+    assert "eeo_voluntary.aboriginal_or_torres_strait_islander" not in shown
+    assert "NSW" in po.options_for(market.AU)["personal.province_state"]
+    assert po.normalise("work_authorization.work_permit_type", "ILR") == "Settled status (ILR)"

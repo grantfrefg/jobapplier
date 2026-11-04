@@ -97,8 +97,9 @@ def shown_work_rights(line: str, job: dict | None = None, decided: bool = False)
     if mode == "auto" and _LIMITED.search(line):
         if re.search(r"full work", line, re.I):  # a temporary visa with full work rights reads as just that
             return "Full working rights"
-        if re.search(r"working holiday", line, re.I) and (decided or short_term_role(job)):
-            return "Working holiday visa"
+        if re.search(r"working holiday|youth mobility", line, re.I) and (decided or short_term_role(job)):
+            # The UK's Youth Mobility Scheme is treated like Australia's working holiday visa
+            return "Youth Mobility Scheme visa" if re.search(r"youth mobility", line, re.I) else "Working holiday visa"
         return ""
     return line
 
