@@ -592,3 +592,12 @@ def test_stories_api(client):
         {"role": "Acme", "question": "problem", "answer": "Fixed the weekly report."}]}).json()
     assert saved["stories"][0]["answer"] == "Fixed the weekly report."
     assert client.post("/api/stories", json={"stories": "nope"}).status_code == 400
+
+
+def test_layout_thumbnails_render_each_layout(client):
+    classic = client.get("/api/resume-preview?layout=classic&accent=green").text
+    assert "serif" in classic and "#2f5d3a" in classic
+    modern = client.get("/api/resume-preview?layout=modern&accent=green").text
+    style = lambda page: page.split("<style>")[1].split("</style>")[0]  # noqa: E731
+    assert style(modern) != style(classic)
+    assert client.get("/api/resume-preview?layout=bogus").status_code == 200  # falls back to the saved look
