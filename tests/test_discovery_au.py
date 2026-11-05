@@ -107,6 +107,20 @@ def test_relative_jora_urls_resolved(tmp_path):
     assert new == 1 and rows == ["https://au.jora.com/job/Data-Analyst-abc?x=1"]
 
 
+
+def test_non_web_links_are_not_stored(tmp_path):
+    """Job links read from a page by the AI end up as clickable links in the app: only web addresses."""
+    conn = sqlite3.connect(tmp_path / "t.db")
+    conn.execute("CREATE TABLE jobs (url TEXT PRIMARY KEY, title, company, salary, description, location, "
+                 "site, strategy, discovered_at)")
+    jobs = [{"url": "javascript:alert(1)", "title": "Bad", "location": "Sydney NSW"},
+            {"url": "data:text/html,hi", "title": "Bad 2", "location": "Sydney NSW"},
+            {"url": "https://example.com/job/1", "title": "Good", "location": "Sydney NSW"}]
+    for site in ("Jora", "Some board without a base URL"):
+        conn.execute("DELETE FROM jobs")
+        se._store_jobs_filtered(conn, jobs, site, "css", *config.load_location_filter(AU_CFG))
+        assert [r[0] for r in conn.execute("SELECT url FROM jobs")] == ["https://example.com/job/1"]
+
 def test_blocked_board_is_named_and_skipped_for_the_rest_of_the_run(monkeypatch, caplog):
     """A 429 from LinkedIn used to print as an unnamed 'response status code 429 (blocked: use a proxy)'
     on every search; now it's named once and LinkedIn isn't asked again this run."""

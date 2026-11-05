@@ -32,7 +32,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "load_env", lambda: None)  # don't read the developer's real .env
 
     from applypilot.ui.server import create_app
-    with TestClient(create_app()) as c:
+    with TestClient(create_app(), base_url="http://localhost") as c:
         yield c
     database.close_connection(tmp_path / "test.db")
 
@@ -613,3 +613,53 @@ def test_jobs_list_says_each_jobs_type(client):
     kinds = {j["url"].rsplit("/", 1)[1]: j["kind"] for j in client.get("/api/jobs?view=all").json()}
     assert kinds == {"perm": "Not stated", "c": "Contract"}
     assert all("description" not in j for j in client.get("/api/jobs?view=all").json())
+
+
+# -- the server only answers its own page ------------------------------------
+
+def test_other_sites_cannot_change_anything(client):
+    """Any web page can send a form to http://localhost; it must not replace your resume."""
+    r = client.post("/api/resume", data={"text": "ATTACKER RESUME"}, headers={"Origin": "https://evil.example"})
+    assert r.status_code == 403
+    r = client.post("/api/resume", data={"text": "x"}, headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 403
+    r = client.post("/api/resume", data={"text": "x"}, headers={"Origin": "null"})
+    assert r.status_code == 403
+    assert "ATTACKER" not in client.get("/api/resume").json().get("text", "")
+
+
+def test_own_page_and_scripts_can_change_things(client):
+    r = client.post("/api/resume", data={"text": "My resume"},
+                    headers={"Origin": "http://localhost", "Sec-Fetch-Site": "same-origin"})
+    assert r.status_code == 200
+    assert client.post("/api/resume", data={"text": "My resume"}).status_code == 200  # curl: no Origin
+
+
+def test_unknown_host_names_are_refused(client):
+    """A DNS name pointed at 127.0.0.1 (DNS rebinding) mustn't be able to read your data."""
+    assert client.get("/api/profile", headers={"Host": "evil.example:8000"}).status_code == 403
+    for host in ("localhost:8000", "127.0.0.1:8001", "[::1]:8000"):
+        assert client.get("/api/status", headers={"Host": host}).status_code == 200
+
+
+def test_allowed_hosts_setting(client, monkeypatch):
+    from applypilot.ui.server import create_app
+    monkeypatch.setenv("APPLYPILOT_ALLOWED_HOSTS", "my-space-8000.app.github.dev")
+    c = TestClient(create_app(), base_url="https://my-space-8000.app.github.dev")
+    assert c.get("/api/status").status_code == 200
+    assert TestClient(create_app(extra_hosts=["192.168.1.5"]),
+                      base_url="http://192.168.1.5:8000").get("/api/status").status_code == 200
+
+
+def test_settings_refuse_line_breaks(client, tmp_path):
+    """A line break would write extra settings into .env (e.g. switch engine without confirming)."""
+    r = client.post("/api/settings", json={"LLM_MODEL": "gemini-x\nEXECUTION_ENGINE=claude\nAGENT_ENGINE_CONFIRMED=1"})
+    assert r.status_code == 400
+    env = tmp_path / ".env"
+    assert not env.exists() or "EXECUTION_ENGINE" not in env.read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="file modes are POSIX")
+def test_env_file_is_private(client, tmp_path):
+    client.post("/api/settings", json={"LLM_MODEL": "gemini-x"})
+    assert (tmp_path / ".env").stat().st_mode & 0o077 == 0

@@ -116,7 +116,7 @@ def test_setup_with_a_subscription(tmp_path, on_path, monkeypatch):
         monkeypatch.setenv(key, "")  # set (not deleted), so the values the API writes are undone afterwards
     monkeypatch.setattr(config, "_tool_dirs", lambda: [])
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(), base_url="http://localhost") as client:
         client.post("/api/settings", json={"LLM_PROVIDER": "claude_cli"})
         r = client.post("/api/settings/test-ai")
         assert r.status_code == 400 and "claude CLI wasn't found" in r.json()["detail"]
