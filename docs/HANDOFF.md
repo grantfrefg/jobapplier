@@ -28,9 +28,8 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
    `git merge -s ours origin/<branch>` instead of force-pushing.
 2. Before pushing, run:
    - `pytest tests` (~380 pass, ~18 skip without a display);
-   - CI's ruff list: copy the exact `ruff check --select E,F,W ...` command from
-     `.github/workflows/ci.yml`. Older upstream modules aren't in the list and still have
-     findings, so don't run ruff on all of `src`.
+   - `ruff check --select E,F,W src packaging tests` (the same as CI's Lint step; all of
+     `src` is clean since 0.13.0, with long prompt/HTML lines allowed per file in `pyproject.toml`).
 3. Bump the version in **three places**: `pyproject.toml`, `src/applypilot/__init__.py`, and
    `packaging/Jobapplier.spec` (CFBundleShortVersionString). Add a `CHANGELOG.md` entry.
 4. Open a PR to master, then run the `desktop.yml` workflow on the branch so the
@@ -83,9 +82,9 @@ Docs: `docs/HOW_IT_WORKS.md`, `docs/CONFIGURATION.md`, `docs/DESKTOP_APP.md`,
 
 - **Big files**: `local_engine.py`, `smartextract.py`, `ui/server.py`, and `index.html` (one
   file with all the UI JS). These are candidates for splitting.
-- **Legacy upstream code**: `apply/launcher.py`, `chrome.py`, `dashboard.py` and parts of
-  `cli.py` aren't linted (pre-existing ruff findings). Check what is still used and whether
-  any of it can go.
+- **Legacy upstream code**: `apply/launcher.py`, `chrome.py`, `prompt.py` and `dashboard.py`
+  are still live: they run the Claude Code and Codex engines, and `launcher` holds the job
+  queue the UI uses. They're linted since 0.13.0.
 - **Prompt duplication**: UK versions are made by exact-text swaps. That's safe because it
   raises on a missing passage and is tested, but editing it is fragile. `tests/test_market.py`
   covers it.

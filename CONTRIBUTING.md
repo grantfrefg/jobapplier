@@ -27,10 +27,10 @@ Don't push directly to `master`.
 xvfb-run -a pytest tests      # full suite; xvfb gives the visible-browser tests a display
 pytest tests                  # without a display, the browser tests are skipped
 
-ruff check --select E,F,W src/applypilot/ui packaging tests   # plus the files listed in ci.yml's Lint step
+ruff check --select E,F,W src packaging tests   # the same as CI's Lint step
 ```
 
-Lint covers only the modules that are already clean. Older upstream modules still have findings; if you clean one up, add it to the lint step in `ci.yml`.
+Lint covers all the code. Files whose long lines are AI prompt text, page JavaScript or HTML may go over 120 characters; they're listed under `[tool.ruff.lint.per-file-ignores]` in `pyproject.toml`.
 
 Tests never call real AI services or job sites. They use fake LLM clients, `httpx.MockTransport`, and local HTML forms.
 

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from jobspy import scrape_jobs
 
 from applypilot import applicants, config
-from applypilot.database import get_connection, init_db, store_jobs
+from applypilot.database import get_connection, init_db
 
 applicants.watch_linkedin()  # LinkedIn pages JobSpy fetches also give each job's applicant count
 
