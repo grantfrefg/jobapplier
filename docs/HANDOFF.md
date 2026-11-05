@@ -99,8 +99,10 @@ Docs: `docs/HOW_IT_WORKS.md`, `docs/CONFIGURATION.md`, `docs/DESKTOP_APP.md`,
     Robert Walters, CareerOne, Programmed.
 - **Marketing support** is prompt and vocabulary only; it hasn't been tried on a real
   marketing CV.
-- **Security/privacy surface**: the local server has no authentication (it binds to
-  127.0.0.1 by default; check nothing else on the machine can reach it). API keys are in `.env`. File upload endpoints for own documents
+- **Security/privacy surface**: the local server has no authentication. It binds to
+  127.0.0.1, and since 0.12.1 a middleware (`_refusal` in `ui/server.py`) refuses unknown Host
+  names (DNS rebinding) and cross-site POSTs (Origin / Sec-Fetch-Site). Keep that when adding
+  endpoints. API keys are in `.env` (mode 600 on POSIX). File upload endpoints for own documents
   and resumes.
 - **Tests**: `tests/` (32 files). Conftest isolates env keys with `setenv(key, "")`. UI tests
   use FastAPI's TestClient. Browser tests need a display (xvfb in CI).

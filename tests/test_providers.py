@@ -220,7 +220,7 @@ def desktop_client(tmp_path, monkeypatch):
 
     def make():
         from applypilot.ui.server import create_app
-        return TestClient(create_app())
+        return TestClient(create_app(), base_url="http://localhost")
     yield make
     database.close_connection(tmp_path / "t.db")
 

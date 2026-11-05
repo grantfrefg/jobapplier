@@ -43,6 +43,7 @@ All your settings and data live in `~/.applypilot/`. Set the environment variabl
 | `RESUME_PAGES` | `auto` | Resume length: `1` (graduate and early career), `2` (the Australian norm), or `auto`: one page with 2 years' experience or less in your profile, otherwise two. A resume a little over is set tighter to fit |
 | `CAPSOLVER_API_KEY` | — | CAPTCHA solving, `claude_code` engine only |
 | `CHROME_PATH` | auto-detected | Browser for the apply engines (Chrome, Edge or Chromium) |
+| `APPLYPILOT_ALLOWED_HOSTS` | — | Environment variable, not `.env`. The web UI only answers at `localhost`, `127.0.0.1` and `[::1]` (and the address given to `applypilot ui --host`), and only accepts changes from its own page, so other websites can't reach it. List other host names, comma-separated, to open it another way (e.g. a Codespaces address) |
 
 Put comments on their own lines. `KEY=   # note` makes the note the value.
 
