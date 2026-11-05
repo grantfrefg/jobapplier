@@ -696,3 +696,13 @@ def test_page_loads_its_script_and_styles(client):
     assert client.get("/static/app.css").headers["content-type"].startswith("text/css")
     for name in ("index.html", "../server.py", "..%2Fserver.py", "nope.js"):
         assert client.get("/static/" + name).status_code == 404
+
+
+def test_job_type_in_the_list_uses_the_boards_type(client, tmp_path):
+    url = "https://example.com/job/7"
+    _seed_job(tmp_path, url)
+    assert client.get("/api/jobs?view=ready").json()[0]["kind"] == "Not stated"
+    conn = database.get_connection()
+    conn.execute("UPDATE jobs SET board_job_type = 'fulltime,contract' WHERE url = ?", (url,))
+    conn.commit()
+    assert client.get("/api/jobs?view=ready").json()[0]["kind"] == "Contract"

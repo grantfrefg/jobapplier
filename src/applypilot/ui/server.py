@@ -824,7 +824,7 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         if where is None:
             raise HTTPException(400, "view must be ready, applied, all, choose or skipped")
         rows = get_connection().execute(f"""
-            SELECT url, title, company, site, location, salary, applicants, applicants_count, fit_score,
+            SELECT url, title, company, site, location, salary, applicants, applicants_count, fit_score, board_job_type,
                    application_url, apply_status, description, discovered_at,
                    apply_error, applied_at, duplicate_of, redo_requested, tailor_status, tailor_issues,
                    COALESCE(tailor_attempts, 0) AS tailor_attempts,

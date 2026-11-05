@@ -16,7 +16,8 @@ SEARCH = {"results": [
      "jobUrl": "https://www.reed.co.uk/jobs/data-analyst/102"},
 ]}
 DETAIL = {"jobDescription": "<p>We build banking.</p><ul><li>SQL and Python every day</li></ul>" + "x" * 300,
-          "externalUrl": "https://monzo.com/careers/101"}
+          "externalUrl": "https://monzo.com/careers/101", "contractType": "Contract", "fullTime": True,
+          "partTime": False}
 
 
 def _client(seen):
@@ -41,6 +42,7 @@ def test_reed_jobs_come_with_full_descriptions_and_applicant_counts(monkeypatch,
     assert row["site"] == "Reed" and row["salary"] == "£50,000-£60,000" and row["applicants"] == "37 applicants"
     assert "SQL and Python every day" in row["full_description"] and "<" not in row["full_description"]
     assert row["application_url"] == "https://monzo.com/careers/101"
+    assert row["board_job_type"] == "contract,fulltime"  # Reed's own job type, from the job's details
     database.close_connection(tmp_path / "t.db")
 
 

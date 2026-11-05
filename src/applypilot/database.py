@@ -211,6 +211,7 @@ _ALL_COLUMNS: dict[str, str] = {
     "detail_error": "TEXT",
     "applicants": "TEXT",            # "47 applicants" when the board says (applicants.py)
     "applicants_count": "INTEGER",   # the same as a number, for sorting
+    "board_job_type": "TEXT",        # the board's own job type(s), e.g. "fulltime,contract" (see look.job_kind)
     # Scoring
     "fit_score": "INTEGER",
     "score_reasoning": "TEXT",

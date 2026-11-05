@@ -157,3 +157,21 @@ def test_job_kind_reads_the_ad():
     assert kind("Analyst", "Join our team. Casual dress Fridays.") == "Not stated"
     assert kind("Analyst", "Applicants need temporary residence visas") == "Not stated"
     assert job_kind(None) == "Not stated"
+
+
+def test_job_kind_uses_the_boards_job_type():
+    """The board's own type (JobSpy, Reed) fills in when the ad doesn't say, without overriding a clearer ad."""
+    from applypilot.scoring.look import job_kind, short_term_role
+    job = lambda title, body="", board=None: {"title": title, "description": body, "board_job_type": board}  # noqa: E731
+    assert job_kind(job("Data Analyst", "Hybrid, Sydney CBD", "fulltime,contract")) == "Contract"
+    assert job_kind(job("Data Analyst", "Hybrid, Sydney CBD", "temporary")) == "Temp"
+    assert job_kind(job("Data Analyst", "Hybrid, Sydney CBD", "permanent,fulltime")) == "Permanent"
+    assert job_kind(job("Data Analyst", "Hybrid, Sydney CBD", "fulltime")) == "Not stated"  # says nothing either way
+    assert job_kind(job("Data Analyst", "Initial 6 month contract", "contract")) == "Fixed term"  # the ad is clearer
+    assert job_kind(job("Data Analyst", "Permanent role, contract management", "contract")) == "Contract"
+    assert job_kind(job("Data Analyst (Permanent)", "", "contract")) == "Permanent"  # the title wins
+    assert job_kind(job("Data Analyst", "Casual shifts", "permanent")) == "Casual"
+    # ...and so does the working holiday visa on the resume, which follows the job type
+    assert short_term_role(job("Data Analyst", "Hybrid, Sydney CBD", "contract"))
+    assert not short_term_role(job("Data Analyst", "Hybrid, Sydney CBD", "fulltime"))
+    assert short_term_role(job("Analyst", "A 6-month project to migrate our data"))

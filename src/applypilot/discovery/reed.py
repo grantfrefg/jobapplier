@@ -77,6 +77,13 @@ def details(client: httpx.Client, job_id) -> dict:
         return {}
 
 
+def board_job_type(job: dict) -> str | None:
+    """Reed's contractType (Permanent, Contract, Temporary) and full/part time as e.g. "fulltime,contract"."""
+    names = [str(job.get("contractType") or "").strip().lower()]
+    names += [name for key, name in (("fullTime", "fulltime"), ("partTime", "parttime")) if job.get(key) is True]
+    return ",".join(n for n in names if n) or None
+
+
 def store(conn: sqlite3.Connection, results: list[dict], client: httpx.Client | None = None) -> tuple[int, int]:
     """Store Reed jobs (full descriptions fetched for new ones). Returns (new, existing)."""
     from applypilot import applicants
@@ -98,11 +105,11 @@ def store(conn: sqlite3.Connection, results: list[dict], client: httpx.Client | 
         apply_url = full.get("externalUrl") or None
         conn.execute(
             "INSERT INTO jobs (url, title, company, salary, description, location, site, strategy, discovered_at, "
-            "full_description, application_url, detail_scraped_at, applicants, applicants_count) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'Reed', 'reed_api', ?, ?, ?, ?, ?, ?)",
+            "full_description, application_url, detail_scraped_at, applicants, applicants_count, board_job_type) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'Reed', 'reed_api', ?, ?, ?, ?, ?, ?, ?)",
             (url, job.get("jobTitle"), job.get("employerName"), _salary(job), description[:500],
              job.get("locationName"), now, description if len(description) > 200 else None, apply_url,
-             now if len(description) > 200 else None, *(shown or (None, None))))
+             now if len(description) > 200 else None, *(shown or (None, None)), board_job_type({**job, **full})))
         new += 1
     conn.commit()
     return new, existing
