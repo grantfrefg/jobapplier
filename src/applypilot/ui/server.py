@@ -26,12 +26,17 @@ from collections import deque
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from applypilot import budget, config
 
 STATIC_DIR = Path(__file__).parent / "static"
 PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
+
+# Names this server answers to. Anything else is refused, so a web page can't
+# reach it through a DNS name pointed at 127.0.0.1 ("DNS rebinding").
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "[::1]"}
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 ENV_KEYS = ("EXECUTION_ENGINE", "LLM_PROVIDER", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE",
@@ -316,6 +321,43 @@ def _discover_failed() -> dict:
     return retry.summary()
 
 
+def _host_name(netloc: str) -> str:
+    """'localhost:8000' -> 'localhost', '[::1]:8000' -> '[::1]' (lower case)."""
+    netloc = netloc.strip().lower()
+    if netloc.startswith("["):
+        return netloc.split("]", 1)[0] + "]"
+    return netloc.rsplit(":", 1)[0] if netloc.count(":") == 1 else netloc
+
+
+def _env_hosts() -> set[str]:
+    """Extra host names from APPLYPILOT_ALLOWED_HOSTS (comma-separated), e.g. a Codespaces address."""
+    raw = os.environ.get("APPLYPILOT_ALLOWED_HOSTS", "")
+    return {_host_name(h) for h in raw.split(",") if h.strip()}
+
+
+def _refusal(request: Request, allowed_hosts: set[str]) -> str | None:
+    """Why a request must be refused, or None.
+
+    The server can read your resume and profile, change settings and drive a
+    browser, and it has no login. Any web page you visit can send requests to
+    http://localhost, so: only answer to local host names, and only accept
+    changes (POST etc.) from this app's own page, not from another site.
+    """
+    host = request.headers.get("host", "")
+    if _host_name(host) not in allowed_hosts:
+        return "This address isn't allowed. Open the app at http://localhost (see APPLYPILOT_ALLOWED_HOSTS)."
+    if request.method not in UNSAFE_METHODS:
+        return None
+    origin = request.headers.get("origin")
+    if origin is not None:
+        from urllib.parse import urlsplit
+        if origin == "null" or urlsplit(origin).netloc.lower() != host.lower():
+            return "Request from another site refused"
+    elif request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
+        return "Request from another site refused"
+    return None
+
+
 def _deep_merge(base: dict, override: dict) -> dict:
     out = dict(base)
     for k, v in override.items():
@@ -335,6 +377,11 @@ def _write_env(updates: dict[str, str]) -> None:
     from dotenv import set_key, unset_key
     config.ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
     config.ENV_PATH.touch(exist_ok=True)
+    if os.name == "posix":
+        try:
+            os.chmod(config.ENV_PATH, 0o600)  # it holds API keys: readable by you only
+        except OSError:
+            pass
     for key, value in updates.items():
         if value:
             set_key(str(config.ENV_PATH), key, value, quote_mode="never")
@@ -367,7 +414,8 @@ _MEDIA = {".pdf": "application/pdf",
 # App
 # ---------------------------------------------------------------------------
 
-def create_app() -> FastAPI:
+def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
+    """The app. `extra_hosts`: host names to answer to besides localhost (see `_refusal`)."""
     from applypilot.database import HAS_RESUME, apply_link, get_connection, get_stats, init_db
 
     config.load_env()
@@ -403,8 +451,13 @@ def create_app() -> FastAPI:
     app.state.last_request = time.time()
     app.state.shutdown = None  # set by applypilot.desktop
 
+    allowed_hosts = LOCAL_HOSTS | set(extra_hosts or ()) | _env_hosts()
+
     @app.middleware("http")
-    async def _touch(request: Request, call_next):
+    async def _local_only(request: Request, call_next):
+        reason = _refusal(request, allowed_hosts)
+        if reason:
+            return JSONResponse({"detail": reason}, status_code=403)
         app.state.last_request = time.time()
         return await call_next(request)
 
@@ -478,6 +531,9 @@ def create_app() -> FastAPI:
             if key not in body:
                 continue
             value = str(body[key] or "").strip()
+            if any(c in value for c in "\r\n\0"):
+                # One setting per line in .env: a line break would add other settings
+                raise HTTPException(400, f"{key} can't contain a line break")
             if key in SECRET_KEYS and not value:
                 continue  # blank secret field = keep the saved one
             if key in NUMBER_KEYS and value and not value.isdigit():
@@ -1143,4 +1199,5 @@ def create_app() -> FastAPI:
 
 def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
     import uvicorn
-    uvicorn.run(create_app(), host=host, port=port, log_level="warning")
+    extra = [] if host in ("0.0.0.0", "::") else [_host_name(host)]  # e.g. --host 192.168.1.5
+    uvicorn.run(create_app(extra_hosts=extra), host=host, port=port, log_level="warning")

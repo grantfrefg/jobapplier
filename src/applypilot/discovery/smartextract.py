@@ -97,6 +97,8 @@ def _store_jobs_filtered(
             continue
         if base and not url.startswith(("http://", "https://")):
             url = urljoin(base, url)  # e.g. Jora links are "/job/..."
+        if not url.startswith(("http://", "https://")):
+            continue  # read from the page by the AI: never keep "javascript:" or other non-web links
         if not _location_ok(job.get("location"), accept_locs, reject_locs):
             filtered += 1
             continue
