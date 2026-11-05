@@ -63,7 +63,7 @@ src/applypilot/
                       # answers.py (standard fields, answer bank), adapters.py (SEEK, Lever),
                       # sites.py (where a job applies), login_browser.py (normal login window),
                       # chrome.py/prompt.py/dashboard.py (Claude Code and Codex engines)
-  ui/                 # server.py (FastAPI) + static/index.html (the web UI)
+  ui/                 # server.py (FastAPI) + static/index.html, app.js, app.css (the web UI)
   wizard/             # `applypilot init`, shared search-config builder
   config/             # bundled sites.yaml, employers.yaml, searches.example.yaml
 packaging/            # PyInstaller spec, desktop entry point, smoke test, READ_ME_FIRST files

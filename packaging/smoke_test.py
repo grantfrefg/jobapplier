@@ -49,6 +49,12 @@ try:
     assert status["app"] == "applypilot" and status["desktop"], status
     assert status["engine"] == "local_playwright", status
     print("browser check:", call("/api/browser"))
+    # The page and its script/styles are bundled (they're separate files since 0.13.0)
+    with urllib.request.urlopen("http://127.0.0.1:8000/", timeout=30) as r:
+        assert "/static/app.js" in r.read().decode("utf-8"), "page doesn't link its script"
+    for name, marker in (("app.js", "async function api("), ("app.css", "--accent")):
+        with urllib.request.urlopen(f"http://127.0.0.1:8000/static/{name}", timeout=30) as r:
+            assert marker in r.read().decode("utf-8"), f"{name} missing from the bundle"
 
     # 3. A pipeline stage through the packaged child process
     call("/api/pipeline", {"stages": ["pdf"]})
