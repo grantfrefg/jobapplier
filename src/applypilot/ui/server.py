@@ -321,6 +321,18 @@ def _discover_failed() -> dict:
     return retry.summary()
 
 
+def _min_score(body: dict, default: int) -> int:
+    """The request's "min_score" as a whole number from 0 to 10, or a 400 that says so."""
+    value = body.get("min_score", default)
+    try:  # 7.5 from the page's number box counts as 7, as before
+        score = int(value) if isinstance(value, (int, float)) else int(str(value).strip())
+    except (TypeError, ValueError, OverflowError):
+        score = -1
+    if not 0 <= score <= 10 or isinstance(value, bool):
+        raise HTTPException(400, "Minimum score must be a whole number from 0 to 10")
+    return score
+
+
 def _host_name(netloc: str) -> str:
     """'localhost:8000' -> 'localhost', '[::1]:8000' -> '[::1]' (lower case)."""
     netloc = netloc.strip().lower()
@@ -763,7 +775,7 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
     @app.post("/api/pipeline")
     def run_pipeline(body: dict) -> dict:
         stages = [s for s in body.get("stages", []) if s in VALID_STAGES] or ["all"]
-        args = ["run", *stages, "--min-score", str(int(body.get("min_score", 7)))]
+        args = ["run", *stages, "--min-score", str(_min_score(body, 7))]
         if body.get("validation") in ("strict", "normal", "lenient"):
             args += ["--validation", body["validation"]]
         task.start("Find jobs: " + ", ".join(stages), args)
@@ -847,7 +859,7 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         if session.busy:
             raise HTTPException(409, "Finish the application that's open first (they share the browser)")
         require_profile_free()
-        args = ["locate", "--min-score", str(int(body.get("min_score", 7)))]
+        args = ["locate", "--min-score", str(_min_score(body, 7))]
         if body.get("recheck"):
             args.append("--recheck")
         task.start("Check where to apply", args)
@@ -905,7 +917,7 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         if step not in rerun.STEPS:
             raise HTTPException(400, f"step must be one of {', '.join(rerun.STEPS)}")
         url = body.get("url") or None
-        min_score = None if url else int(body.get("min_score", 7))
+        min_score = None if url else _min_score(body, 7)
         if step == "discover":  # the searches that failed last time, not jobs
             from applypilot.discovery import retry
             failed = retry.summary()
@@ -1175,7 +1187,7 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
             if task.running and task.label == "Check where to apply":
                 raise HTTPException(409, "Wait for 'Check where to apply' to finish (they share the browser)")
             require_profile_free()
-            session.start(url, int(body.get("min_score", 0)))
+            session.start(url, _min_score(body, 0))
             return {"mode": "local", **session.snapshot()}
         # Claude Code and Codex are autonomous: run the normal CLI as a subprocess
         name = "Codex" if engine == config.ENGINE_CODEX else "Claude Code"
