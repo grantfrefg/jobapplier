@@ -88,8 +88,9 @@ Docs: `docs/HOW_IT_WORKS.md`, `docs/CONFIGURATION.md`, `docs/DESKTOP_APP.md`,
 - **Prompt duplication**: UK versions are made by exact-text swaps. That's safe because it
   raises on a missing passage and is tested, but editing it is fragile. `tests/test_market.py`
   covers it.
-- **Job type** is a regex guess from ad text (`look.job_kind`); JobSpy's own `job_type` field
-  isn't stored. `short_term_role` and `job_kind` overlap.
+- **Job type** (`look.job_kind`): the title, then the board's own type (`board_job_type`, from
+  JobSpy and Reed since 0.13.0), then a regex read of the ad. `short_term_role` is
+  `job_kind(job) in SHORT_TERM_KINDS`. Smart-extract boards don't supply a type.
 - **Untested live**:
   - LinkedIn applicant counts and LinkedIn UK (the cloud gets HTTP 429).
   - Reed (mock only).
