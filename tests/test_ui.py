@@ -663,3 +663,23 @@ def test_settings_refuse_line_breaks(client, tmp_path):
 def test_env_file_is_private(client, tmp_path):
     client.post("/api/settings", json={"LLM_MODEL": "gemini-x"})
     assert (tmp_path / ".env").stat().st_mode & 0o077 == 0
+
+
+def test_bad_minimum_score_is_a_clear_400(client):
+    """A score that isn't a whole number from 0 to 10 used to crash with a 500."""
+    bodies = [b'{"min_score": "abc"}', b'{"min_score": null}', b'{"min_score": 11}', b'{"min_score": -1}',
+              b'{"min_score": true}', b'{"min_score": 1e999}']
+    for body in bodies:
+        r = client.post("/api/pipeline", content=body, headers={"Content-Type": "application/json"})
+        assert r.status_code == 400 and "Minimum score" in r.json()["detail"], body
+    for path in ("/api/jobs/locate", "/api/apply"):
+        assert client.post(path, json={"min_score": "x", "url": "https://example.com/j"}).status_code == 400
+
+
+def test_minimum_score_from_the_page(client, monkeypatch):
+    from applypilot.ui import server
+    seen = []
+    monkeypatch.setattr(server.SubprocessTask, "start", lambda self, label, args, *a, **k: seen.append(args))
+    for value in (7, "7", 7.5):
+        client.post("/api/pipeline", json={"stages": ["score"], "min_score": value})
+    assert [a[a.index("--min-score") + 1] for a in seen] == ["7", "7", "7"]
