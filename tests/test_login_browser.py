@@ -40,7 +40,7 @@ def test_ui_login_window_blocks_the_engine_until_closed(monkeypatch, tmp_path):
         return subprocess.Popen(["sleep", "30"])
 
     monkeypatch.setattr(login_browser, "open_login_browser", fake_open)
-    with TestClient(server.create_app()) as client:
+    with TestClient(server.create_app(), base_url="http://localhost") as client:
         assert client.post("/api/browser/login", json={"url": "https://acme.myworkdayjobs.com/x"}).json()["login_open"]
         assert opened == [["https://acme.myworkdayjobs.com/x"]]
         r = client.post("/api/browser/test")

@@ -8,6 +8,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-05
+
+### Security
+- **Other websites can't use the app any more.** The app's local server has no login, and any web page you visit could send it a form: for example, replace your saved resume. It now only accepts changes from its own page, and only answers at `localhost` / `127.0.0.1`, so a web address pointed at your computer can't read your resume or profile either. To open the app another way (e.g. Codespaces), list the address in `APPLYPILOT_ALLOWED_HOSTS`.
+- A line break in a setting (e.g. the model name) could write extra settings into `.env`, including switching to the Claude Code / Codex engine without the confirmation step. Settings with line breaks are now refused.
+- `.env` (your API keys) is now readable by you only on Mac and Linux.
+- Job links read from a page by the AI are only kept if they're web addresses, and the Apply and Choose lists only make web addresses clickable.
+
 ## [0.12.0] - 2026-11-04
 
 ### Added

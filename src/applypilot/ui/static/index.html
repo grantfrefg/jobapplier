@@ -1107,6 +1107,8 @@ function el(tag, attrs = {}, ...kids) {
   for (const k of kids.flat()) n.append(k instanceof Node ? k : document.createTextNode(k ?? ""));
   return n;
 }
+// Job links come from job boards: only ever make web addresses clickable
+const webLink = (u) => (/^https?:\/\//i.test(u || "") ? u : null);
 const human = (k) => k.replace(/_/g, " ").replace(/\b\w/, (c) => c.toUpperCase());
 
 // ---------- tabs ----------
@@ -1644,7 +1646,7 @@ async function loadChoose() {
     return el("tr", {},
       el("td", {}, box),
       el("td", { class: "score" }, j.fit_score ?? "–"),
-      el("td", {}, el("a", { href: j.link, target: "_blank", rel: "noopener" }, j.title || j.link),
+      el("td", {}, el("a", { href: webLink(j.link), target: "_blank", rel: "noopener" }, j.title || j.link),
         el("div", { class: "muted" }, [j.company, j.site, j.location, j.salary, j.applicants].filter(Boolean).join(" · ")),
         notes.length ? el("div", { class: "muted", title: TAILOR_FAILED[j.tailor_status] ? tailorHelp(j) : "" },
           notes.join(" · ")) : ""),
@@ -1864,7 +1866,7 @@ async function loadJobs() {
     return el("tr", {},
       el("td", { class: "score", title: j.score_reason ? "Why this score: " + j.score_reason : "",
         style: j.score_reason ? "cursor:help" : "" }, j.fit_score ?? "–"),
-      el("td", {}, el("a", { href: link, target: "_blank", rel: "noopener" }, j.title || link),
+      el("td", {}, el("a", { href: webLink(link), target: "_blank", rel: "noopener" }, j.title || link),
         el("div", { class: "muted" }, [j.kind !== "Not stated" ? j.kind : "", j.company, j.site, j.location,
           j.salary, j.applicants].filter(Boolean).join(" · ")),
         j.apply_site_name ? el("div", { class: "muted", title: ACCOUNT_HELP[j.apply_account] || "" },
