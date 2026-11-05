@@ -59,3 +59,14 @@ artifacts = ["src/applypilot/config/*.yaml"]
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# Long lines here are AI prompt text, page JavaScript or HTML: wrapping them would change
+# what the AI is sent (and the UK swaps in market.py match these passages exactly).
+"src/applypilot/apply/prompt.py" = ["E501"]
+"src/applypilot/view.py" = ["E501"]
+"src/applypilot/discovery/smartextract.py" = ["E501"]
+"src/applypilot/enrichment/detail.py" = ["E501"]
+"src/applypilot/scoring/scorer.py" = ["E501"]
+"src/applypilot/scoring/tailor.py" = ["E501"]
+"src/applypilot/scoring/cover_letter.py" = ["E501"]

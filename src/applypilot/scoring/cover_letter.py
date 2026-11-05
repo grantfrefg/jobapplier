@@ -5,7 +5,6 @@ postings. All personal data (name, skills, achievements) comes from the user's
 profile at runtime. No hardcoded personal information.
 """
 
-import json
 import logging
 import re
 import time
@@ -13,7 +12,7 @@ from datetime import datetime, timezone
 
 from applypilot.budget import BudgetExhausted
 from applypilot.config import COVER_LETTER_DIR, RESUME_PATH, load_profile
-from applypilot.database import get_connection, get_jobs_by_stage, mark_duplicates
+from applypilot.database import get_connection, mark_duplicates
 from applypilot.llm import get_client
 from applypilot.scoring import voice
 from applypilot import market
