@@ -32,6 +32,8 @@ from applypilot import budget, config
 
 STATIC_DIR = Path(__file__).parent / "static"
 PROFILE_TEMPLATE_PATH = Path(__file__).parent / "profile_template.json"
+# The page's script and styles (index.html links them); nothing else in static/ is served
+STATIC_FILES = {"app.js": "text/javascript; charset=utf-8", "app.css": "text/css; charset=utf-8"}
 
 # Names this server answers to. Anything else is refused, so a web page can't
 # reach it through a DNS name pointed at 127.0.0.1 ("DNS rebinding").
@@ -479,8 +481,17 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
     app.state.busy = busy
 
     @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    def index() -> HTMLResponse:
+        from applypilot import __version__
+        page = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+        # The version in the script/style links makes a new release load its own files, not cached ones
+        return HTMLResponse(page.replace("__VERSION__", __version__), headers={"Cache-Control": "no-cache"})
+
+    @app.get("/static/{name}")
+    def static_file(name: str) -> FileResponse:
+        if name not in STATIC_FILES:
+            raise HTTPException(404, "Not found")
+        return FileResponse(STATIC_DIR / name, media_type=STATIC_FILES[name], headers={"Cache-Control": "no-cache"})
 
     # -- status ------------------------------------------------------------
 

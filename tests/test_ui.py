@@ -683,3 +683,16 @@ def test_minimum_score_from_the_page(client, monkeypatch):
     for value in (7, "7", 7.5):
         client.post("/api/pipeline", json={"stages": ["score"], "min_score": value})
     assert [a[a.index("--min-score") + 1] for a in seen] == ["7", "7", "7"]
+
+
+def test_page_loads_its_script_and_styles(client):
+    from applypilot import __version__
+    html = client.get("/").text
+    assert f"/static/app.js?v={__version__}" in html and f"/static/app.css?v={__version__}" in html
+    assert "__VERSION__" not in html
+    js = client.get(f"/static/app.js?v={__version__}")
+    assert js.status_code == 200 and js.headers["content-type"].startswith("text/javascript")
+    assert "async function api(" in js.text
+    assert client.get("/static/app.css").headers["content-type"].startswith("text/css")
+    for name in ("index.html", "../server.py", "..%2Fserver.py", "nope.js"):
+        assert client.get("/static/" + name).status_code == 404

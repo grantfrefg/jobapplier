@@ -46,7 +46,7 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
 
 | Area | Files | Notes |
 |---|---|---|
-| UI | `ui/server.py` (~1150 lines), `ui/static/index.html` (~2100 lines, HTML+CSS+JS in one file) | Tabs: Setup, Find jobs, Apply, Guide. `/api/jobs` builds the Apply list. |
+| UI | `ui/server.py` (~1150 lines), `ui/static/index.html` (~960 lines of HTML, incl. the Guide), `app.js` (~1040), `app.css`; only those two are served from `/static/` | Tabs: Setup, Find jobs, Apply, Guide. `/api/jobs` builds the Apply list. |
 | Desktop | `desktop.py`, `packaging/Jobapplier.spec`, `packaging/desktop_entry.py`, `smoke_test.py` | |
 | Config and data | `config.py`, `database.py` (SQLite `jobs` table; missing columns added by ALTER TABLE at start-up), `profile_options.py` | Settings live in `~/.applypilot/.env`, profile.json, searches.yaml |
 | Market | `market.py` | AU/UK `Market` dataclass. `market.localise(text, swaps, mk)` swaps AU passages for UK ones and **raises if a passage is missing**, so AU prompts stay unchanged. |
@@ -80,8 +80,8 @@ Docs: `docs/HOW_IT_WORKS.md`, `docs/CONFIGURATION.md`, `docs/DESKTOP_APP.md`,
 
 ## Known gaps and things to check in the review
 
-- **Big files**: `local_engine.py`, `smartextract.py`, `ui/server.py`, and `index.html` (one
-  file with all the UI JS). These are candidates for splitting.
+- **Big files**: `local_engine.py`, `smartextract.py` and `ui/server.py` are candidates for
+  splitting. The UI's JS and CSS moved out of `index.html` in 0.13.0; `app.js` could be split by tab next.
 - **Legacy upstream code**: `apply/launcher.py`, `chrome.py`, `prompt.py` and `dashboard.py`
   are still live: they run the Claude Code and Codex engines, and `launcher` holds the job
   queue the UI uses. They're linted since 0.13.0.
