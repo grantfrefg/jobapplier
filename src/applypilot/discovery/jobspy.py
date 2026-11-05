@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from jobspy import scrape_jobs
 
 from applypilot import applicants, config
-from applypilot.database import get_connection, init_db, store_jobs
+from applypilot.database import get_connection, init_db
 
 applicants.watch_linkedin()  # LinkedIn pages JobSpy fetches also give each job's applicant count
 
@@ -129,6 +129,15 @@ def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> 
 
 # -- DB storage (JobSpy DataFrame -> SQLite) ---------------------------------
 
+def board_job_type(value) -> str | None:
+    """JobSpy's job_type (a list of JobType, or "fulltime, contract" in older versions) as "fulltime,contract"."""
+    if value is None or isinstance(value, float):  # None or NaN: the board didn't say
+        return None
+    items = value if isinstance(value, (list, tuple)) else str(value).split(",")
+    names = [str(getattr(item, "value", item)).strip().lower() for item in items]
+    return ",".join(dict.fromkeys(n for n in names if n and n not in ("nan", "none"))) or None
+
+
 def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tuple[int, int]:
     """Store JobSpy DataFrame results into the DB. Returns (new, existing)."""
     now = datetime.now(timezone.utc).isoformat()
@@ -183,19 +192,23 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tup
             apply_url = None
 
         count = applicants.for_url(url)
+        kind = board_job_type(row.get("job_type"))
         try:
             conn.execute(
                 "INSERT INTO jobs (url, title, company, salary, description, location, site, strategy, "
                 "discovered_at, full_description, application_url, detail_scraped_at, applicants, "
-                "applicants_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "applicants_count, board_job_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (url, title, company, salary, description, location_str, site_label, strategy, now,
-                 full_description, apply_url, detail_scraped_at, *(count or (None, None))),
+                 full_description, apply_url, detail_scraped_at, *(count or (None, None)), kind),
             )
             new += 1
         except sqlite3.IntegrityError:
             existing += 1
             if count:  # seen again: the latest count
                 conn.execute("UPDATE jobs SET applicants = ?, applicants_count = ? WHERE url = ?", (*count, url))
+            if kind:  # jobs found before the type was stored get it now
+                conn.execute("UPDATE jobs SET board_job_type = ? WHERE url = ? AND board_job_type IS NULL",
+                             (kind, url))
 
     conn.commit()
     return new, existing

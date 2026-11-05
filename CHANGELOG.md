@@ -8,6 +8,18 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-05
+
+### Changed
+- **Job type uses what the job board says.** Indeed, LinkedIn and Reed list each job's type (contract, temporary, permanent, full or part time). Jobapplier now saves it and uses it when the ad's wording doesn't say. The ad still wins when it's more specific (e.g. "6 month fixed term" over the board's "contract"). The working holiday / Youth Mobility visa on your resume follows the same job type, so it now also shows for jobs the board lists as contract or temporary.
+
+### Fixed
+- A minimum score that isn't a whole number from 0 to 10 now gets a clear message instead of a server error.
+
+### Internal
+- The web UI's JavaScript and styles moved out of `index.html` into `app.js` and `app.css`. Nothing changes on screen; a new version always loads its own files, not cached ones.
+- All the code is now checked by the linter in CI (unused imports and variables removed from the older modules).
+
 ## [0.12.1] - 2026-11-05
 
 ### Security

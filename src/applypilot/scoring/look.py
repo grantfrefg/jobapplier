@@ -64,60 +64,69 @@ def work_rights_mode() -> str:
     return value if value in WORK_RIGHTS_MODES else "auto"
 
 
-# What makes an ad contract/temp/casual work, where a working holiday visa is worth stating
-_SHORT_TERM = re.compile(
-    r"\b(temp|temporary|casual|fixed[- ]term|locum|seasonal|harvest|day rate|daily rate|"
-    r"(maternity|parental)( leave)? (cover|contract)|\d{1,2}[- ]?(month|week)s? (contract|role|assignment|"
-    r"position|engagement|project)|(contract|assignment) of \d{1,2} (months|weeks)|temp[- ]to[- ]perm)\b", re.I)
-_CONTRACT = re.compile(r"\bcontract(or)?\b", re.I)
-_PERMANENT = re.compile(r"\bpermanent\b", re.I)
-
-
-def short_term_role(job: dict | None) -> bool:
-    """The ad is for contract, temp, casual or fixed-term work (not permanent, and not unclear)."""
-    if not job:
-        return False
-    text = f"{job.get('title') or ''}\n{(job.get('full_description') or job.get('description') or '')[:8000]}"
-    if _SHORT_TERM.search(text):
-        return True
-    # "Contract" alone is short-term unless the ad also says permanent ("contract management")
-    return bool(_CONTRACT.search(text)) and not _PERMANENT.search(text)
-
-
-# The kind of work an ad offers, for the Apply jobs list (filter and sort)
+# The kind of work an ad offers, for the Apply jobs list (filter and sort) and the work-rights line
 JOB_KINDS = ["Permanent", "Contract", "Fixed term", "Temp", "Casual", "Temp to perm", "Not stated"]
+# Contract, temp, casual or fixed-term work: where a working holiday visa is worth stating
+SHORT_TERM_KINDS = {"Contract", "Fixed term", "Temp", "Casual", "Temp to perm"}
+_PERMANENT = re.compile(r"\bpermanent\b", re.I)
 _TEMP_TO_PERM = re.compile(r"\btemp(orary)?[- ]to[- ]perm(anent)?\b", re.I)
 _FIXED_TERM = re.compile(
     r"\b(fixed[- ]term|(maternity|parental)( leave)? (cover|contract)|\d{1,2}[- ]?(month|week)s? (fixed|contract|role|"
-    r"assignment|position|engagement)|(contract|assignment) of \d{1,2} (months|weeks))\b", re.I)
+    r"assignment|position|engagement|project)|(contract|assignment) of \d{1,2} (months|weeks))\b", re.I)
 _TEMP = re.compile(r"\b(temp|temporary|locum|seasonal|harvest)\b(?! (residen|visa|graduate|skill))", re.I)
 _CASUAL = re.compile(r"(?<!smart )"
                      r"\bcasual\b(?! (dress|attire|environment|atmosphere|culture|vibe|office|chat))", re.I)
 _CONTRACT_KIND = re.compile(r"\b(contract(or)?|day rate|daily rate|per day|p/d|outside ir35|inside ir35)\b", re.I)
+# The job board's own job type (JobSpy, Reed), stored as e.g. "fulltime,contract". Full and part
+# time say nothing about permanent or not, so only these count (most specific first).
+_BOARD_KINDS = {"temporary": "Temp", "contract": "Contract", "permanent": "Permanent"}
+
+
+def _kind_in(text: str) -> str:
+    if _TEMP_TO_PERM.search(text):
+        return "Temp to perm"
+    if _FIXED_TERM.search(text):
+        return "Fixed term"
+    if _CASUAL.search(text):
+        return "Casual"
+    if _TEMP.search(text):
+        return "Temp"
+    permanent = bool(_PERMANENT.search(text))
+    if _CONTRACT_KIND.search(text) and not permanent:
+        return "Contract"
+    return "Permanent" if permanent else "Not stated"
+
+
+def board_kind(job: dict) -> str | None:
+    """Temp, Contract or Permanent when the job board lists the job as that, else None."""
+    types = str(job.get("board_job_type") or "").lower().split(",")
+    return next((kind for key, kind in _BOARD_KINDS.items() if key in types), None)
 
 
 def job_kind(job: dict | None) -> str:
-    """Permanent, Contract, Fixed term, Temp, Casual, Temp to perm, or Not stated (from the title, then the ad)."""
+    """Permanent, Contract, Fixed term, Temp, Casual, Temp to perm, or Not stated.
+
+    The title first; then the board's own job type (when it says contract or temporary); then the
+    rest of the ad. A more specific short-term kind in the ad (fixed term, casual, ...) beats the
+    board's broad "contract", and the board's beats an ad that only mentions "permanent" somewhere.
+    """
     if not job:
         return "Not stated"
     title = job.get("title") or ""
+    kind = _kind_in(title)
+    if kind != "Not stated":
+        return kind
     body = (job.get("full_description") or job.get("description") or "")[:8000]
-    salary = job.get("salary") or ""
-    for text in (title, f"{title}\n{salary}\n{body}"):
-        if _TEMP_TO_PERM.search(text):
-            return "Temp to perm"
-        if _FIXED_TERM.search(text):
-            return "Fixed term"
-        if _CASUAL.search(text):
-            return "Casual"
-        if _TEMP.search(text):
-            return "Temp"
-        permanent = bool(_PERMANENT.search(text))
-        if _CONTRACT_KIND.search(text) and not permanent:
-            return "Contract"
-        if permanent:
-            return "Permanent"
-    return "Not stated"
+    kind = _kind_in(f"{title}\n{job.get('salary') or ''}\n{body}")
+    board = board_kind(job)
+    if board and kind not in SHORT_TERM_KINDS:
+        return board
+    return kind
+
+
+def short_term_role(job: dict | None) -> bool:
+    """The ad is for contract, temp, casual or fixed-term work (not permanent, and not unclear)."""
+    return job_kind(job) in SHORT_TERM_KINDS
 
 
 def shown_work_rights(line: str, job: dict | None = None, decided: bool = False) -> str:
