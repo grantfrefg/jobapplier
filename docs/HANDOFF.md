@@ -28,9 +28,8 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
    `git merge -s ours origin/<branch>` instead of force-pushing.
 2. Before pushing, run:
    - `pytest tests` (~380 pass, ~18 skip without a display);
-   - CI's ruff list: copy the exact `ruff check --select E,F,W ...` command from
-     `.github/workflows/ci.yml`. Older upstream modules aren't in the list and still have
-     findings, so don't run ruff on all of `src`.
+   - `ruff check --select E,F,W src packaging tests` (the same as CI's Lint step; all of
+     `src` is clean since 0.13.0, with long prompt/HTML lines allowed per file in `pyproject.toml`).
 3. Bump the version in **three places**: `pyproject.toml`, `src/applypilot/__init__.py`, and
    `packaging/Jobapplier.spec` (CFBundleShortVersionString). Add a `CHANGELOG.md` entry.
 4. Open a PR to master, then run the `desktop.yml` workflow on the branch so the
@@ -47,7 +46,7 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
 
 | Area | Files | Notes |
 |---|---|---|
-| UI | `ui/server.py` (~1150 lines), `ui/static/index.html` (~2100 lines, HTML+CSS+JS in one file) | Tabs: Setup, Find jobs, Apply, Guide. `/api/jobs` builds the Apply list. |
+| UI | `ui/server.py` (~1150 lines), `ui/static/index.html` (~960 lines of HTML, incl. the Guide), `app.js` (~1040), `app.css`; only those two are served from `/static/` | Tabs: Setup, Find jobs, Apply, Guide. `/api/jobs` builds the Apply list. |
 | Desktop | `desktop.py`, `packaging/Jobapplier.spec`, `packaging/desktop_entry.py`, `smoke_test.py` | |
 | Config and data | `config.py`, `database.py` (SQLite `jobs` table; missing columns added by ALTER TABLE at start-up), `profile_options.py` | Settings live in `~/.applypilot/.env`, profile.json, searches.yaml |
 | Market | `market.py` | AU/UK `Market` dataclass. `market.localise(text, swaps, mk)` swaps AU passages for UK ones and **raises if a passage is missing**, so AU prompts stay unchanged. |
@@ -81,16 +80,17 @@ Docs: `docs/HOW_IT_WORKS.md`, `docs/CONFIGURATION.md`, `docs/DESKTOP_APP.md`,
 
 ## Known gaps and things to check in the review
 
-- **Big files**: `local_engine.py`, `smartextract.py`, `ui/server.py`, and `index.html` (one
-  file with all the UI JS). These are candidates for splitting.
-- **Legacy upstream code**: `apply/launcher.py`, `chrome.py`, `dashboard.py` and parts of
-  `cli.py` aren't linted (pre-existing ruff findings). Check what is still used and whether
-  any of it can go.
+- **Big files**: `local_engine.py`, `smartextract.py` and `ui/server.py` are candidates for
+  splitting. The UI's JS and CSS moved out of `index.html` in 0.13.0; `app.js` could be split by tab next.
+- **Legacy upstream code**: `apply/launcher.py`, `chrome.py`, `prompt.py` and `dashboard.py`
+  are still live: they run the Claude Code and Codex engines, and `launcher` holds the job
+  queue the UI uses. They're linted since 0.13.0.
 - **Prompt duplication**: UK versions are made by exact-text swaps. That's safe because it
   raises on a missing passage and is tested, but editing it is fragile. `tests/test_market.py`
   covers it.
-- **Job type** is a regex guess from ad text (`look.job_kind`); JobSpy's own `job_type` field
-  isn't stored. `short_term_role` and `job_kind` overlap.
+- **Job type** (`look.job_kind`): the title, then the board's own type (`board_job_type`, from
+  JobSpy and Reed since 0.13.0), then a regex read of the ad. `short_term_role` is
+  `job_kind(job) in SHORT_TERM_KINDS`. Smart-extract boards don't supply a type.
 - **Untested live**:
   - LinkedIn applicant counts and LinkedIn UK (the cloud gets HTTP 429).
   - Reed (mock only).

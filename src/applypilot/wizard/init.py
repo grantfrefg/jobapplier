@@ -13,7 +13,6 @@ import json
 import shutil
 from pathlib import Path
 
-import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
@@ -92,7 +91,8 @@ def _setup_resume() -> None:
 
 def _setup_profile() -> dict:
     """Walk through profile questions and return a nested profile dict."""
-    console.print(Panel("[bold]Step 2: Profile[/bold]\nTell Jobapplier about yourself. This powers scoring, tailoring, and auto-fill."))
+    console.print(Panel("[bold]Step 2: Profile[/bold]\n"
+                        "Tell Jobapplier about yourself. This powers scoring, tailoring, and auto-fill."))
 
     profile: dict = {}
 
@@ -119,7 +119,8 @@ def _setup_profile() -> dict:
     # -- Work Authorization --
     console.print("\n[bold cyan]Work Authorization[/bold cyan]")
     profile["work_authorization"] = {
-        "legally_authorized_to_work": "Yes" if Confirm.ask("Are you legally authorised to work in Australia?") else "No",
+        "legally_authorized_to_work": (
+            "Yes" if Confirm.ask("Are you legally authorised to work in Australia?") else "No"),
         "require_sponsorship": "Yes" if Confirm.ask("Will you now or in the future need sponsorship?") else "No",
         "work_permit_type": _choose("Work rights", "work_authorization.work_permit_type", "Not set"),
         "security_clearance": _choose("Security clearance held", "work_authorization.security_clearance", "None"),
@@ -141,7 +142,8 @@ def _setup_profile() -> dict:
     # -- Experience --
     console.print("\n[bold cyan]Experience[/bold cyan]")
     current_title = Prompt.ask("Current/most recent job title", default="")
-    target_role = Prompt.ask("Target role (what you're applying for, e.g. 'Senior Backend Engineer')", default=current_title)
+    target_role = Prompt.ask("Target role (what you're applying for, e.g. 'Senior Backend Engineer')",
+                             default=current_title)
     profile["experience"] = {
         "years_of_experience_total": Prompt.ask("Years of professional experience", default=""),
         "education_level": _choose("Highest education", "experience.education_level", "Bachelor's degree"),

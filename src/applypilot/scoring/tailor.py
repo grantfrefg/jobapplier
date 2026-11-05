@@ -14,7 +14,6 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 
 from applypilot import stories
 from applypilot.budget import BudgetExhausted
@@ -38,7 +37,6 @@ from applypilot.scoring.validator import (
     sanitize_text,
     validate_cover_letter,
     validate_json_fields,
-    validate_tailored_resume,
 )
 
 log = logging.getLogger(__name__)
