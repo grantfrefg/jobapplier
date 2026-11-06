@@ -28,7 +28,7 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
    `git merge -s ours origin/<branch>` instead of force-pushing.
 2. Before pushing, run:
    - `pytest tests` (~380 pass, ~18 skip without a display);
-   - `ruff check --select E,F,W src packaging tests` (the same as CI's Lint step; all of
+   - `ruff check --select E,F,W src packaging tests evals` (the same as CI's Lint step; all of
      `src` is clean since 0.13.0, with long prompt/HTML lines allowed per file in `pyproject.toml`).
 3. Bump the version in **three places**: `pyproject.toml`, `src/applypilot/__init__.py`, and
    `packaging/Jobapplier.spec` (CFBundleShortVersionString). Add a `CHANGELOG.md` entry.
@@ -58,6 +58,10 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
 | Applying | `apply/local_engine.py` (current form filler, ~1500 lines), `apply/answers.py` (saved answers), `apply/adapters.py`, `apply/sites.py`, `apply/login_browser.py`, `apply/prompt.py` | `apply/launcher.py`, `apply/chrome.py`, `apply/dashboard.py` are older upstream code (Claude-CLI based). The CLI still imports parts of them. |
 | LLM | `llm.py`, `llm_anthropic.py`, `llm_cli.py`, `budget.py` (daily request budget) | |
 | Other | `applicants.py` (applicant counts), `rerun.py`, `wizard/init.py`, `cli.py`, `view.py` | |
+
+Evals: `evals/scoring/` measures the AI's fit scores against labelled made-up cases with the real
+scorer (`python -m evals.scoring`, see its README). It makes real AI calls, so it isn't run in CI;
+`tests/test_eval_scoring.py` tests the harness with a fake AI.
 
 Docs: `docs/HOW_IT_WORKS.md`, `docs/CONFIGURATION.md`, `docs/DESKTOP_APP.md`,
 `docs/IMPROVEMENTS.md` (AI-request reduction plan), `docs/UK_PLAN.md` (built in 0.11.0).

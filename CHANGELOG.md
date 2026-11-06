@@ -8,6 +8,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Added
+- **Scoring eval** (`evals/scoring/`, for developers): runs the real fit scorer over 27 made-up job ads for three made-up candidates (a B2B performance marketer, a backend engineer, a marketing coordinator on a working holiday visa) and reports how closely its scores match human labels: average error, rank correlation, dealbreakers caught, and how steady repeat runs are. `python -m evals.scoring`; see its README. Not part of the app, and not run in CI because it makes real AI calls (its harness is tested with a fake AI).
+
 ## [0.13.0] - 2026-11-05
 
 ### Changed

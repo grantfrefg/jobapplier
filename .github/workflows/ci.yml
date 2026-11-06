@@ -54,7 +54,7 @@ jobs:
       - name: Lint
         # pyflakes + pycodestyle on everything. Long prompt/HTML lines are allowed
         # per file in pyproject.toml ([tool.ruff.lint.per-file-ignores]).
-        run: ruff check --select E,F,W src packaging tests
+        run: ruff check --select E,F,W src packaging tests evals
 
       - name: Test
         # xvfb provides a display so the visible-browser tests run instead of skipping.

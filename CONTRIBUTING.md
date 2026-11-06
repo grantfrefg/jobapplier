@@ -27,7 +27,7 @@ Don't push directly to `master`.
 xvfb-run -a pytest tests      # full suite; xvfb gives the visible-browser tests a display
 pytest tests                  # without a display, the browser tests are skipped
 
-ruff check --select E,F,W src packaging tests   # the same as CI's Lint step
+ruff check --select E,F,W src packaging tests evals   # the same as CI's Lint step
 ```
 
 Lint covers all the code. Files whose long lines are AI prompt text, page JavaScript or HTML may go over 120 characters; they're listed under `[tool.ruff.lint.per-file-ignores]` in `pyproject.toml`.
