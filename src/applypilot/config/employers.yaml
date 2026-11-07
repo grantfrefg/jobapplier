@@ -1,6 +1,11 @@
 # Workday employer registry for Jobapplier
 # Users can add their own employers by following this pattern.
 # Find your employer's Workday URL at: https://[company].wd[N].myworkdayjobs.com
+#
+# countries: where the employer lists jobs on this careers site. A search only crawls the
+# employers listed for its country (searches.yaml `workday_employers:` overrides that).
+# These sites were chosen for Canada; australia/uk were added where a Nov 2026 check found
+# a good number of Sydney/Melbourne or London jobs.
 
 employers:
 
@@ -11,84 +16,98 @@ employers:
     tenant: "td"
     site_id: "TD_Bank_Careers"
     base_url: "https://td.wd3.myworkdayjobs.com"
+    countries: [canada, uk]
 
   cibc:
     name: "CIBC"
     tenant: "cibc"
     site_id: "search"
     base_url: "https://cibc.wd3.myworkdayjobs.com"
+    countries: [canada, uk]
 
   rbc:
     name: "RBC"
     tenant: "rbc"
     site_id: "RBCGLOBAL1"
     base_url: "https://rbc.wd3.myworkdayjobs.com"
+    countries: [canada, uk]
 
   bmo:
     name: "BMO"
     tenant: "bmo"
     site_id: "External"
     base_url: "https://bmo.wd3.myworkdayjobs.com"
+    countries: [canada, uk]
 
   manulife:
     name: "Manulife"
     tenant: "manulife"
     site_id: "MFCJH_Jobs"
     base_url: "https://manulife.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   sunlife:
     name: "Sun Life"
     tenant: "sunlife"
     site_id: "Experienced-Jobs"
     base_url: "https://sunlife.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   desjardins:
     name: "Desjardins"
     tenant: "desjardins"
     site_id: "Desjardins"
     base_url: "https://desjardins.wd10.myworkdayjobs.com"
+    countries: [canada]
 
   intact:
     name: "Intact Financial"
     tenant: "intactfc"
     site_id: "intactfc"
     base_url: "https://intactfc.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   aviva:
     name: "Aviva Canada"
     tenant: "aviva"
     site_id: "External"
     base_url: "https://aviva.wd1.myworkdayjobs.com"
+    countries: [canada]
 
   tmx:
     name: "TMX Group"
     tenant: "tmx"
     site_id: "TMX_Careers"
     base_url: "https://tmx.wd3.myworkdayjobs.com"
+    countries: [canada, uk]
 
   brookfield:
     name: "Brookfield"
     tenant: "brookfield"
     site_id: "brookfield"
     base_url: "https://brookfield.wd5.myworkdayjobs.com"
+    countries: [canada, uk]
 
   fis:
     name: "FIS Global"
     tenant: "fis"
     site_id: "SearchJobs"
     base_url: "https://fis.wd5.myworkdayjobs.com"
+    countries: [canada]
 
   mastercard:
     name: "Mastercard"
     tenant: "mastercard"
     site_id: "CorporateCareers"
     base_url: "https://mastercard.wd1.myworkdayjobs.com"
+    countries: [canada, uk]
 
   paypal:
     name: "PayPal"
     tenant: "paypal"
     site_id: "jobs"
     base_url: "https://paypal.wd1.myworkdayjobs.com"
+    countries: [canada, australia, uk]
 
   # ── Canadian Pension Funds ──────────────────────────────────────────────
 
@@ -97,42 +116,49 @@ employers:
     tenant: "cppib"
     site_id: "cppinvestments"
     base_url: "https://cppib.wd10.myworkdayjobs.com"
+    countries: [canada, uk]
 
   omers:
     name: "OMERS"
     tenant: "omers"
     site_id: "OMERS_External"
     base_url: "https://omers.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   otpp:
     name: "Ontario Teachers"
     tenant: "otppb"
     site_id: "OntarioTeachers_Careers"
     base_url: "https://otppb.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   psp:
     name: "PSP Investments"
     tenant: "investpsp"
     site_id: "psp_careers"
     base_url: "https://investpsp.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   cdpq:
     name: "CDPQ"
     tenant: "cdpq"
     site_id: "CDPQ"
     base_url: "https://cdpq.wd10.myworkdayjobs.com"
+    countries: [canada]
 
   hoopp:
     name: "HOOPP"
     tenant: "hoopp"
     site_id: "HOOPP"
     base_url: "https://hoopp.wd10.myworkdayjobs.com"
+    countries: [canada]
 
   aimco:
     name: "AIMCo"
     tenant: "aimco"
     site_id: "AIMCoCareers"
     base_url: "https://aimco.wd10.myworkdayjobs.com"
+    countries: [canada]
 
   # ── Tech Companies ──────────────────────────────────────────────────────
 
@@ -141,66 +167,77 @@ employers:
     tenant: "bb"
     site_id: "BlackBerry"
     base_url: "https://bb.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   ciena:
     name: "Ciena"
     tenant: "ciena"
     site_id: "Careers"
     base_url: "https://ciena.wd5.myworkdayjobs.com"
+    countries: [canada]
 
   workday:
     name: "Workday"
     tenant: "workday"
     site_id: "Workday"
     base_url: "https://workday.wd5.myworkdayjobs.com"
+    countries: [canada, australia, uk]
 
   salesforce:
     name: "Salesforce"
     tenant: "salesforce"
     site_id: "External_Career_Site"
     base_url: "https://salesforce.wd12.myworkdayjobs.com"
+    countries: [canada, australia, uk]
 
   nvidia:
     name: "NVIDIA"
     tenant: "nvidia"
     site_id: "NVIDIAExternalCareerSite"
     base_url: "https://nvidia.wd5.myworkdayjobs.com"
+    countries: [canada]
 
   cisco:
     name: "Cisco"
     tenant: "cisco"
     site_id: "Cisco_Careers"
     base_url: "https://cisco.wd5.myworkdayjobs.com"
+    countries: [canada, australia, uk]
 
   intel:
     name: "Intel"
     tenant: "intel"
     site_id: "External"
     base_url: "https://intel.wd1.myworkdayjobs.com"
+    countries: [canada]
 
   adobe:
     name: "Adobe"
     tenant: "adobe"
     site_id: "external_experienced"
     base_url: "https://adobe.wd5.myworkdayjobs.com"
+    countries: [canada, uk]
 
   motorola:
     name: "Motorola Solutions"
     tenant: "motorolasolutions"
     site_id: "Careers"
     base_url: "https://motorolasolutions.wd5.myworkdayjobs.com"
+    countries: [canada, australia]
 
   thomson_reuters:
     name: "Thomson Reuters"
     tenant: "thomsonreuters"
     site_id: "External_Career_Site"
     base_url: "https://thomsonreuters.wd5.myworkdayjobs.com"
+    countries: [canada, australia, uk]
 
   moderna:
     name: "Moderna"
     tenant: "modernatx"
     site_id: "M_tx"
     base_url: "https://modernatx.wd1.myworkdayjobs.com"
+    countries: [canada, australia, uk]
 
   # ── Consulting ──────────────────────────────────────────────────────────
 
@@ -209,12 +246,14 @@ employers:
     tenant: "pwc"
     site_id: "Global_Experienced_Careers"
     base_url: "https://pwc.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   bdo:
     name: "BDO"
     tenant: "bdo"
     site_id: "BDO"
     base_url: "https://bdo.wd3.myworkdayjobs.com"
+    countries: [canada, uk]
 
   # ── Telecom ─────────────────────────────────────────────────────────────
 
@@ -223,6 +262,7 @@ employers:
     tenant: "lifeworks"
     site_id: "External"
     base_url: "https://lifeworks.wd3.myworkdayjobs.com"
+    countries: [canada, australia]
 
   # ── Canadian Corporate ──────────────────────────────────────────────────
 
@@ -231,45 +271,53 @@ employers:
     tenant: "canadiantirecorporation"
     site_id: "Enterprise_External_Careers_Site"
     base_url: "https://canadiantirecorporation.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   pc_financial:
     name: "PC Financial"
     tenant: "myview"
     site_id: "pc_financial"
     base_url: "https://myview.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   cae:
     name: "CAE"
     tenant: "cae"
     site_id: "career"
     base_url: "https://cae.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   magna:
     name: "Magna International"
     tenant: "magna"
     site_id: "Magna"
     base_url: "https://magna.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   mlse:
     name: "MLSE"
     tenant: "mlse"
     site_id: "MLSE"
     base_url: "https://mlse.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   olg:
     name: "OLG"
     tenant: "olg"
     site_id: "Careers"
     base_url: "https://olg.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   enbridge:
     name: "Enbridge"
     tenant: "enbridge"
     site_id: "enbridge_careers"
     base_url: "https://enbridge.wd3.myworkdayjobs.com"
+    countries: [canada]
 
   canadian_solar:
     name: "Canadian Solar"
     tenant: "canadiansolar"
     site_id: "CanadianSolar"
     base_url: "https://canadiansolar.wd5.myworkdayjobs.com"
+    countries: [canada]

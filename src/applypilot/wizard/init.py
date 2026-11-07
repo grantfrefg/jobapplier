@@ -209,14 +209,13 @@ COUNTRY_SOURCES = {
     "australia": {
         "boards": ["indeed", "linkedin"],
         "smart_extract_sites": ["Jora", "Workforce Australia", "Randstad Australia", "Hays Australia"],
-        "workday_employers": [],  # the bundled registry is Canadian/US employers
+        # Workday employers: those tagged for this country in employers.yaml (no list written)
         "site_priority": ["linkedin", "indeed", "jora", "workforce australia", "randstad australia",
                           "hays australia"],
     },
     "uk": {
         "boards": ["indeed", "linkedin"],
         "smart_extract_sites": ["Hays UK", "Randstad UK"],  # Reed: its API, with a key (discovery/reed.py)
-        "workday_employers": [],
         "site_priority": ["linkedin", "indeed", "reed", "hays uk", "randstad uk"],
     },
 }
@@ -269,7 +268,8 @@ def build_search_yaml(location: str, roles: list[str], country: str = "australia
             f"# Sources chosen for {country.title()}. Remove a key to use every bundled source.",
             "sites: [" + ", ".join(sources["boards"]) + "]",
             "smart_extract_sites: [" + ", ".join(q(n) for n in sources["smart_extract_sites"]) + "]",
-            "workday_employers: [" + ", ".join(q(n) for n in sources["workday_employers"]) + "]",
+            "# Workday: the employers listed for this country in employers.yaml. To choose, add e.g.",
+            "# workday_employers: [\"Salesforce\", \"Cisco\"]   (an empty list turns Workday off)",
             "",
             "# When one role is listed on several sites, keep this site's listing (first wins)",
             "site_priority: [" + ", ".join(sources["site_priority"]) + "]",

@@ -15,7 +15,7 @@ def test_generated_config_targets_australia():
     assert AU_CFG["country"] == "australia"
     assert AU_CFG["sites"] == ["indeed", "linkedin"]
     assert AU_CFG["smart_extract_sites"] == ["Jora", "Workforce Australia", "Randstad Australia", "Hays Australia"]
-    assert AU_CFG["workday_employers"] == []
+    assert "workday_employers" not in AU_CFG  # Workday: the employers tagged for Australia
     assert AU_CFG["location_accept"] == ["Sydney", "NSW", "New South Wales"]
     assert {"location": "Australia", "remote": True} in AU_CFG["locations"]
     assert js.country_indeed(AU_CFG) == "australia"
@@ -78,7 +78,7 @@ def _capture_workday(monkeypatch, cfg):
 
 
 def test_workday_allowlist_empty_means_off(monkeypatch):
-    crawled = _capture_workday(monkeypatch, AU_CFG)
+    crawled = _capture_workday(monkeypatch, {**AU_CFG, "workday_employers": []})
     assert wd.run_workday_discovery()["queries"] == 0
     assert crawled == []
 
@@ -89,11 +89,32 @@ def test_workday_allowlist_by_key_or_name(monkeypatch):
     assert crawled == [["cibc", "td"]]
 
 
-def test_workday_without_allowlist_crawls_everything(monkeypatch):
-    cfg = {k: v for k, v in AU_CFG.items() if k != "workday_employers"}
-    crawled = _capture_workday(monkeypatch, cfg)
+def test_workday_searches_only_employers_hiring_in_the_country(monkeypatch):
+    """It used to crawl every employer, all picked for Canada, whatever the search's country."""
+    crawled = _capture_workday(monkeypatch, AU_CFG)
     wd.run_workday_discovery()
-    assert crawled and len(crawled[0]) == len(wd.load_employers())
+    assert crawled and "salesforce" in crawled[0] and "cisco" in crawled[0]
+    assert "cibc" not in crawled[0] and "canadian_tire" not in crawled[0]
+    assert all("australia" in wd.load_employers()[k]["countries"] for k in crawled[0])
+    uk = _capture_workday(monkeypatch, {**AU_CFG, "country": "United Kingdom"})
+    wd.run_workday_discovery()
+    assert "td" in uk[-1] and "moderna" in uk[-1] and "cae" not in uk[-1]
+
+
+def test_workday_registry_says_where_each_employer_hires():
+    employers = wd.load_employers()
+    assert employers and all(e.get("countries") for e in employers.values())
+    assert wd.country_key("United Kingdom") == "uk" and wd.country_key(" Australia ") == "australia"
+    assert wd.employers_for_country(employers, "") == employers  # no country set: every employer
+    assert wd.employers_for_country(employers, "Narnia") == {}
+
+
+def test_workday_with_no_employers_for_the_country_says_so(monkeypatch, caplog):
+    import logging
+    crawled = _capture_workday(monkeypatch, {**AU_CFG, "country": "new zealand"})
+    with caplog.at_level(logging.INFO):
+        assert wd.run_workday_discovery()["queries"] == 0
+    assert crawled == [] and "no employers to search for New Zealand" in caplog.text
 
 
 def test_relative_jora_urls_resolved(tmp_path):
