@@ -142,7 +142,7 @@ def _setup_profile() -> dict:
     # -- Experience --
     console.print("\n[bold cyan]Experience[/bold cyan]")
     current_title = Prompt.ask("Current/most recent job title", default="")
-    target_role = Prompt.ask("Target role (what you're applying for, e.g. 'Marketing Manager', 'Accountant')",
+    target_role = Prompt.ask("Target role (what you're applying for, e.g. 'Software Engineer', 'Marketing Manager')",
                              default=current_title)
     industry = _choose("Industry", "experience.industry", "Not set")
     profile["experience"] = {
@@ -297,8 +297,8 @@ def _setup_searches() -> None:
 
     roles: list[str] = []
     while not roles:  # never a default: it would search for someone else's jobs
-        roles_raw = Prompt.ask("Target job titles (comma-separated, e.g. 'Marketing Manager, Digital Marketing "
-                               "Specialist')")
+        roles_raw = Prompt.ask("Target job titles (comma-separated, e.g. 'Software Engineer, Marketing "
+                               "Manager')")
         roles = [r.strip() for r in roles_raw.split(",") if r.strip()]
         if not roles:
             console.print("[yellow]Enter at least one job title to search for.[/yellow]")
