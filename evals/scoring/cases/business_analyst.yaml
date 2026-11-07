@@ -8,7 +8,7 @@
 # disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
 id: business_analyst
 country: australia
-labels_reviewed: false
+labels_reviewed: true
 local_areas: ["Sydney NSW"]
 
 profile:
