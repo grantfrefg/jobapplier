@@ -1016,7 +1016,11 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         newest = sorted((p for p in config.TAILORED_DIR.glob("*.txt")
                          if not p.name.endswith(("_CL.txt", "_JOB.txt", ".edit.txt"))),
                         key=lambda p: p.stat().st_mtime, reverse=True) if config.TAILORED_DIR.exists() else []
-        text = look.SAMPLE
+        try:
+            profile = json.loads(config.PROFILE_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):  # no profile yet
+            profile = {}
+        text = look.sample_for(profile)
         for path in newest[:5]:
             candidate = path.read_text(encoding="utf-8", errors="replace")
             if not pdf.is_cover_letter(candidate):

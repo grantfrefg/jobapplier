@@ -18,7 +18,20 @@ from pathlib import Path
 # these ("AI engineer", "data scientist") must be a title the candidate holds.
 ROLE_NOUNS = ("engineer", "scientist", "developer", "architect", "analyst", "manager", "consultant",
               "director", "specialist", "researcher", "programmer", "administrator", "designer",
-              "technician", "officer", "strategist", "practitioner")
+              "technician", "officer", "strategist", "practitioner",
+              # marketing, sales, finance, health, admin and other fields
+              "marketer", "coordinator", "executive", "lead", "accountant", "bookkeeper", "auditor", "controller",
+              "nurse", "therapist", "pharmacist", "recruiter", "representative", "advisor", "adviser", "planner",
+              "producer", "copywriter", "writer", "editor", "buyer", "assistant", "associate", "supervisor",
+              "teacher", "lawyer", "solicitor", "paralegal")
+# A role noun followed by one of these is describing something else, not a person: "lead generation",
+# "executive team", "buyer personas", "associate degree"
+_NOT_A_PERSON_AFTER = {"generation", "gen", "nurturing", "nurture", "scoring", "magnet", "magnets", "time", "times",
+                       "list", "lists", "source", "sources", "quality", "volume", "volumes", "conversion",
+                       "conversions", "flow", "pipeline", "team", "teams", "summary", "summaries", "leadership",
+                       "level", "board", "committee", "sponsor", "sponsors", "stakeholder", "stakeholders",
+                       "presentation", "presentations", "reporting", "report", "reports", "persona", "personas",
+                       "journey", "journeys", "behaviour", "behavior", "intent", "degree", "briefing", "briefings"}
 
 # Tools, languages and platforms an AI likes to add. Any of these in the
 # generated text must also be in the original resume or the profile's skills.
@@ -51,9 +64,36 @@ TECH_TERMS = (
     "screaming frog", "hootsuite", "sprout social", "hotjar", "optimizely", "wordpress", "shopify",
     "contentful", "canva", "figma", "photoshop", "illustrator", "indesign", "premiere pro", "after effects",
     "adobe creative cloud", "adobe creative suite",
+    # finance, sales, HR, health, operations and design tools
+    "xero", "myob", "netsuite", "quickbooks", "microsoft dynamics", "dynamics 365", "successfactors", "bamboohr",
+    "employment hero", "zoominfo", "linkedin sales navigator", "salesloft", "pipedrive", "zendesk", "intercom",
+    "freshdesk", "cerner", "medical director", "asana", "monday.com", "smartsheet", "microsoft project", "primavera",
+    "autocad", "revit", "solidworks", "archicad", "etabs",
     # certifications
     "certified", "certification", "certificate", "pmp", "scrum master", "safe agilist", "itil", "togaf",
     "cissp", "cpeng", "rpeq",
+)
+
+# Skills an ad asks for in words a recruiter searches on, in fields beyond software. Used for the
+# ATS keyword check only (not the fact-check: rewording real work into the ad's words is allowed).
+FIELD_SKILLS = (
+    # marketing and communications
+    "seo", "sem", "ppc", "paid search", "paid social", "social media", "content strategy", "content marketing",
+    "copywriting", "email marketing", "marketing automation", "lead generation", "demand generation",
+    "conversion rate optimisation", "brand strategy", "brand management", "campaign management", "media buying",
+    "influencer marketing", "public relations", "media relations", "market research", "event management",
+    "product marketing", "lifecycle marketing", "customer journey",
+    # finance and accounting
+    "month-end", "reconciliations", "accounts payable", "accounts receivable", "payroll", "bas", "gst",
+    "budgeting", "forecasting", "financial modelling", "financial reporting", "management accounts", "ifrs",
+    # sales and business development
+    "account management", "business development", "prospecting", "negotiation", "pipeline management",
+    "solution selling", "tenders",
+    # people, operations and health
+    "recruitment", "onboarding", "employee relations", "workforce planning", "procurement", "inventory management",
+    "patient care", "wound care", "medication administration", "triage", "care planning",
+    # any field
+    "stakeholder management", "project management", "customer service", "data analysis", "agile", "scrum",
 )
 
 _STOP = {"and", "or", "the", "a", "an", "of", "for", "with", "in", "on", "to", "via", "using", "&", "incl",
@@ -114,6 +154,16 @@ ALIASES: list[set[str]] = [
     {"google analytics", "google analytics 4", "ga4"},
     {"meta ads", "facebook ads", "meta ads manager", "facebook ads manager"},
     {"seo", "search engine optimisation", "search engine optimization"},
+    {"sem", "search engine marketing"},
+    {"cro", "conversion rate optimisation", "conversion rate optimization"},
+    {"pr", "public relations"},
+    {"bas", "business activity statement", "business activity statements"},
+    {"ap", "accounts payable"},
+    {"ar", "accounts receivable"},
+    {"netsuite", "oracle netsuite"},
+    {"microsoft dynamics", "dynamics 365"},
+    {"linkedin sales navigator", "sales navigator"},
+    {"microsoft project", "ms project"},
     {"ppc", "pay per click", "pay-per-click"},
     {"crm", "customer relationship management"},
     {"adobe creative cloud", "adobe creative suite"},
@@ -361,8 +411,17 @@ def role_claims(text: str, source: Source) -> list[str]:
     claims = []
     words = re.findall(r"[a-z0-9+#./-]+", normalize(text))
     for i, w in enumerate(words):
+        # "head of growth": a title built the other way round
+        if w == "head" and i + 2 < len(words) and words[i + 1] == "of" and words[i + 2] not in _STOP:
+            if not source.mentions(f"head of {words[i + 2]}"):
+                claims.append(f"head of {words[i + 2]}")
+            continue
         noun = w.rstrip("s") if w.rstrip("s") in ROLE_NOUNS else None
+        if noun and w != noun:
+            continue  # plural: other people ("account executives", "data engineers") or sales "leads"
         if not noun or i == 0 or words[i - 1] in _NOT_A_TITLE:
+            continue
+        if i + 1 < len(words) and words[i + 1] in _NOT_A_PERSON_AFTER:
             continue
         # the qualifier words just before the noun ("ai engineer", "machine learning engineer")
         j = i

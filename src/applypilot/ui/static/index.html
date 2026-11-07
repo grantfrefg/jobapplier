@@ -196,9 +196,9 @@
           <option value="1">One page (graduate and early-career roles)</option>
           <option value="2">Up to two pages (the Australian norm)</option></select></label>
       <label class="choice"><input type="checkbox" id="look-tagline"> Add a few words after my job title for each
-        job ("Senior Data Scientist · Production ML"). Off is recommended: it reads as AI-tailored.</label>
+        job ("Marketing Manager · B2B Demand Generation"). Off is recommended: it reads as AI-tailored.</label>
       <label class="choice"><input type="checkbox" id="look-tech"> Show a tools line under each job
-        ("Python, AWS"). Your bullets and skills already name them.</label>
+        ("HubSpot, GA4, Google Ads"). Your bullets and skills already name them.</label>
       <label style="margin:0">Work rights in the header
         <select id="look-rights" style="width:100%">
           <option value="auto">Automatic: show citizenship, residency or full work rights; show a working holiday
@@ -259,8 +259,8 @@
     <label class="choice"><input type="checkbox" id="skills-confirmed">
       <span><b>My skills list is accurate</b>
       <small>Everything under "Skills boundary" is a tool or skill I can really use. Resumes and cover letters may
-        mention these even when my resume doesn't. Until this is ticked, the template's example skills
-        (JavaScript, Docker, AWS, CI/CD, MongoDB, Git, Linux...) are ignored. Remove the ones you don't use first.</small></span></label>
+        mention these even when my resume doesn't. Until this is ticked, example skills left from older
+        versions' template (Python, JavaScript, Docker, AWS...) are ignored. Remove any you don't use first.</small></span></label>
     <div class="row"><button class="btn" id="save-profile">Save profile</button></div>
   </div>
 
@@ -542,8 +542,8 @@
       <dl>
         <dt>What's checked</dt>
         <dd><b>Keywords (most of the score):</b> of the tools and must-haves in the ad that you really have, how many
-          appear in the resume in the ad's own words. Another form of the same thing ("AWS" when the ad says
-          "Amazon Web Services") counts half: some systems match it, but a recruiter's search for the ad's word
+          appear in the resume in the ad's own words. Another form of the same thing ("GA4" when the ad says
+          "Google Analytics") counts half: some systems match it, but a recruiter's search for the ad's word
           may not, so hover tells you which word to use.<br>
           <b>The PDF itself:</b> its text is read back the way a parser reads it, to check your name comes first,
           the email and phone can be read, the sections come out in order and each job keeps its dates. Odd
@@ -643,7 +643,7 @@
       <thead><tr><th>Section</th><th>What it's used for</th></tr></thead>
       <tbody>
         <tr><td><b>Personal</b></td><td>Typed into application forms. Your name, city and state, email, phone and
-          LinkedIn / GitHub head every resume; your preferred name signs cover letters. The street address is only
+          LinkedIn (and GitHub or portfolio, if you add them) head every resume; your preferred name signs cover letters. The street address is only
           typed into forms that ask for it. With the browser engine the AI sees placeholders such as
           <code>{{EMAIL}}</code>, never the real values. The <b>password</b> is only for the Claude Code and Codex
           engines (to sign in to or create employer accounts); leave it blank with the browser engine.</td></tr>
@@ -681,16 +681,17 @@
       checks, and drafts that lean on it are rejected. So the skills list decides how well a resume can match:</p>
     <ul>
       <li><b>Add skills your resume leaves out.</b> Resumes are short, so plenty of real skills never make it in.
-        If you've used Terraform, Tableau or Kafka at work, list it: the next resume for an ad that asks for it can
+        If you've used Marketo, Tableau, Xero or Terraform at work, list it: the next resume for an ad that asks for it can
         put it in the skills section, in the ad's own words. That's what applicant tracking systems search for,
         so the <a href="#g-ats">ATS score</a> goes up too.</li>
-      <li><b>Use the names employers use.</b> "Amazon Web Services (AWS)", "Power BI", "CI/CD". Short and long
+      <li><b>Use the names employers use.</b> "Google Analytics 4 (GA4)", "Power BI", "search engine optimisation
+        (SEO)". Short and long
         forms of common terms are matched anyway, but the ad's exact word counts most.</li>
       <li><b>Only list what you could talk about in an interview.</b> The list is the boundary of what you claim.
         A skill here can appear on any resume.</li>
-      <li><b>Remove the template's examples</b> (JavaScript, Docker, AWS, CI/CD, MongoDB, Git, Linux…) unless they're
-        really yours, then tick <b>My skills list is accurate</b>. Until it's ticked, those examples are ignored so
-        they can't end up on a resume by accident.</li>
+      <li><b>Profiles started on an older version</b> may still hold the old template's example skills (Python,
+        JavaScript, Docker, AWS…): remove any that aren't really yours, then tick <b>My skills list is accurate</b>.
+        Until it's ticked, those examples are ignored so they can't end up on a resume by accident.</li>
       <li><b>After changing it</b>, use <b>Redo</b> on jobs you haven't applied to (or <b>Redo all documents</b>) to
         get resumes that use the new list. Hovering the ATS badge shows skills an ad wanted that you didn't list:
         if you do have one, add it here.</li>

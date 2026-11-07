@@ -105,12 +105,12 @@ def _setup_profile() -> dict:
         "email": Prompt.ask("Email address"),
         "phone": Prompt.ask("Phone number", default=""),
         "city": Prompt.ask("City"),
-        "province_state": Prompt.ask("Province/State (e.g. Ontario, California)", default=""),
+        "province_state": Prompt.ask("State (e.g. NSW, VIC) or region", default=""),
         "country": Prompt.ask("Country"),
         "postal_code": Prompt.ask("Postal/ZIP code", default=""),
         "address": Prompt.ask("Street address (optional, used for form auto-fill)", default=""),
         "linkedin_url": Prompt.ask("LinkedIn URL", default=""),
-        "github_url": Prompt.ask("GitHub URL (optional)", default=""),
+        "github_url": Prompt.ask("GitHub URL (optional, mostly for software roles)", default=""),
         "portfolio_url": Prompt.ask("Portfolio URL (optional)", default=""),
         "website_url": Prompt.ask("Personal website URL (optional)", default=""),
         "password": Prompt.ask("Job site password (used for login walls during auto-apply)", password=True, default=""),
@@ -142,25 +142,25 @@ def _setup_profile() -> dict:
     # -- Experience --
     console.print("\n[bold cyan]Experience[/bold cyan]")
     current_title = Prompt.ask("Current/most recent job title", default="")
-    target_role = Prompt.ask("Target role (what you're applying for, e.g. 'Senior Backend Engineer')",
+    target_role = Prompt.ask("Target role (what you're applying for, e.g. 'Marketing Manager', 'Accountant')",
                              default=current_title)
+    industry = _choose("Industry", "experience.industry", "Not set")
     profile["experience"] = {
         "years_of_experience_total": Prompt.ask("Years of professional experience", default=""),
         "education_level": _choose("Highest education", "experience.education_level", "Bachelor's degree"),
-        "current_title": current_title,
+        "current_job_title": current_title,
         "target_role": target_role,
+        "industry": industry,
     }
 
-    # -- Skills Boundary --
-    console.print("\n[bold cyan]Skills[/bold cyan] (comma-separated)")
-    langs = Prompt.ask("Programming languages", default="")
-    frameworks = Prompt.ask("Frameworks & libraries", default="")
-    tools = Prompt.ask("Tools & platforms (e.g. Docker, AWS, Git)", default="")
-    profile["skills_boundary"] = {
-        "programming_languages": [s.strip() for s in langs.split(",") if s.strip()],
-        "frameworks": [s.strip() for s in frameworks.split(",") if s.strip()],
-        "tools": [s.strip() for s in tools.split(",") if s.strip()],
-    }
+    # -- Skills Boundary: the industry's skill boxes (as on the Setup page) --
+    from applypilot import industries
+    console.print("\n[bold cyan]Skills[/bold cyan] (comma-separated; only ones you really use)")
+    layout = (industries.get(industry) or industries.INDUSTRIES["Other"])["skills"]
+    profile["skills_boundary"] = {}
+    for key, examples in layout:
+        answer = Prompt.ask(f"{key.replace('_', ' ').capitalize()} (e.g. {examples})", default="")
+        profile["skills_boundary"][key] = [s.strip() for s in answer.split(",") if s.strip()]
 
     # -- Resume Facts (preserved truths for tailoring) --
     console.print("\n[bold cyan]Resume Facts[/bold cyan]")
@@ -168,7 +168,7 @@ def _setup_profile() -> dict:
     companies = Prompt.ask("Companies to always keep (comma-separated)", default="")
     projects = Prompt.ask("Projects to always keep (comma-separated)", default="")
     school = Prompt.ask("School name(s) to preserve", default="")
-    metrics = Prompt.ask("Real metrics to preserve (e.g. '99.9% uptime, 50k users')", default="")
+    metrics = Prompt.ask("Real metrics to preserve (e.g. 'cut cost per lead 32%, 50k users')", default="")
     profile["resume_facts"] = {
         "preserved_companies": [s.strip() for s in companies.split(",") if s.strip()],
         "preserved_projects": [s.strip() for s in projects.split(",") if s.strip()],
@@ -295,14 +295,13 @@ def _setup_searches() -> None:
     location = Prompt.ask("Target city / region (e.g. 'Sydney, NSW', 'Melbourne, VIC')", default="Sydney, NSW")
     include_remote = Confirm.ask("Also include remote jobs?", default=True)
 
-    roles_raw = Prompt.ask(
-        "Target job titles (comma-separated, e.g. 'Backend Engineer, Full Stack Developer')"
-    )
-    roles = [r.strip() for r in roles_raw.split(",") if r.strip()]
-
-    if not roles:
-        console.print("[yellow]No roles provided. Using a default set.[/yellow]")
-        roles = ["Software Engineer"]
+    roles: list[str] = []
+    while not roles:  # never a default: it would search for someone else's jobs
+        roles_raw = Prompt.ask("Target job titles (comma-separated, e.g. 'Marketing Manager, Digital Marketing "
+                               "Specialist')")
+        roles = [r.strip() for r in roles_raw.split(",") if r.strip()]
+        if not roles:
+            console.print("[yellow]Enter at least one job title to search for.[/yellow]")
 
     SEARCH_CONFIG_PATH.write_text(build_search_yaml(location, roles, country, include_remote), encoding="utf-8")
     console.print(f"[green]Search config saved to {SEARCH_CONFIG_PATH}[/green]")

@@ -270,8 +270,8 @@ $("#save-yaml").addEventListener("click", () => guarded(async () => {
 const REQUIRED = new Set(["personal.full_name", "personal.email", "personal.phone"]);
 // What each part of the profile is for, and why it's asked (shown in the form; the Guide says more)
 const PROFILE_SECTIONS = {
-  personal: "Typed into application forms. Your name, city and state, email, phone and LinkedIn / GitHub also " +
-    "head every resume. With the browser engine the AI only ever sees placeholders for your name, contact " +
+  personal: "Typed into application forms. Your name, city and state, email, phone and LinkedIn (plus GitHub or " +
+    "a portfolio, if you add them) also head every resume. With the browser engine the AI only ever sees placeholders for your name, contact " +
     "details and address; the real values are typed in on this computer.",
   work_authorization: "Australian employers screen on this first. It answers the work-rights questions on forms, " +
     "goes on your resume (e.g. \"Australian Citizen\"), and makes jobs you can't take (citizens only, a " +

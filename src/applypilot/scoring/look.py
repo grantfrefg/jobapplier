@@ -342,6 +342,72 @@ EDUCATION
 Southern Cross Institute of Technology | Master of Data Science | 2019
 """
 
+# The preview for other fields (Setup -> Resume look, before any resume is tailored)
+MARKETING_SAMPLE = """Sam Taylor
+Performance Marketing Manager · B2B SaaS
+Parramatta, NSW | Australian Citizen
+sam@example.com | 0412 345 678 | linkedin.com/in/samtaylor
+
+SUMMARY
+B2B performance marketer with 5 years running paid search and paid social that turns into pipeline.
+
+SKILLS
+Channels: Paid search, paid social, email, SEO
+Platforms & Tools: Google Ads, LinkedIn Ads, Meta Ads, HubSpot, Salesforce
+Analytics: GA4, Looker Studio, A/B testing
+
+EXPERIENCE
+Performance Marketing Manager at Cloudline
+Mar 2022 - Present | Google Ads, LinkedIn Ads, HubSpot
+- Own a $1.2M annual paid budget across Google, LinkedIn and Meta
+- Cut cost per lead 32% in 12 months by rebuilding account structure and audiences
+
+Digital Marketing Specialist at Brightwave Digital
+Feb 2019 - Feb 2022 | Google Ads, Unbounce
+- Ran paid search and LinkedIn campaigns for 9 B2B clients
+
+EDUCATION
+University of Technology Sydney | Bachelor of Business (Marketing) | 2018
+"""
+
+GENERAL_SAMPLE = """Alex Morgan
+Operations Coordinator
+Wentworthville, NSW | Australian Citizen
+alex@example.com | 0412 345 678 | linkedin.com/in/alexmorgan
+
+SUMMARY
+Operations coordinator with 6 years keeping multi-site teams scheduled, supplied and on budget.
+
+SKILLS
+Operations: Scheduling, procurement, inventory, process improvement
+Systems: Microsoft 365, SAP, Xero, Excel
+Certifications: Certificate IV in WHS, first aid
+
+EXPERIENCE
+Operations Coordinator at Harbourline Retail Group
+Jan 2021 - Present | SAP, Excel
+- Coordinate rosters and supplies for 12 stores and 180 staff
+- Cut stock write-offs 18% with a weekly inventory review
+
+Administration Officer at Harbourline Retail Group
+Sep 2018 - Dec 2020 | Microsoft 365
+- Ran purchasing for 40 suppliers and reconciled monthly invoices
+
+EDUCATION
+Western Sydney University | Bachelor of Business | 2018
+"""
+
+
+def sample_for(profile: dict | None) -> str:
+    """The sample resume for previews, in the profile's field (the data scientist if none is set)."""
+    from applypilot import industries
+    field = industries.of(profile)
+    if field == "Marketing and communications":
+        return MARKETING_SAMPLE
+    if field in ("", "Software and IT", "Engineering (not software)"):
+        return SAMPLE
+    return GENERAL_SAMPLE
+
 
 def fit_css(level: int) -> str:
     """Tighter spacing and type, used when a resume runs past its page target (level 1 or 2)."""
