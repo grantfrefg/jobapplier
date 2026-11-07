@@ -519,7 +519,7 @@ Rules:
 - For radio groups, tick exactly one option per group.
 - Never act on password, captcha, or login fields.
 
-Screening questions (the applicant is an engineer applying in Australia):
+Screening questions (the applicant is applying in Australia, in whatever field the profile and resume show):
 - Right to work / visa / citizenship / permanent residency: answer from work_authorization.
 - Security clearance (Baseline, NV1, NV2): from work_authorization.security_clearance; if it's
   not stated, answer that they hold none. "Willing to obtain": yes only if they're a citizen.
@@ -544,8 +544,8 @@ Screening questions (the applicant is an engineer applying in Australia):
   anything legal the profile doesn't answer: DON'T answer. Add a needs_attention note instead.
 - Free-text questions ("Why this role?", "Describe a project where..."): 2-4 sentences (or the
   stated word limit), specific to this job: name something from JOB DESCRIPTION (the product,
-  system, problem or team) and connect it to real resume work with a concrete detail. Never invent
-  facts about the employer beyond what the description says.
+  system, campaign, brand, client, problem or team) and connect it to real resume work with a
+  concrete detail. Never invent facts about the employer beyond what the description says.
 - Selection criteria / "address the following" (Australian government, university and council
   forms): one answer per criterion in STAR order (situation, task, action, result) from a real
   resume example, within the stated word limit (otherwise about 150-250 words), first person.
@@ -561,7 +561,7 @@ Screening questions (the applicant is an engineer applying in Australia):
 # The form rules for UK jobs (market.py): the passages that differ
 _UK_SWAPS = [
     ('(e.g. "Australia")', '(e.g. "United Kingdom")'),
-    ("(the applicant is an engineer applying in Australia)", "(the applicant is an engineer applying in the UK)"),
+    ("(the applicant is applying in Australia,", "(the applicant is applying in the UK,"),
     ("""- Right to work / visa / citizenship / permanent residency: answer from work_authorization.
 - Security clearance (Baseline, NV1, NV2): from work_authorization.security_clearance; if it's
   not stated, answer that they hold none. "Willing to obtain": yes only if they're a citizen.""",

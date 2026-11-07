@@ -132,3 +132,110 @@ def test_tailoring_groups_skills_the_industrys_way():
 def test_the_scorer_is_told_the_field():
     from applypilot.scoring.context import candidate_brief
     assert "Target role: Growth Marketing Lead (field: marketing and communications)" in candidate_brief(MARKETER)
+
+
+# -- 0.14.1: the rest of the review ----------------------------------------------------
+
+def test_form_filling_never_calls_the_applicant_an_engineer():
+    from applypilot import market
+    from applypilot.apply import local_engine as le
+    au = le._system_prompt()
+    assert "engineer" not in au.lower() and "in whatever field the profile and resume show" in au
+    uk = market.localise(le._SYSTEM_PROMPT, le._UK_SWAPS, market.UK)
+    assert "engineer" not in uk.lower() and "applying in the UK" in uk
+
+
+def test_agent_engines_describe_the_real_candidate():
+    from applypilot.apply import prompt
+    base = {"personal": {"city": "Parramatta"}, "work_authorization": {}}
+
+    def line(exp):
+        text = prompt._build_screening_section({**base, "experience": exp})
+        return next(row for row in text.splitlines() if "This candidate" in row)
+    assert "software engineer" not in line({}) and " a  with" not in line({"target_role": ""})
+    assert "a Marketing Coordinator in marketing and communications with 2 years" in line(
+        {"current_job_title": "Marketing Coordinator", "industry": "Marketing and communications",
+         "years_of_experience_total": "2"})
+
+
+def test_a_fields_set_phrases_are_not_banned_words():
+    from applypilot.scoring import cover_letter
+    from applypilot.scoring.validator import banned_in, validate_cover_letter
+    assert banned_in("Mapped the customer journey, analysed the competitive landscape, ran dynamic creative "
+                     "and grew the partner ecosystem.") == []
+    assert banned_in("A dynamic marketer on a journey.") == ["dynamic", "journey"]  # alone they still are
+    letter = ("Dear Hiring Manager,\n\nAt Cloudline I mapped the customer journey for our paid search and cut "
+              "cost per lead 32%.\n\nKind regards,\nSam")
+    assert not any("Banned" in e for e in validate_cover_letter(letter)["errors"])
+    assert "set phrases are fine" in tailor._tailor_rules({}) and "set phrases are fine" in \
+        cover_letter.cover_letter_rules({})
+
+
+@pytest.mark.parametrize("text, claim", [
+    ("Senior growth marketer with 7 years", "growth marketer"),
+    ("Results-driven demand generation lead", "demand generation lead"),
+    ("A chartered accountant with 10 years", "chartered accountant"),
+    ("Registered nurse", "registered nurse"),
+    ("Most recently head of growth at Cloudline", "head of growth"),
+])
+def test_invented_titles_in_any_field_are_caught(text, claim):
+    source = facts.Source("SAM TAYLOR\nPerformance Marketing Manager, Cloudline\n- Built HubSpot lead scoring.")
+    assert facts.role_claims(text, source) == [claim]
+
+
+@pytest.mark.parametrize("text", [
+    "Generated 300 marketing qualified leads a month", "Owns lead generation and lead scoring",
+    "Presented results to the executive team", "Built buyer personas", "Wrote the executive summary",
+    "Worked with the sales team and account executives", "Performance marketing manager with 5 years",
+])
+def test_ordinary_marketing_phrases_are_not_titles(text):
+    source = facts.Source("SAM TAYLOR\nPerformance Marketing Manager, Cloudline\n- Built HubSpot lead scoring.")
+    assert facts.role_claims(text, source) == []
+
+
+def test_ats_keywords_and_tools_cover_other_fields():
+    from applypilot.scoring import ats
+
+    def terms(ad):
+        return ats.ad_terms({"title": "x", "full_description": ad})
+    assert {"seo", "copywriting", "email marketing", "hubspot"} <= set(terms(
+        "Content Marketing Manager: SEO, copywriting, email marketing, HubSpot."))
+    assert {"xero", "reconciliations", "bas", "payroll"} <= set(terms(
+        "Accountant: reconciliations, BAS, payroll, Xero."))
+    assert {"wound care", "medication administration"} <= set(terms("Nurse: wound care, medication administration."))
+    assert facts.new_tools("Ran month-end in Xero and NetSuite", facts.Source("Ran Google Ads.")) == \
+        ["netsuite", "xero"]
+
+
+def test_tailoring_wording_is_not_an_engineers():
+    rules = tailor._tailor_rules({})
+    assert "Shipped" not in rules and "main tech" not in rules and "what was built" not in rules
+
+
+def test_the_terminal_wizard_asks_about_any_field(tmp_path, monkeypatch):
+    from applypilot.wizard import init
+    asked: list[str] = []
+    answers = {"Full name": "Sam Taylor", "Email address": "sam@example.com", "City": "Parramatta",
+               "Country": "Australia", "Current/most recent job title": "Marketing Coordinator",
+               "Industry": "2", "Channels and specialisms": "paid social, email"}
+
+    def ask(question, default="", **kw):
+        asked.append(question)
+        return next((v for k, v in answers.items() if question.startswith(k)), default or "")
+    monkeypatch.setattr(init.Prompt, "ask", staticmethod(ask))
+    monkeypatch.setattr(init.Confirm, "ask", staticmethod(lambda *a, **k: k.get("default", True)))
+    monkeypatch.setattr(init, "PROFILE_PATH", tmp_path / "profile.json")
+    profile = init._setup_profile()
+    text = " ".join(asked).lower()
+    assert "programming languages" not in text and "frameworks" not in text and "backend engineer" not in text
+    assert profile["experience"]["industry"] == "Marketing and communications"
+    assert profile["experience"]["current_job_title"] == "Marketing Coordinator"
+    assert profile["skills_boundary"]["channels_and_specialisms"] == ["paid social", "email"]
+
+
+def test_the_preview_sample_follows_the_industry():
+    from applypilot.scoring import look
+    marketer = {"experience": {"industry": "Marketing and communications"}}
+    assert "Performance Marketing Manager" in look.sample_for(marketer)
+    assert "Operations Coordinator" in look.sample_for({"experience": {"industry": "Finance and accounting"}})
+    assert look.sample_for({}) == look.SAMPLE  # nothing set: as before

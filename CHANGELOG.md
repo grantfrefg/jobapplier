@@ -8,6 +8,19 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-07
+
+### Fixed
+More places that assumed the candidate is a software engineer (found in a review after a marketer's report):
+- **Applying:** the browser engine was told "the applicant is an engineer" when answering every form question; it now goes by the profile and resume. The Claude Code / Codex engines fell back to "software engineer" (and, with no target role, wrote "This candidate is a  with..."); they now use your title or target role and industry.
+- **Normal words in your field were banned.** The anti-AI word list rejected letters that said "customer journey", "competitive landscape", "dynamic creative" or "partner ecosystem". A field's set phrases are now fine; the words on their own ("a dynamic marketer on a journey") are still banned.
+- **Made-up job titles in other fields slipped through** the fact-check, e.g. "growth marketer", "demand generation lead", "chartered accountant", "head of growth". They're now caught like engineering titles, while phrases such as "qualified leads", "lead generation" and "the executive team" are left alone.
+- **The ATS check found few keywords outside tech:** a marketing ad gave 2, a finance or nursing ad none. It now knows skills recruiters search for in marketing, finance, sales, HR, operations and health (SEO, copywriting, reconciliations, BAS, payroll, wound care...), and the fact-check knows tools like Xero, MYOB, NetSuite, Salesloft and Cerner.
+- **Tailoring instructions** suggested engineering verbs ("Built, Shipped, Migrated, Automated, Scaled") and called each role's tools line "main tech"; now they suit any field.
+- **`applypilot init`** asked for programming languages, frameworks and GitHub, and searched for "Software Engineer" if you gave no job title. It now asks your industry and its skill boxes (as Setup does), and needs a job title. It also saved your current job title where most of the app didn't look.
+- **Setup and Guide** examples are no longer all engineering, and the **Resume look preview** shows a sample in your industry (marketing, or a general one) until your first tailored resume.
+- The scoring eval's candidates now have an industry, so it tests the industry prompts.
+
 ## [0.14.0] - 2026-11-07
 
 ### Added
