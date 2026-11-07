@@ -8,6 +8,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Added
+- Scoring eval: a made-up business analyst with 12 jobs, testing BA roles against their neighbours (data analyst, BI developer, product owner, project manager, process improvement), a government role and a missing platform must-have. No industry is set, as the app has no business analysis option yet.
+
 ## [0.14.1] - 2026-11-07
 
 ### Fixed
