@@ -701,8 +701,10 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         options = {path: [{"value": v, "label": v or po.EMPTY_LABELS.get(path, "Not set")} for v in values]
                    for path, values in shown.items()}
         confirmed = bool(profile.pop("skills_confirmed", False))
+        from applypilot import industries
         return {"exists": saved is not None, "profile": profile, "template": template,
-                "options": options, "numbers": sorted(po.NUMBERS), "skills_confirmed": confirmed}
+                "options": options, "numbers": sorted(po.NUMBERS), "skills_confirmed": confirmed,
+                "skill_layouts": industries.skill_layouts()}
 
     @app.post("/api/profile")
     def save_profile(body: dict) -> dict:

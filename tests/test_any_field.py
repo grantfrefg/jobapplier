@@ -94,3 +94,41 @@ def test_resumes_say_skills_not_technical_skills():
     assert "Google Ads, LinkedIn Ads" in html
     old = text.replace("\nSKILLS\n", "\nTECHNICAL SKILLS\n")  # resumes made before still render
     assert "Google Ads, LinkedIn Ads" in pdf.build_html(pdf.parse_resume(old))
+
+
+# -- industries ----------------------------------------------------------------------
+
+MARKETER = {"experience": {"industry": "Marketing and communications", "target_role": "Growth Marketing Lead"}}
+
+
+def test_industries_are_well_formed():
+    from applypilot import industries
+    assert "Marketing and communications" in industries.NAMES and industries.NAMES[-1] == "Other"
+    for name, d in industries.INDUSTRIES.items():
+        keys = [k for k, _ in d["skills"]]
+        assert len(keys) == len(set(keys)) and all(k == k.lower() and " " not in k for k in keys), name
+        assert all(examples for _, examples in d["skills"]) and 3 <= len(d["resume"]) <= 6, name
+    other = [k for k, _ in industries.INDUSTRIES["Other"]["skills"]]
+    assert other == list(_template()["skills_boundary"])  # a new profile starts with Other's boxes
+    assert industries.of({"experience": {"industry": "Basket weaving"}}) == ""  # unknown: as if not set
+
+
+def test_industry_is_a_profile_choice(client):
+    data = client.get("/api/profile").json()
+    values = [o["value"] for o in data["options"]["experience.industry"]]
+    assert values[0] == "" and "Marketing and communications" in values
+    assert data["skill_layouts"]["Marketing and communications"][0][0] == "channels_and_specialisms"
+    assert po.invalid_choices({"experience": {"industry": "Basket weaving"}}) == ["experience.industry"]
+
+
+def test_tailoring_groups_skills_the_industrys_way():
+    rules = tailor._tailor_rules(MARKETER)
+    assert "works in marketing and communications: group their skills like Channels, Platforms & Tools" in rules
+    shape = json.loads(tailor._resume_shape(MARKETER).replace('"..."', '""'))
+    assert list(shape["skills"]) == ["Channels", "Platforms & Tools", "Analytics", "Content & Creative"]
+    assert "works in" not in tailor._tailor_rules({})  # no industry: as before
+
+
+def test_the_scorer_is_told_the_field():
+    from applypilot.scoring.context import candidate_brief
+    assert "Target role: Growth Marketing Lead (field: marketing and communications)" in candidate_brief(MARKETER)

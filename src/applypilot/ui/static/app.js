@@ -315,49 +315,82 @@ const PROFILE_FIELDS = {
   "experience.current_job_title": "Your real current title. Resume headlines use this, never the job's title.",
   "experience.target_role": "The kind of role you want, e.g. Performance Marketing Manager or Senior Data " +
     "Engineer. Guides scoring.",
-  "skills_boundary.skills": "What you can do, e.g. paid search, SEO, stakeholder management, financial modelling, " +
-    "API design.",
-  "skills_boundary.tools_and_software": "Tools and platforms you really use, e.g. Google Ads, HubSpot, GA4, Canva, " +
-    "Xero, Excel, Python, AWS.",
-  "skills_boundary.certifications_and_licences": "e.g. Google Ads certification, CPA, PMP, an electrical licence.",
+  "experience.industry": "Your field. It sets the skill boxes below and how tailored resumes group your skills, " +
+    "and tells the scorer what field you're in.",
   "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
 };
 const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
 
+let skillLayouts = {};  // industry -> [[profile key, examples], ...] (applypilot/industries.py)
+
+// The skill boxes for an industry: its own boxes, plus any other saved box that holds skills, so
+// switching industry never loses what you typed. No industry: the boxes as saved.
+function skillFields(industry, values) {
+  const layout = skillLayouts[industry];
+  if (!layout) return Object.entries(values).map(([key, value]) => [key, value, ""]);
+  const out = layout.map(([key, examples]) => [key, values[key] || [], examples]);
+  for (const [key, value] of Object.entries(values)) {
+    if (!layout.some(([k]) => k === key) && value.length) out.push([key, value, ""]);
+  }
+  return out;
+}
+
+function profileField(path, value, options, numbers, examples = "") {
+  const key = path.split(".")[1];
+  const isList = Array.isArray(value);
+  const type = key.includes("password") ? "password" : key === "email" ? "email" : "text";
+  const id = "p-" + path.replace(".", "-");
+  const label = el("label", { for: id }, human(key) + (REQUIRED.has(path) ? " *" : "") + (isList ? " (comma separated)" : ""));
+  let input;
+  if (options[path]) {
+    // A fixed set of answers: a drop-down, so the wording is always one the app understands
+    const current = String(value ?? "");
+    const known = options[path].some((o) => o.value === current);
+    input = el("select", { id, "data-path": path },
+      ...(known ? [] : [el("option", { value: current, selected: true }, (current || "(empty)") + " (pick one)")]),
+      ...options[path].map((o) => el("option", { value: o.value, selected: o.value === current }, o.label)));
+  } else {
+    input = el("input", { id, type: numbers.includes(path) ? "number" : type, "data-path": path,
+                          "data-list": isList ? "1" : false, min: numbers.includes(path) ? "0" : false,
+                          value: isList ? value.join(", ") : String(value ?? "") });
+  }
+  const help = PROFILE_FIELDS[path] || (examples ? "e.g. " + examples : "");
+  return el("div", {}, label, input, help ? el("small", { class: "help" }, help) : "");
+}
+
+function currentSkills() {
+  const out = {};
+  for (const input of document.querySelectorAll('#profile-form [data-path^="skills_boundary."]')) {
+    out[input.dataset.path.split(".")[1]] = input.value.split(",").map((v) => v.trim()).filter(Boolean);
+  }
+  return out;
+}
+
 async function loadProfile() {
-  const { profile, options = {}, numbers = [], skills_confirmed = false } = await api("/api/profile");
+  const { profile, options = {}, numbers = [], skills_confirmed = false, skill_layouts = {} } = await api("/api/profile");
+  skillLayouts = skill_layouts;
   $("#skills-confirmed").checked = skills_confirmed;
   const form = $("#profile-form");
   form.replaceChildren();
+  const industry = (profile.experience || {}).industry || "";
   for (const [section, fields] of Object.entries(profile)) {
     if (typeof fields !== "object" || Array.isArray(fields)) continue;
-    const box = el("div", { class: "fields" });
-    for (const [key, value] of Object.entries(fields)) {
-      const path = section + "." + key;
-      const isList = Array.isArray(value);
-      const type = key.includes("password") ? "password" : key === "email" ? "email" : "text";
-      const id = "p-" + path.replace(".", "-");
-      const label = el("label", { for: id }, human(key) + (REQUIRED.has(path) ? " *" : "") + (isList ? " (comma separated)" : ""));
-      let input;
-      if (options[path]) {
-        // A fixed set of answers: a drop-down, so the wording is always one the app understands
-        const current = String(value ?? "");
-        const known = options[path].some((o) => o.value === current);
-        input = el("select", { id, "data-path": path },
-          ...(known ? [] : [el("option", { value: current, selected: true }, (current || "(empty)") + " (pick one)")]),
-          ...options[path].map((o) => el("option", { value: o.value, selected: o.value === current }, o.label)));
-      } else {
-        input = el("input", { id, type: numbers.includes(path) ? "number" : type, "data-path": path,
-                              "data-list": isList ? "1" : false, min: numbers.includes(path) ? "0" : false,
-                              value: isList ? value.join(", ") : String(value ?? "") });
-      }
-      box.append(el("div", {}, label, input,
-        PROFILE_FIELDS[path] ? el("small", { class: "help" }, PROFILE_FIELDS[path]) : ""));
-    }
+    const box = el("div", { class: "fields", id: "profile-" + section });
+    const entries = section === "skills_boundary" ? skillFields(industry, fields)
+      : Object.entries(fields).map(([key, value]) => [key, value, ""]);
+    for (const [key, value, examples] of entries) box.append(profileField(section + "." + key, value, options, numbers, examples));
     form.append(el("fieldset", { class: PROFILE_KEY_SECTIONS.has(section) ? "key" : "" },
       el("legend", {}, human(section) + (section === "skills_boundary" ? " (improves tailored resumes)" : "")),
       PROFILE_SECTIONS[section] ? el("p", { class: "why" }, PROFILE_SECTIONS[section]) : "", box));
   }
+  // Choosing an industry shows its skill boxes; skills already typed move with their box or stay in theirs
+  const pick = form.querySelector('[data-path="experience.industry"]');
+  if (pick) pick.addEventListener("change", () => {
+    const box = document.getElementById("profile-skills_boundary");
+    if (!box) return;
+    box.replaceChildren(...skillFields(pick.value, currentSkills()).map(
+      ([key, value, examples]) => profileField("skills_boundary." + key, value, options, numbers, examples)));
+  });
 }
 $("#save-profile").addEventListener("click", () => guarded(async () => {
   const out = {};
