@@ -8,7 +8,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
-## [0.13.1] - 2026-11-07
+## [0.14.0] - 2026-11-07
+
+### Added
+- **Skills broken down by industry.** Setup -> Your profile -> Experience has an **Industry** choice: Marketing and communications, Software and IT, Engineering (not software), Finance and accounting, Sales and business development, Healthcare, Operations, admin and HR, or Other. The skill boxes change to suit it, each with examples (marketing: Channels and specialisms, Platforms and tools, Analytics and reporting, Content and creative, Certifications). Skills already typed are kept when you switch. Tailored resumes group skills the way your industry does, and the scorer is told your field.
+- **Scoring eval** (`evals/scoring/`, for developers): runs the real fit scorer over 27 made-up job ads for three made-up candidates (a B2B performance marketer, a backend engineer, a marketing coordinator on a working holiday visa) and reports how closely its scores match human labels: average error, rank correlation, dealbreakers caught, and how steady repeat runs are. `python -m evals.scoring`; see its README. Not part of the app, and not run in CI because it makes real AI calls (its harness is tested with a fake AI).
+
+### Changed
+- **Workday only searches employers that hire in your country.** The bundled Workday employers were all picked for Canada, and every search crawled them all, so an Australian search looked for Canadian jobs. Each employer now lists the countries it has jobs in; an Australian search covers the eight with a good number of Sydney or Melbourne jobs (Salesforce, Cisco, Workday, Moderna, Motorola, Thomson Reuters, PayPal, Telus Health), a UK search sixteen. Choose your own with `workday_employers:` in searches.yaml. Australian and UK searches saved before this have Workday turned off (`workday_employers: []`): save What jobs to look for again to use it.
 
 ### Fixed
 - **No more engineering assumptions for people in other fields** (reported by a marketer):
@@ -17,9 +24,6 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   - **Tailored resumes** were shown an example grouping skills as Languages, Frameworks, DevOps and Databases. The example is now field-neutral, and the instructions list marketing first. The resume's skills heading is "SKILLS" (it was "TECHNICAL SKILLS" in the editable text; the PDF already said Skills).
   - With no target role in your profile, the scorer no longer assumes "engineer": it judges from your resume.
 - Removed five Workday employers whose job searches no longer work (Netflix, ServiceNow, DocuSign, Uber and Telus), so they don't add errors to the log.
-
-### Added
-- **Scoring eval** (`evals/scoring/`, for developers): runs the real fit scorer over 27 made-up job ads for three made-up candidates (a B2B performance marketer, a backend engineer, a marketing coordinator on a working holiday visa) and reports how closely its scores match human labels: average error, rank correlation, dealbreakers caught, and how steady repeat runs are. `python -m evals.scoring`; see its README. Not part of the app, and not run in CI because it makes real AI calls (its harness is tested with a fake AI).
 
 ## [0.13.0] - 2026-11-05
 

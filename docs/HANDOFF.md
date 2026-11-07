@@ -48,6 +48,7 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
 |---|---|---|
 | UI | `ui/server.py` (~1150 lines), `ui/static/index.html` (~960 lines of HTML, incl. the Guide), `app.js` (~1040), `app.css`; only those two are served from `/static/` | Tabs: Setup, Find jobs, Apply, Guide. `/api/jobs` builds the Apply list. |
 | Desktop | `desktop.py`, `packaging/Jobapplier.spec`, `packaging/desktop_entry.py`, `smoke_test.py` | |
+| Industries | `industries.py` | Skill boxes per industry in Setup, resume skill groups for tailoring, the field for scoring. Profile key `experience.industry`. |
 | Config and data | `config.py`, `database.py` (SQLite `jobs` table; missing columns added by ALTER TABLE at start-up), `profile_options.py` | Settings live in `~/.applypilot/.env`, profile.json, searches.yaml |
 | Market | `market.py` | AU/UK `Market` dataclass. `market.localise(text, swaps, mk)` swaps AU passages for UK ones and **raises if a passage is missing**, so AU prompts stay unchanged. |
 | Discovery | `discovery/jobspy.py` (Indeed/LinkedIn via JobSpy), `discovery/reed.py` (Reed API, `REED_API_KEY`), `discovery/smartextract.py` + `config/sites.yaml` (page-read boards), `discovery/workday.py`, `enrichment/detail.py` (full descriptions) | `pipeline.py` runs the stages |

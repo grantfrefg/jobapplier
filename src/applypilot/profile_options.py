@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import re
 
+from applypilot import industries
+
 YES_NO = ["Yes", "No"]
 
 # "section.key" -> allowed values. "" means "none / not set" and is shown as the label in EMPTY_LABELS.
@@ -32,6 +34,7 @@ OPTIONS: dict[str, list[str]] = {
     "availability.notice_period": ["Immediately", "1 week", "2 weeks", "3 weeks", "4 weeks", "6 weeks",
                                    "8 weeks", "3 months"],
     "compensation.salary_currency": ["AUD", "NZD", "GBP", "USD", "CAD"],
+    "experience.industry": ["", *industries.NAMES],
     "experience.education_level": [
         "Year 12", "Certificate or diploma", "Bachelor's degree", "Honours degree",
         "Graduate certificate or diploma", "Master's degree", "PhD",
@@ -72,6 +75,7 @@ _AU_OPTIONS = dict(OPTIONS)
 OPTIONS = {path: list(dict.fromkeys(values + UK_OPTIONS.get(path, []))) for path, values in _AU_OPTIONS.items()}
 
 EMPTY_LABELS = {
+    "experience.industry": "Not set",
     "work_authorization.work_permit_type": "Not set",
     "work_authorization.security_clearance": "None",
 }

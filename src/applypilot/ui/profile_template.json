@@ -41,7 +41,8 @@
     "education_level": "Bachelor's degree",
     "current_job_title": "",
     "current_company": "",
-    "target_role": ""
+    "target_role": "",
+    "industry": ""
   },
   "skills_boundary": {
     "skills": [],

@@ -106,6 +106,10 @@ def _tailor_rules(profile: dict) -> str:
 
 def _tailor_rules_au(profile, title_now, skills_block, companies_str, projects_str, school, metrics_str,
                      banned_str) -> str:
+    from applypilot import industries
+    groups = industries.resume_groups(profile)
+    industry_line = (f"\nThis candidate works in {industries.of(profile).lower()}: group their skills like "
+                     f"{', '.join(groups)} (leave out a group they have nothing for)." if groups else "")
     return f"""You are a senior recruiter in Australia rewriting a resume so this candidate
 gets an interview for the target job, in whatever field it is. Return the tailored resume as a JSON object.
 
@@ -141,7 +145,7 @@ they haven't held (not "AI engineer with 7 years..." for a data scientist).
 SKILLS: Group into categories named for the candidate's own field, e.g. marketing: Channels, Platforms &
 Tools, Analytics, Content & Creative; software: Languages, Frameworks, Cloud & DevOps, Databases;
 other engineering: Design Software, Standards & Codes, Methods; finance: Reporting, Systems, Regulation.
-The category names in the JSON example below are placeholders: use ones that fit this candidate.
+The category names in the JSON example below are placeholders: use ones that fit this candidate.{industry_line}
 Put the job's must-haves first in each category. Drop skills irrelevant to this job if space is tight.
 
 ## GETTING THROUGH THE ATS (Workday, SuccessFactors, PageUp, JobAdder, Greenhouse...)
@@ -211,13 +215,15 @@ UK_TAILOR_SWAPS = [
 
 def _resume_shape(profile: dict) -> str:
     """Example of the resume JSON object the LLM must return."""
+    from applypilot import industries
     school = profile.get("resume_facts", {}).get("preserved_school", "")
     education_level = profile.get("experience", {}).get("education_level", "")
+    # Category names here get copied: the candidate's industry's groups, else neutral ones
+    groups = industries.resume_groups(profile) or ["Core Skills", "Tools & Software", "Certifications"]
+    skills = ",".join(json.dumps(g) + ':"..."' for g in groups[:4])
     return (
         '{"title":"A real job title from the resume","focus":"optional, up to 6 words",'
-        # Category names here get copied, so they're neutral: the SKILLS rule says to name them for the field
-        '"summary":"2-3 tailored sentences.","skills":{"Core Skills":"...",'
-        '"Tools & Software":"...","Certifications":"..."},'
+        '"summary":"2-3 tailored sentences.","skills":{' + skills + '},'
         '"experience":[{"header":"Title at Company","subtitle":"Mar 2021 - Present | Main tools",'
         '"bullets":["bullet 1","bullet 2","bullet 3","bullet 4"]}],'
         '"projects":[{"header":"Project Name - Description","subtitle":"2022 | Main tools",'

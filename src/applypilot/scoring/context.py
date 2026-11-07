@@ -7,7 +7,7 @@ rights come from the profile.
 
 from __future__ import annotations
 
-from applypilot import market
+from applypilot import industries, market
 
 AU_STYLE = market.AU.style  # the Australian house style (kept for older imports)
 
@@ -67,7 +67,8 @@ def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
     yrs = years(profile)
     lines = [
         f"Target role: {target_role(profile) or 'not stated (judge from the resume)'}"
-        + (f", about {yrs} years of experience" if yrs else ""),
+        + (f", about {yrs} years of experience" if yrs else "")
+        + (f" (field: {industries.of(profile).lower()})" if industries.of(profile) else ""),
         f"Based in: {_location(profile)}"
         + (f" (searching in: {'; '.join(local_areas)}; jobs there and in any of their suburbs are local)"
            if local_areas else "")
