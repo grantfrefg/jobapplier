@@ -21,6 +21,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from applypilot import config
 from applypilot.config import load_env, ensure_dirs
 from applypilot.database import init_db, get_connection, get_stats
 
@@ -58,7 +59,7 @@ _UPSTREAM: dict[str, str | None] = {
 def _print_budget() -> None:
     """Today's Gemini usage, when Gemini is the provider."""
     import os
-    from applypilot import budget, config
+    from applypilot import budget
     if not os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_URL"):
         return
     b = budget.status(config.get_local_engine_model())
@@ -74,6 +75,10 @@ def _print_budget() -> None:
 def _run_discover(workers: int = 1) -> dict:
     """Stage: Job discovery — JobSpy, Workday, and smart-extract scrapers."""
     stats: dict = {"jobspy": None, "workday": None, "smartextract": None, "reed": None}
+    if not config.SEARCH_CONFIG_PATH.exists():
+        console.print("  [yellow]No job search saved yet: fill in What jobs to look for in Setup "
+                      "(or run applypilot init), then run Discover again.[/yellow]")
+        return {k: "skipped: no search saved" for k in stats}
 
     # JobSpy
     console.print("  [cyan]JobSpy full crawl...[/cyan]")

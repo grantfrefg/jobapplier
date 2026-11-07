@@ -135,4 +135,8 @@ def test_prompts_work_for_marketing_as_well_as_tech():
         prompt = scorer.score_prompt(mk)
         assert "HOW TO JUDGE ROLES" in prompt and "Marketing and other business roles" in prompt
     assert "engineering recruiter" not in scorer.SCORE_PROMPT
-    assert "for\nmarketing: Channels" in tailor._tailor_rules_au({}, "Analyst", "", "", "", "", "", "")
+    rules = tailor._tailor_rules_au({}, "Analyst", "", "", "", "", "", "")
+    assert "marketing: Channels" in rules and rules.index("marketing:") < rules.index("software:")
+    # The JSON example's categories get copied, so they're field-neutral
+    shape = tailor._resume_shape({})
+    assert '"Core Skills"' in shape and not any(w in shape for w in ("Languages", "Frameworks", "DevOps", "Python"))

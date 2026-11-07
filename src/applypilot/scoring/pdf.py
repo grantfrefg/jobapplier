@@ -75,7 +75,8 @@ def parse_resume(text: str) -> dict:
         ):
             if current_section:
                 sections[current_section] = "\n".join(current_lines).strip()
-            current_section = stripped
+            # "SKILLS" (resumes since 0.13.1, any field) and "TECHNICAL SKILLS" (older ones) are one section
+            current_section = "TECHNICAL SKILLS" if stripped == "SKILLS" else stripped
             current_lines = []
         else:
             current_lines.append(line)

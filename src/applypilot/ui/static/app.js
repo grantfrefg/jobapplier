@@ -313,7 +313,13 @@ const PROFILE_FIELDS = {
   "compensation.currency_conversion_note": "Optional: how to handle ads in another currency.",
   "experience.years_of_experience_total": "Answers \"years of experience\" and sets the seniority you're scored for.",
   "experience.current_job_title": "Your real current title. Resume headlines use this, never the job's title.",
-  "experience.target_role": "The kind of role you want, e.g. Senior Data Engineer. Guides scoring.",
+  "experience.target_role": "The kind of role you want, e.g. Performance Marketing Manager or Senior Data " +
+    "Engineer. Guides scoring.",
+  "skills_boundary.skills": "What you can do, e.g. paid search, SEO, stakeholder management, financial modelling, " +
+    "API design.",
+  "skills_boundary.tools_and_software": "Tools and platforms you really use, e.g. Google Ads, HubSpot, GA4, Canva, " +
+    "Xero, Excel, Python, AWS.",
+  "skills_boundary.certifications_and_licences": "e.g. Google Ads certification, CPA, PMP, an electrical licence.",
   "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
 };
 const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
