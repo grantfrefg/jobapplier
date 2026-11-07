@@ -1,13 +1,13 @@
 """Candidate facts and house style shared by the AI prompts.
 
-The prompts are tuned for engineers (software first, other disciplines
-too) applying in Australia or the UK (market.py); the role, seniority,
-location and work rights come from the profile.
+The prompts work for any field (engineering, marketing, finance...) in
+Australia or the UK (market.py); the role, seniority, location and work
+rights come from the profile.
 """
 
 from __future__ import annotations
 
-from applypilot import market
+from applypilot import industries, market
 
 AU_STYLE = market.AU.style  # the Australian house style (kept for older imports)
 
@@ -19,7 +19,7 @@ def house_style(profile: dict | None = None) -> str:
 
 def target_role(profile: dict) -> str:
     exp = profile.get("experience", {})
-    return (exp.get("target_role") or exp.get("current_job_title") or "engineer").strip()
+    return str(exp.get("target_role") or exp.get("current_job_title") or "").strip()
 
 
 def current_title(profile: dict) -> str:
@@ -66,7 +66,9 @@ def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
     comp = profile.get("compensation", {})
     yrs = years(profile)
     lines = [
-        f"Target role: {target_role(profile)}" + (f", about {yrs} years of experience" if yrs else ""),
+        f"Target role: {target_role(profile) or 'not stated (judge from the resume)'}"
+        + (f", about {yrs} years of experience" if yrs else "")
+        + (f" (field: {industries.of(profile).lower()})" if industries.of(profile) else ""),
         f"Based in: {_location(profile)}"
         + (f" (searching in: {'; '.join(local_areas)}; jobs there and in any of their suburbs are local)"
            if local_areas else "")
