@@ -69,9 +69,25 @@ def ai_phrasing(text: str) -> list[str]:
     return sorted({name for pattern, name in AI_PATTERNS if re.search(pattern, low)})
 
 
+# Set phrases of a field that contain a banned word but are the plain name of the thing
+# ("customer journey" in marketing, "threat landscape" in security). Only the whole phrase is allowed:
+# "journey" or "landscape" on their own are still banned.
+TERMS_OF_ART: list[str] = [
+    "customer journey", "customer journeys", "user journey", "user journeys", "buyer journey", "buyer journeys",
+    "journey mapping", "journey map", "journey maps", "competitive landscape", "threat landscape",
+    "dynamic creative", "dynamic pricing", "dynamic content", "dynamic search ads", "dynamic ads",
+    "dynamic product ads", "partner ecosystem", "app ecosystem", "product showcase", "showcase event",
+]
+TERMS_OF_ART_EXAMPLES = ("customer journey", "competitive landscape", "dynamic creative", "partner ecosystem",
+                         "threat landscape")  # named in the prompts
+_TERMS_OF_ART = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in sorted(TERMS_OF_ART, key=len, reverse=True))
+                           + r")\b")
+
+
 def banned_in(text: str, allowed_text: str = "") -> list[str]:
-    """Banned words in the text, except ones the candidate uses in their own resume."""
-    low, own = (text or "").lower(), (allowed_text or "").lower()
+    """Banned words in the text, except ones the candidate uses in their own resume and the
+    words of a field's set phrases (TERMS_OF_ART, e.g. "customer journey")."""
+    low, own = _TERMS_OF_ART.sub(" ", (text or "").lower()), (allowed_text or "").lower()
     return [w for w in BANNED_WORDS
             if re.search(r"\b" + re.escape(w) + r"\b", low) and not re.search(r"\b" + re.escape(w) + r"\b", own)]
 
@@ -375,7 +391,7 @@ def validate_tailored_resume(text: str, profile: dict, original_text: str = "") 
         errors.append("Contains em dash or en dash.")
 
     # 10. Banned words (word-boundary matching)
-    found_banned = [w for w in BANNED_WORDS if re.search(r"\b" + re.escape(w) + r"\b", text_lower)]
+    found_banned = banned_in(text_lower)
     if found_banned:
         errors.append(f"Banned words: {', '.join(found_banned[:5])}")
 

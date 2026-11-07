@@ -102,6 +102,8 @@ def _cover_letter_rules_au(profile: dict) -> str:
     # with what will actually be rejected — the validator checks all of these.
     all_banned = ", ".join(f'"{w}"' for w in BANNED_WORDS)
     leak_banned = ", ".join(f'"{p}"' for p in LLM_LEAK_PHRASES)
+    from applypilot.scoring.validator import TERMS_OF_ART_EXAMPLES
+    terms_of_art = ", ".join(f'"{t}"' for t in TERMS_OF_ART_EXAMPLES)
 
     return f"""Write a cover letter for {name}, {role_line}. The goal is to get an interview with the
 hiring manager and team reading it.
@@ -127,6 +129,7 @@ plain close, e.g. "Happy to walk through any of this in more detail." No "I woul
 
 BANNED WORDS AND PHRASES (automated validator rejects ANY of these, do not use even once):
 {all_banned}
+A field's set phrases are fine: {terms_of_art}.
 
 ALSO BANNED (meta-commentary the validator catches):
 {leak_banned}
