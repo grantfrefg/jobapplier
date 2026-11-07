@@ -187,8 +187,12 @@ def _build_screening_section(profile: dict) -> str:
     personal = profile["personal"]
     exp = profile.get("experience", {})
     city = personal.get("city", "their city")
-    years = exp.get("years_of_experience_total", "multiple")
-    target_role = exp.get("target_role", personal.get("current_job_title", "software engineer"))
+    years = exp.get("years_of_experience_total") or "several"
+    from applypilot import industries
+    from applypilot.scoring.context import target_role as role_of
+    field = industries.of(profile)
+    who = (f"a {role_of(profile)}" if role_of(profile) else "the professional their resume shows") \
+        + (f" in {field.lower()}" if field else "")
     work_auth = profile["work_authorization"]
     relocate = profile.get("availability", {}).get("willing_to_relocate") or "No"
     clearance = work_auth.get("security_clearance") or "none held"
@@ -202,7 +206,7 @@ Hard facts -> answer truthfully from the profile. No guessing. This includes:
 
   - Security clearance: {clearance}. "Willing to obtain" -> yes only if an Australian citizen.
 
-Skills and tools -> be confident but truthful. This candidate is a {target_role} with {years} years experience. "Do you have experience with [tool]?" -> YES if the resume or profile shows it. If it doesn't, answer no (or the closest honest option) and, where there's a text box, mention the nearest real experience. "Years with X" -> count from the resume's role dates, round down.
+Skills and tools -> be confident but truthful. This candidate is {who} with {years} years experience. "Do you have experience with [tool]?" -> YES if the resume or profile shows it. If it doesn't, answer no (or the closest honest option) and, where there's a text box, mention the nearest real experience. "Years with X" -> count from the resume's role dates, round down.
 
 Open-ended questions ("Why do you want this role?", "Tell us about yourself", "What interests you?") -> Write 2-3 sentences. Be specific to THIS job. Reference something from the job description. Connect it to a real achievement from the resume. No generic fluff. No "I am passionate about..." -- sound like a real person. Australian English spelling.
 

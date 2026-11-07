@@ -107,6 +107,8 @@ def _tailor_rules(profile: dict) -> str:
 def _tailor_rules_au(profile, title_now, skills_block, companies_str, projects_str, school, metrics_str,
                      banned_str) -> str:
     from applypilot import industries
+    from applypilot.scoring.validator import TERMS_OF_ART_EXAMPLES
+    terms_of_art = ", ".join(f'"{t}"' for t in TERMS_OF_ART_EXAMPLES)
     groups = industries.resume_groups(profile)
     industry_line = (f"\nThis candidate works in {industries.of(profile).lower()}: group their skills like "
                      f"{', '.join(groups)} (leave out a group they have nothing for)." if groups else "")
@@ -127,7 +129,7 @@ facts. Code checks every one of these against the original and rejects the resum
 ## SKILLS
 List only skills named in the original resume, plus these extra skills the candidate listed: {skills_block}
 The extra skills go in SKILLS (and may be mentioned in the summary), never in an experience or project
-entry: not in its bullets, not in its "| main tech" line. The resume doesn't say which role used them.
+entry: not in its bullets, not in its "| main tools" line. The resume doesn't say which role used them.
 Never add a tool, language, framework, platform, standard or certification the candidate doesn't name,
 even a closely related or easy-to-learn one. If the job wants something they lack, leave it out and put
 their nearest real experience first.
@@ -164,15 +166,16 @@ terms for the same work (e.g. "web services" -> "REST APIs", "social ads" -> "pa
 is when it already fits. Each bullet must be traceable to one original bullet in the same role. Don't
 move achievements between roles or projects, and don't join separate facts into a new cause and
 effect (if one bullet says costs fell 50% and another says 10 million customers, don't write "cut costs
-50% while serving 10 million customers"). Shape: strong verb + what was built/designed/delivered/launched + scale or result.
-Vary verbs (Built, Designed, Led, Shipped, Launched, Grew, Migrated, Automated, Reduced, Scaled) and vary the shape:
-not every bullet "verb + thing, resulting in X%". Some bullets are just what was built and for whom;
+50% while serving 10 million customers"). Shape: strong verb + what was done + scale or result.
+Vary verbs to suit the field (e.g. Led, Ran, Launched, Grew, Cut, Delivered, Managed, Negotiated, Built,
+Designed) and vary the shape: not every bullet "verb + thing, resulting in X%". Some bullets are just what
+was done and for whom;
 put a number only where the resume has one. Up to 5 bullets for recent roles, 2-3 for older ones.
 
 PROJECTS: Only projects in the original resume, most relevant first. Drop ones that don't help for
 this job. If the resume has none, return an empty list: never make one up.
 
-EXPERIENCE ENTRIES: header "Job Title at Employer"; subtitle "Mon YYYY - Mon YYYY (or Present) | main tech"
+EXPERIENCE ENTRIES: header "Job Title at Employer"; subtitle "Mon YYYY - Mon YYYY (or Present) | main tools"
 (the main tools used in that role, e.g. "Python, AWS" or "HubSpot, GA4, Meta Ads").
 EDUCATION: "Institution | Degree | graduation year" (the year only if the original resume shows it).
 
@@ -193,6 +196,7 @@ Australian recruiters read hundreds of these and reject the ones that sound gene
 - BANNED WORDS (words recruiters and AI detectors flag; using any = rejected, unless the original
   resume itself uses the word):
   {banned_str}
+  A field's set phrases are fine: {terms_of_art}.
 - No em dashes. Use commas, periods, or hyphens.
 - {AU_STYLE}
 
@@ -284,7 +288,7 @@ supported; or none>"}}
   cover letter (not the resume).
 - Plus these extra skills the candidate listed in their profile: {skills_str}. They are real, in the
   skills list and the summary; but the resume doesn't say which role used them, so one named inside a
-  role's bullets or tech line, when the original doesn't show it in that role, is rule 3.
+  role's bullets or tools line, when the original doesn't show it in that role, is rule 3.
 - The JOB AD excerpt is given so you can tell what the letter says about the role or employer. Statements
   about the employer, team, product or role ("your platform team's move to event streaming") are not
   claims about the candidate: never fail them.

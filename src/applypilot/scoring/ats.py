@@ -62,7 +62,8 @@ def ad_terms(job: dict | None) -> list[str]:
     """Tools, platforms and skills named in the job ad, plus the scorer's must-haves."""
     ad = facts.normalize(" ".join(str((job or {}).get(k) or "") for k in ("title", "full_description",
                                                                           "description")))
-    terms = [t for t in facts.TECH_TERMS if _has(t, ad) and t not in ("certified", "certification", "certificate")]
+    terms = [t for t in (*facts.TECH_TERMS, *facts.FIELD_SKILLS)
+             if _has(t, ad) and t not in ("certified", "certification", "certificate")]
     first = str((job or {}).get("score_reasoning") or "").split("\n", 1)[0]
     terms += [k.strip(" []()\"'.") for k in first.split(",") if 1 < len(k.strip(" []()\"'.")) <= 40]
     seen, out = set(), []
