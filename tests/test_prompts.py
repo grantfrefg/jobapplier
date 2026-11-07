@@ -38,7 +38,9 @@ def test_scoring_sees_candidate_dealbreakers(monkeypatch):
 
 
 def test_candidate_brief_without_profile_details():
-    assert "Target role: engineer" in candidate_brief({})
+    """No target role in the profile: the scorer judges from the resume (it used to assume "engineer")."""
+    assert "Target role: not stated (judge from the resume)" in candidate_brief({})
+    assert "engineer" not in candidate_brief({})
 
 
 def test_tailoring_never_invites_new_tools():

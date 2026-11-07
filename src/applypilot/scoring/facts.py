@@ -233,16 +233,22 @@ class Source:
 
 # ── Skills from the profile ──────────────────────────────────────────────
 
+# The example skills of the profile template before 0.13.1 (a software engineer's). Profiles started
+# from it may still hold them, so they stay examples until the user confirms the list.
+_OLD_TEMPLATE_SKILLS = frozenset({"python", "sql", "javascript", "fastapi", "flask", "react", "docker", "aws",
+                                  "ci/cd", "postgresql", "mongodb", "git", "linux"})
+
+
 @lru_cache(maxsize=1)
 def _template_skills() -> frozenset[str]:
-    """The example skills in the profile template; never treated as the user's own."""
+    """The example skills in the profile template (now or before); never treated as the user's own."""
     try:
         path = Path(__file__).resolve().parent.parent / "ui" / "profile_template.json"
         boundary = json.loads(path.read_text(encoding="utf-8")).get("skills_boundary", {})
     except (OSError, ValueError):
-        return frozenset()
-    return frozenset(str(s).strip().lower() for items in boundary.values() if isinstance(items, list)
-                     for s in items)
+        return _OLD_TEMPLATE_SKILLS
+    return _OLD_TEMPLATE_SKILLS | frozenset(str(s).strip().lower() for items in boundary.values()
+                                            if isinstance(items, list) for s in items)
 
 
 def profile_skills(profile: dict) -> list[str]:

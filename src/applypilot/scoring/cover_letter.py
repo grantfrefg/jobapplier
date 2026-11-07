@@ -1,6 +1,6 @@
 """Cover letter generation: LLM-powered, profile-driven, with validation.
 
-Generates concise, engineering-voice cover letters tailored to specific job
+Generates concise cover letters, in the voice of the candidate's own field, tailored to specific job
 postings. All personal data (name, skills, achievements) comes from the user's
 profile at runtime. No hardcoded personal information.
 """

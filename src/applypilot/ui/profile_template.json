@@ -11,7 +11,7 @@
     "country": "Australia",
     "postal_code": "2000",
     "linkedin_url": "https://www.linkedin.com/in/yourprofile",
-    "github_url": "https://github.com/yourusername",
+    "github_url": "",
     "portfolio_url": "",
     "website_url": ""
   },
@@ -41,32 +41,12 @@
     "education_level": "Bachelor's degree",
     "current_job_title": "",
     "current_company": "",
-    "target_role": "software engineer"
+    "target_role": ""
   },
   "skills_boundary": {
-    "languages": [
-      "Python",
-      "SQL",
-      "JavaScript"
-    ],
-    "frameworks": [
-      "FastAPI",
-      "Flask",
-      "React"
-    ],
-    "devops": [
-      "Docker",
-      "AWS",
-      "CI/CD"
-    ],
-    "databases": [
-      "PostgreSQL",
-      "MongoDB"
-    ],
-    "tools": [
-      "Git",
-      "Linux"
-    ]
+    "skills": [],
+    "tools_and_software": [],
+    "certifications_and_licences": []
   },
   "resume_facts": {
     "preserved_companies": [

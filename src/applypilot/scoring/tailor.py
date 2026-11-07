@@ -138,10 +138,10 @@ SUMMARY: Rewrite for this job, leading with the 1-2 things that matter most for 
 number or scale from the resume. Describe the candidate by what they have done, never with a job title
 they haven't held (not "AI engineer with 7 years..." for a data scientist).
 
-SKILLS: Group into categories that suit the candidate (e.g. Languages, Frameworks, Cloud & DevOps,
-Databases, Tools; or for non-software engineering: Design Software, Standards & Codes, Methods; or for
-marketing: Channels, Platforms & Tools, Analytics, Content & Creative). The categories in the JSON
-example below are only an example: use ones that fit this candidate's field.
+SKILLS: Group into categories named for the candidate's own field, e.g. marketing: Channels, Platforms &
+Tools, Analytics, Content & Creative; software: Languages, Frameworks, Cloud & DevOps, Databases;
+other engineering: Design Software, Standards & Codes, Methods; finance: Reporting, Systems, Regulation.
+The category names in the JSON example below are placeholders: use ones that fit this candidate.
 Put the job's must-haves first in each category. Drop skills irrelevant to this job if space is tight.
 
 ## GETTING THROUGH THE ATS (Workday, SuccessFactors, PageUp, JobAdder, Greenhouse...)
@@ -215,11 +215,12 @@ def _resume_shape(profile: dict) -> str:
     education_level = profile.get("experience", {}).get("education_level", "")
     return (
         '{"title":"A real job title from the resume","focus":"optional, up to 6 words",'
-        '"summary":"2-3 tailored sentences.","skills":{"Languages":"...",'
-        '"Frameworks":"...","DevOps & Infra":"...","Databases":"...","Tools":"..."},'
-        '"experience":[{"header":"Title at Company","subtitle":"Mar 2021 - Present | Python, AWS",'
+        # Category names here get copied, so they're neutral: the SKILLS rule says to name them for the field
+        '"summary":"2-3 tailored sentences.","skills":{"Core Skills":"...",'
+        '"Tools & Software":"...","Certifications":"..."},'
+        '"experience":[{"header":"Title at Company","subtitle":"Mar 2021 - Present | Main tools",'
         '"bullets":["bullet 1","bullet 2","bullet 3","bullet 4"]}],'
-        '"projects":[{"header":"Project Name - Description","subtitle":"2022 | Tech",'
+        '"projects":[{"header":"Project Name - Description","subtitle":"2022 | Main tools",'
         '"bullets":["bullet 1","bullet 2"]}],'
         f'"education":"{school} | {education_level}"}}'
     )
@@ -402,8 +403,8 @@ def assemble_resume_text(data: dict, profile: dict, job: dict | None = None) -> 
     lines.append(sanitize_text(data["summary"]))
     lines.append("")
 
-    # Technical Skills
-    lines.append("TECHNICAL SKILLS")
+    # Skills ("TECHNICAL SKILLS" before 0.13.1; pdf.parse_resume reads both)
+    lines.append("SKILLS")
     if isinstance(data["skills"], dict):
         for cat, val in data["skills"].items():
             lines.append(f"{cat}: {sanitize_text(str(val))}")

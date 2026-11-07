@@ -166,12 +166,6 @@ employers:
     site_id: "NVIDIAExternalCareerSite"
     base_url: "https://nvidia.wd5.myworkdayjobs.com"
 
-  netflix:
-    name: "Netflix"
-    tenant: "netflix"
-    site_id: "Netflix"
-    base_url: "https://netflix.wd1.myworkdayjobs.com"
-
   cisco:
     name: "Cisco"
     tenant: "cisco"
@@ -208,24 +202,6 @@ employers:
     site_id: "M_tx"
     base_url: "https://modernatx.wd1.myworkdayjobs.com"
 
-  servicenow:
-    name: "ServiceNow"
-    tenant: "servicenow"
-    site_id: "ServiceNowCareers"
-    base_url: "https://servicenow.wd1.myworkdayjobs.com"
-
-  docusign:
-    name: "DocuSign"
-    tenant: "docusign"
-    site_id: "External"
-    base_url: "https://docusign.wd5.myworkdayjobs.com"
-
-  uber:
-    name: "Uber"
-    tenant: "uber"
-    site_id: "uberCareers"
-    base_url: "https://uber.wd5.myworkdayjobs.com"
-
   # ── Consulting ──────────────────────────────────────────────────────────
 
   pwc:
@@ -241,12 +217,6 @@ employers:
     base_url: "https://bdo.wd3.myworkdayjobs.com"
 
   # ── Telecom ─────────────────────────────────────────────────────────────
-
-  telus:
-    name: "TELUS International"
-    tenant: "telusinternational"
-    site_id: "External"
-    base_url: "https://telusinternational.wd3.myworkdayjobs.com"
 
   telus_health:
     name: "TELUS Health"

@@ -8,6 +8,16 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-07
+
+### Fixed
+- **No more engineering assumptions for people in other fields** (reported by a marketer):
+  - **Setup → Your profile** started as a software engineer's: target role "software engineer", skills under Languages, Frameworks, DevOps and Databases with Python examples, and a GitHub example. New profiles now start empty, with skills under Skills, Tools and software, and Certifications and licences, and the help text gives examples from marketing, finance and engineering. Saved profiles keep their own categories, and the old Python/FastAPI examples are still never treated as your real skills until you confirm your list.
+  - **Without a saved search, Find jobs searched for software engineering jobs in San Francisco** (the original project's example). Now it asks you to fill in What jobs to look for first, and Setup's advanced search editor starts empty instead of with that example.
+  - **Tailored resumes** were shown an example grouping skills as Languages, Frameworks, DevOps and Databases. The example is now field-neutral, and the instructions list marketing first. The resume's skills heading is "SKILLS" (it was "TECHNICAL SKILLS" in the editable text; the PDF already said Skills).
+  - With no target role in your profile, the scorer no longer assumes "engineer": it judges from your resume.
+- Removed five Workday employers whose job searches no longer work (Netflix, ServiceNow, DocuSign, Uber and Telus), so they don't add errors to the log.
+
 ### Added
 - **Scoring eval** (`evals/scoring/`, for developers): runs the real fit scorer over 27 made-up job ads for three made-up candidates (a B2B performance marketer, a backend engineer, a marketing coordinator on a working holiday visa) and reports how closely its scores match human labels: average error, rank correlation, dealbreakers caught, and how steady repeat runs are. `python -m evals.scoring`; see its README. Not part of the app, and not run in CI because it makes real AI calls (its harness is tested with a fake AI).
 

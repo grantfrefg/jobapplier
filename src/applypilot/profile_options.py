@@ -156,8 +156,8 @@ def _template_examples() -> frozenset[str]:
     try:
         template = json.loads((Path(__file__).parent / "ui" / "profile_template.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return frozenset()
-    values = set()
+        return frozenset({"https://github.com/yourusername"})
+    values = {"https://github.com/yourusername"}  # the template's example before 0.13.1
     for section, keys in _PLACEHOLDER_KEYS.items():
         for key in keys:
             v = (template.get(section) or {}).get(key)
