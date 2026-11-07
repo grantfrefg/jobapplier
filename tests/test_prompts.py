@@ -194,3 +194,21 @@ def test_a_suburb_is_local_to_its_city(monkeypatch):
             "are local). Willing to relocate: No") in user
     assert "every suburb" in system and "Same city is never a location dealbreaker" in system
     assert "Based in: Wentworthville, NSW. Willing" in candidate_brief(profile)  # no search config: unchanged
+
+
+def test_citizens_can_obtain_a_clearance_and_the_scorer_is_told():
+    """The scorer marked a citizen down for a role asking to 'hold or be able to obtain' Baseline
+    (scoring eval baseline, business_analyst/gov-ba-contract): the facts now say so outright."""
+    from applypilot import market
+    from applypilot.scoring import scorer
+    citizen = candidate_brief({"work_authorization": {"work_permit_type": "Australian citizen"}})
+    assert 'Australian citizen: can obtain one, so "hold or be able to obtain" a clearance is fine' in citizen
+    for permit in ("Permanent resident", "New Zealand citizen"):
+        brief = candidate_brief({"work_authorization": {"work_permit_type": permit}})
+        assert "can't obtain an Australian clearance" in brief
+    held = candidate_brief({"work_authorization": {"work_permit_type": "Australian citizen",
+                                                   "security_clearance": "NV1"}})
+    assert "Security clearance held: NV1\n" in held + "\n" and "can obtain" not in held
+    assert 'accepts "hold or be able to obtain" a clearance is NOT a dealbreaker' in scorer.score_prompt(market.AU)
+    uk = scorer.score_prompt(market.UK)
+    assert "BPSS" in uk and "for an Australian citizen" not in uk

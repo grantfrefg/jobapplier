@@ -55,6 +55,22 @@ def _location(profile: dict) -> str:
     return ", ".join(x for x in (p.get("city"), p.get("province_state")) if x) or market.current(profile).country
 
 
+def australian_citizen(profile: dict) -> bool:
+    """The profile says the candidate is an Australian citizen (not a New Zealand or other citizen)."""
+    permit = str((profile.get("work_authorization") or {}).get("work_permit_type") or "").strip().lower()
+    return "citizen" in permit and ("australia" in permit or permit == "citizen")
+
+
+def _can_obtain(profile: dict) -> str:
+    """Whether the candidate can be sponsored for an Australian clearance (citizens only), said outright:
+    left for the AI to work out, it marked citizens down for "hold or be able to obtain" clearances."""
+    if market.current(profile).key == "uk" or (profile.get("work_authorization") or {}).get("security_clearance"):
+        return ""
+    if australian_citizen(profile):
+        return ". Australian citizen: can obtain one, so \"hold or be able to obtain\" a clearance is fine"
+    return ". Not an Australian citizen: can't obtain an Australian clearance"
+
+
 def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
     """The facts a recruiter screens on before reading the resume.
 
@@ -78,7 +94,7 @@ def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
             f"needs sponsorship: {auth.get('require_sponsorship') or 'unknown'}",
             auth.get("work_permit_type") and f"status: {auth['work_permit_type']}",
         ) if x),
-        f"Security clearance held: {auth.get('security_clearance') or 'none'}",
+        f"Security clearance held: {auth.get('security_clearance') or 'none'}" + _can_obtain(profile),
     ]
     wants = {kind: str(avail.get(key) or "").strip().lower()
              for kind, key in (("full-time", "available_for_full_time"), ("contract", "available_for_contract"))}

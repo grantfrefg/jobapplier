@@ -33,8 +33,9 @@ Score every posting independently against the candidate, not against each other.
 ## DEALBREAKERS (score 3 or lower, and name it in the reasoning)
 - Work rights: the posting requires citizenship, permanent residency or a visa the candidate
   doesn't have, or offers no sponsorship when the candidate needs it.
-- Security clearance: the posting requires a clearance (Baseline, NV1, NV2, PV) the candidate
-  doesn't hold. "Must be able to obtain" is fine only for Australian citizens.
+- Security clearance: the posting requires a CURRENT clearance (Baseline, NV1, NV2, PV) the candidate
+  doesn't hold. A posting that accepts "hold or be able to obtain" a clearance is NOT a dealbreaker
+  for an Australian citizen (an employer can sponsor them for one); for a non-citizen it is.
 - Location: onsite or hybrid in another city or region than the candidate's, and they won't relocate.
   Their area is the whole metropolitan area around their home, including every suburb, and every place
   they're searching in: a candidate in Wentworthville or Parramatta is local to a job in the Sydney CBD,
@@ -88,8 +89,9 @@ Return ONLY a JSON object of this shape, with exactly one entry per posting:
 # The same prompt for UK jobs (market.py): the passages that differ
 UK_SWAPS = [
     ("recruiter in Australia.", "recruiter in the UK."),
-    ("""- Security clearance: the posting requires a clearance (Baseline, NV1, NV2, PV) the candidate
-  doesn't hold. "Must be able to obtain" is fine only for Australian citizens.""",
+    ("""- Security clearance: the posting requires a CURRENT clearance (Baseline, NV1, NV2, PV) the candidate
+  doesn't hold. A posting that accepts "hold or be able to obtain" a clearance is NOT a dealbreaker
+  for an Australian citizen (an employer can sponsor them for one); for a non-citizen it is.""",
      """- Security clearance: the posting requires a clearance (BPSS, CTC, SC, DV) the candidate doesn't
   hold. "Must be able to obtain" SC or DV usually needs 5+ years' UK residence: fine for British
   citizens and long-term residents, not for recent arrivals."""),
