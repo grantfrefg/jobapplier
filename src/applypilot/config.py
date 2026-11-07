@@ -110,15 +110,15 @@ def load_profile() -> dict:
 
 
 def load_search_config() -> dict:
-    """Load search configuration from ~/.applypilot/searches.yaml."""
+    """Load search configuration from ~/.applypilot/searches.yaml ({} until one is saved).
+
+    Never the bundled example: that's software-engineering searches in San Francisco, and
+    using it silently sent people in other fields (and countries) after the wrong jobs.
+    """
     import yaml
     if not SEARCH_CONFIG_PATH.exists():
-        # Fall back to package-shipped example
-        example = CONFIG_DIR / "searches.example.yaml"
-        if example.exists():
-            return yaml.safe_load(example.read_text(encoding="utf-8"))
         return {}
-    return yaml.safe_load(SEARCH_CONFIG_PATH.read_text(encoding="utf-8"))
+    return yaml.safe_load(SEARCH_CONFIG_PATH.read_text(encoding="utf-8")) or {}
 
 
 def load_sites_config() -> dict:

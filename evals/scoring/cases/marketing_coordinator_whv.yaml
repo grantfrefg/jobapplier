@@ -1,0 +1,125 @@
+# A made-up early-career marketing coordinator in Sydney on a working holiday visa (1.5 years'
+# experience). Takes full-time or contract work, $70k minimum. Tests the working holiday rules:
+# short roles fit best, a permanent role scores 1 lower, only "citizens or PR only" is a dealbreaker.
+#
+# Labels are a first draft written with the dataset. Review every score and change any you
+# disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
+id: marketing_coordinator_whv
+country: australia
+labels_reviewed: false
+local_areas: ["Sydney NSW"]
+
+profile:
+  personal: {full_name: Jordan Hughes, city: Surry Hills, province_state: NSW, country: Australia}
+  work_authorization:
+    legally_authorized_to_work: "Yes"
+    require_sponsorship: "No"
+    work_permit_type: Working holiday visa (subclass 417)
+  availability: {available_for_full_time: "Yes", available_for_contract: "Yes", willing_to_relocate: "No"}
+  compensation: {salary_currency: AUD, salary_range_min: "70000"}
+  experience:
+    years_of_experience_total: "1.5"
+    current_job_title: Marketing Coordinator
+    target_role: Marketing Coordinator
+
+resume: |
+  JORDAN HUGHES
+  Surry Hills, NSW | jordan.hughes@example.com | Working holiday visa
+
+  SUMMARY
+  Marketing coordinator with 18 months in social media, email and events support for consumer brands.
+
+  EXPERIENCE
+  Marketing Coordinator, Bramble Coffee Co. (UK), Manchester | Jan 2024 - Jun 2025
+  - Ran Instagram and TikTok for a 40-store coffee chain; followers up from 12k to 31k.
+  - Built and sent weekly Mailchimp emails to 60k subscribers; open rate 41%.
+  - Made social and in-store assets in Canva; briefed photographers for product shoots.
+  - Helped run 6 store launch events: supplier bookings, run sheets and on-the-day setup.
+
+  Marketing Intern, Northern Theatre Group, Manchester | Jun 2023 - Dec 2023
+  - Scheduled social posts and wrote copy for show campaigns.
+
+  EDUCATION
+  BA (Hons) Marketing, University of Leeds, 2023
+
+  SKILLS
+  Social: Instagram, TikTok, Meta Business Suite, Later
+  Email and design: Mailchimp, Canva, basic Photoshop
+  Other: event coordination, copywriting, Google Analytics (basic)
+
+jobs:
+  - id: coordinator-6-month-contract
+    title: Marketing Coordinator (6 month contract)
+    company: Saltwater Swimwear
+    location: Bondi NSW
+    description: |
+      Saltwater Swimwear needs a Marketing Coordinator for a 6 month contract covering parental leave.
+      $75,000 pro rata + super.
+      You'll schedule and post on Instagram and TikTok, build weekly EDMs in Mailchimp, make assets in
+      Canva and help with our summer launch event. 1-2 years in a marketing coordinator role.
+    label: {score: 9, dealbreaker: null,
+            why: "Does this job now (social, Mailchimp, Canva, events), and a 6 month contract suits the visa."}
+
+  - id: coordinator-permanent
+    title: Marketing Coordinator
+    company: Greenleaf Grocers
+    location: Sydney NSW
+    description: |
+      Greenleaf Grocers is hiring a permanent full-time Marketing Coordinator. $72,000 + super.
+      You'll coordinate social media, email campaigns and in-store promotions with our brand manager.
+      1-3 years of marketing experience; Canva; Mailchimp or Klaviyo.
+    label: {score: 8, dealbreaker: null,
+            why: "Strong match; a permanent role scores 1 lower on a working holiday visa (no visa mention, not a dealbreaker)."}
+
+  - id: coordinator-citizens-pr-only
+    title: Marketing Coordinator
+    company: Civic Credit Union
+    location: Sydney NSW
+    description: |
+      We're hiring a Marketing Coordinator to support member campaigns across social, email and events.
+      $74,000 + super. Applicants must be Australian citizens or permanent residents.
+      1-2 years of marketing coordination experience; Canva; email marketing.
+    label: {score: 2, dealbreaker: work_rights,
+            why: "Citizens or permanent residents only; the candidate is on a working holiday visa."}
+
+  - id: senior-marketing-manager
+    title: Senior Marketing Manager
+    company: Opal Retail Group
+    location: Sydney NSW
+    description: |
+      Lead our marketing team of 6 across brand, digital and CRM. $160,000 + super.
+      8+ years of marketing experience including 3+ years managing teams; budget ownership; agency
+      management.
+    label: {score: 2, dealbreaker: seniority, why: "Seniority far off: 8+ years and team leadership for 1.5 years."}
+
+  - id: social-casual-3-months
+    title: Social Media Coordinator (casual, 3 months)
+    company: Harbourside Festival Co.
+    location: Sydney NSW
+    description: |
+      Casual role for our summer festival season, about 3 months. $38 per hour + super.
+      You'll run our Instagram and TikTok, film and edit short videos on site, and reply to our community.
+      Experience running social accounts for a brand; Canva or CapCut.
+    label: {score: 8, dealbreaker: null,
+            why: "Social media is core experience and a 3 month casual role suits the visa; on-site video editing is a small gap."}
+
+  - id: events-temp
+    title: Events Coordinator (4 month temp)
+    company: Southern Cross Conferences
+    location: Sydney NSW
+    description: |
+      4 month temp assignment coordinating our conference season. $36 per hour.
+      You'll manage venue and supplier bookings, run sheets, registrations and on-the-day logistics
+      for 300-person conferences. 2+ years in event coordination essential.
+    label: {score: 5, dealbreaker: null,
+            why: "Some event support shown, but event coordination is the core of the role and 2+ years are essential."}
+
+  - id: content-brisbane-onsite
+    title: Content Marketing Coordinator
+    company: Sunline Travel
+    location: Brisbane QLD (onsite)
+    description: |
+      Content Marketing Coordinator for our Brisbane head office, onsite 5 days a week. $70,000 + super.
+      Write blog posts and social content, schedule posts and help with EDMs. 1+ years in marketing.
+    label: {score: 2, dealbreaker: location,
+            why: "Onsite in Brisbane and the candidate won't relocate."}

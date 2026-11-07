@@ -687,6 +687,9 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         from applypilot import profile_options as po
         template = json.loads(PROFILE_TEMPLATE_PATH.read_text(encoding="utf-8"))
         saved = json.loads(config.PROFILE_PATH.read_text(encoding="utf-8")) if config.PROFILE_PATH.exists() else None
+        if saved and isinstance(saved.get("skills_boundary"), dict) and saved["skills_boundary"]:
+            # Your own skill categories, as saved: the template's are only a start for new profiles
+            template = {**template, "skills_boundary": {}}
         profile = po.normalise_profile(_deep_merge(template, saved or {}))
         from applypilot import market
         shown = po.options_for(market.current(profile))
@@ -698,8 +701,10 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         options = {path: [{"value": v, "label": v or po.EMPTY_LABELS.get(path, "Not set")} for v in values]
                    for path, values in shown.items()}
         confirmed = bool(profile.pop("skills_confirmed", False))
+        from applypilot import industries
         return {"exists": saved is not None, "profile": profile, "template": template,
-                "options": options, "numbers": sorted(po.NUMBERS), "skills_confirmed": confirmed}
+                "options": options, "numbers": sorted(po.NUMBERS), "skills_confirmed": confirmed,
+                "skill_layouts": industries.skill_layouts()}
 
     @app.post("/api/profile")
     def save_profile(body: dict) -> dict:
@@ -748,8 +753,8 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
             except (yaml.YAMLError, AttributeError, TypeError, ValueError):
                 simple = None
             return {"exists": True, "yaml": text, "simple": simple}
-        example = config.CONFIG_DIR / "searches.example.yaml"
-        return {"exists": False, "yaml": example.read_text(encoding="utf-8") if example.exists() else ""}
+        return {"exists": False,
+                "yaml": "# Fill in What jobs to look for above and save: this file is written for you.\n"}
 
     @app.post("/api/searches")
     def save_searches(body: dict) -> dict:

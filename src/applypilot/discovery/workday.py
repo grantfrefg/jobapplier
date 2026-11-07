@@ -40,6 +40,24 @@ def load_employers() -> dict:
 
 # -- Location filtering from search config -----------------------------------
 
+_COUNTRY_ALIASES = {"united kingdom": "uk", "great britain": "uk", "england": "uk", "britain": "uk",
+                    "united states": "usa", "us": "usa", "america": "usa"}
+
+
+def country_key(name) -> str:
+    """'United Kingdom' -> 'uk', 'Australia' -> 'australia': the names employers.yaml uses."""
+    key = str(name or "").strip().lower()
+    return _COUNTRY_ALIASES.get(key, key)
+
+
+def employers_for_country(employers: dict, country) -> dict:
+    """The employers whose careers site lists jobs in this country (all of them if no country is set)."""
+    key = country_key(country)
+    if not key:
+        return employers
+    return {k: v for k, v in employers.items() if key in [country_key(c) for c in v.get("countries") or []]}
+
+
 def _load_location_filter(search_cfg: dict | None = None) -> tuple[list[str], list[str]]:
     """Load location accept/reject lists from search config."""
     return config.load_location_filter(search_cfg)
@@ -471,9 +489,12 @@ def run_workday_discovery(employers: dict | None = None, workers: int = 1) -> di
         if allow is not None:
             employers = {k: v for k, v in employers.items()
                          if k.lower() in allow or str(v.get("name", "")).lower() in allow}
+        else:  # not chosen: the employers that list jobs in the search's country
+            employers = employers_for_country(employers, search_cfg.get("country"))
 
     if not employers:
-        log.info("Workday discovery: no employers selected, skipping.")
+        log.info("Workday: no employers to search for %s, skipping.",
+                 str(search_cfg.get("country") or "this search").title())
         return {"found": 0, "new": 0, "existing": 0, "queries": 0}
 
     queries_cfg = search_cfg.get("queries", [])

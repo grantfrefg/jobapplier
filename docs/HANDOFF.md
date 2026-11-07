@@ -28,7 +28,7 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
    `git merge -s ours origin/<branch>` instead of force-pushing.
 2. Before pushing, run:
    - `pytest tests` (~380 pass, ~18 skip without a display);
-   - `ruff check --select E,F,W src packaging tests` (the same as CI's Lint step; all of
+   - `ruff check --select E,F,W src packaging tests evals` (the same as CI's Lint step; all of
      `src` is clean since 0.13.0, with long prompt/HTML lines allowed per file in `pyproject.toml`).
 3. Bump the version in **three places**: `pyproject.toml`, `src/applypilot/__init__.py`, and
    `packaging/Jobapplier.spec` (CFBundleShortVersionString). Add a `CHANGELOG.md` entry.
@@ -48,6 +48,7 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
 |---|---|---|
 | UI | `ui/server.py` (~1150 lines), `ui/static/index.html` (~960 lines of HTML, incl. the Guide), `app.js` (~1040), `app.css`; only those two are served from `/static/` | Tabs: Setup, Find jobs, Apply, Guide. `/api/jobs` builds the Apply list. |
 | Desktop | `desktop.py`, `packaging/Jobapplier.spec`, `packaging/desktop_entry.py`, `smoke_test.py` | |
+| Industries | `industries.py` | Skill boxes per industry in Setup, resume skill groups for tailoring, the field for scoring. Profile key `experience.industry`. |
 | Config and data | `config.py`, `database.py` (SQLite `jobs` table; missing columns added by ALTER TABLE at start-up), `profile_options.py` | Settings live in `~/.applypilot/.env`, profile.json, searches.yaml |
 | Market | `market.py` | AU/UK `Market` dataclass. `market.localise(text, swaps, mk)` swaps AU passages for UK ones and **raises if a passage is missing**, so AU prompts stay unchanged. |
 | Discovery | `discovery/jobspy.py` (Indeed/LinkedIn via JobSpy), `discovery/reed.py` (Reed API, `REED_API_KEY`), `discovery/smartextract.py` + `config/sites.yaml` (page-read boards), `discovery/workday.py`, `enrichment/detail.py` (full descriptions) | `pipeline.py` runs the stages |
@@ -58,6 +59,10 @@ README, CHANGELOG, CONTRIBUTING and the Guide footer.
 | Applying | `apply/local_engine.py` (current form filler, ~1500 lines), `apply/answers.py` (saved answers), `apply/adapters.py`, `apply/sites.py`, `apply/login_browser.py`, `apply/prompt.py` | `apply/launcher.py`, `apply/chrome.py`, `apply/dashboard.py` are older upstream code (Claude-CLI based). The CLI still imports parts of them. |
 | LLM | `llm.py`, `llm_anthropic.py`, `llm_cli.py`, `budget.py` (daily request budget) | |
 | Other | `applicants.py` (applicant counts), `rerun.py`, `wizard/init.py`, `cli.py`, `view.py` | |
+
+Evals: `evals/scoring/` measures the AI's fit scores against labelled made-up cases with the real
+scorer (`python -m evals.scoring`, see its README). It makes real AI calls, so it isn't run in CI;
+`tests/test_eval_scoring.py` tests the harness with a fake AI.
 
 Docs: `docs/HOW_IT_WORKS.md`, `docs/CONFIGURATION.md`, `docs/DESKTOP_APP.md`,
 `docs/IMPROVEMENTS.md` (AI-request reduction plan), `docs/UK_PLAN.md` (built in 0.11.0).

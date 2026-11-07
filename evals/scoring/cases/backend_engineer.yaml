@@ -1,0 +1,161 @@
+# A made-up backend Python engineer in Melbourne with 4 years' experience. Permanent resident
+# (not a citizen), takes full-time or contract work, $140k minimum.
+#
+# Labels are a first draft written with the dataset. Review every score and change any you
+# disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
+id: backend_engineer
+country: australia
+labels_reviewed: false
+local_areas: ["Melbourne VIC"]
+
+profile:
+  personal: {full_name: Alex Chen, city: Brunswick, province_state: VIC, country: Australia}
+  work_authorization:
+    legally_authorized_to_work: "Yes"
+    require_sponsorship: "No"
+    work_permit_type: Permanent resident
+  availability: {available_for_full_time: "Yes", available_for_contract: "Yes", willing_to_relocate: "No"}
+  compensation: {salary_currency: AUD, salary_range_min: "140000", salary_expectation: "150000"}
+  experience:
+    years_of_experience_total: "4"
+    current_job_title: Software Engineer
+    target_role: Backend Engineer
+
+resume: |
+  ALEX CHEN
+  Brunswick, VIC | alex.chen@example.com
+
+  SUMMARY
+  Backend engineer with 4 years building Python services on AWS for product teams.
+
+  EXPERIENCE
+  Software Engineer, Tallyroom (property tech), Melbourne | Jan 2023 - Present
+  - Build and run FastAPI services on AWS (ECS, Lambda, SQS) handling 2M requests a day.
+  - Designed the PostgreSQL schema and migrations for the billing system.
+  - Cut p95 API latency from 900ms to 250ms by adding caching in Redis and fixing slow queries.
+  - On the on-call roster; wrote runbooks and alerting in Datadog.
+
+  Junior Software Engineer, Cobalt Labs, Melbourne | Feb 2021 - Dec 2022
+  - Built Django REST APIs and Celery background jobs for a logistics platform.
+  - Set up GitHub Actions CI with pytest and Docker builds.
+
+  EDUCATION
+  Bachelor of Computer Science, RMIT University, 2020
+
+  SKILLS
+  Languages: Python, SQL, TypeScript (some)
+  Frameworks: FastAPI, Django, Celery
+  Cloud and tools: AWS (ECS, Lambda, SQS, RDS), Docker, Terraform (basic), GitHub Actions, Datadog
+  Databases: PostgreSQL, Redis
+
+jobs:
+  - id: python-backend-match
+    title: Backend Engineer (Python)
+    company: Shelfwise
+    location: Melbourne VIC (Hybrid)
+    description: |
+      Shelfwise helps retailers forecast stock. We're hiring a Backend Engineer to build our Python
+      services. $150,000 - $165,000 + super, hybrid in Melbourne.
+      You have: 3-5 years building backend services in Python (FastAPI or Django); PostgreSQL; AWS;
+      Docker; you've run services in production and been on call.
+      Nice to have: Terraform, event-driven systems.
+    label: {score: 9, dealbreaker: null, why: "Does this job now: Python services, Postgres, AWS, on call, local."}
+
+  - id: java-spring
+    title: Backend Engineer
+    company: Monarch Insurance
+    location: Melbourne VIC
+    description: |
+      Join our platform team building insurance services. $145,000 + super.
+      Essential: 3+ years of Java and Spring Boot in production; Kafka; microservices on AWS.
+      You'll design APIs, write tests and support production systems.
+    label: {score: 5, dealbreaker: null,
+            why: "Same discipline, but Java and Spring Boot are essential and the core language is missing."}
+
+  - id: data-engineer
+    title: Data Engineer
+    company: Riverbank Energy
+    location: Melbourne VIC
+    description: |
+      We're looking for a Data Engineer to build our analytics platform. $140,000 + super.
+      Essential: 3+ years building data pipelines with Airflow and dbt; Snowflake; strong SQL and
+      data modelling (Kimball). Python for orchestration. Experience with Spark is a plus.
+    label: {score: 4, dealbreaker: null,
+            why: "Adjacent discipline: shares Python and SQL, but Airflow, dbt, Snowflake and modelling are core and missing."}
+
+  - id: canberra-citizen-nv1
+    title: Python Developer
+    company: Department of Federal Services
+    location: Canberra ACT (onsite)
+    description: |
+      The Department is seeking a Python Developer to build internal services. APS6, onsite in Canberra.
+      Applicants must be Australian citizens and hold or be able to obtain an NV1 security clearance.
+      3+ years of Python; Django; PostgreSQL.
+    label: {score: 1, dealbreaker: work_rights,
+            why: "Citizenship required (candidate is a permanent resident), NV1 needs it too, and onsite in Canberra."}
+
+  - id: contract-python
+    title: Python Engineer (6 month contract)
+    company: Clearpath Consulting
+    location: Melbourne VIC (Hybrid)
+    description: |
+      Our client needs a Python Engineer for a 6 month contract building FastAPI services on AWS.
+      $950 per day + super. Start in two weeks.
+      You have: 3+ years of Python backend development; FastAPI; AWS; PostgreSQL.
+    label: {score: 9, dealbreaker: null,
+            why: "Core match, and the candidate takes contract work: a day rate is fine."}
+
+  - id: principal-engineer
+    title: Principal Engineer
+    company: Kestrel Payments
+    location: Melbourne VIC
+    description: |
+      We're hiring a Principal Engineer to set technical direction across 8 engineering teams.
+      You have 12+ years of software engineering, including several years as a staff or principal
+      engineer, and have led architecture for large distributed payment systems.
+    label: {score: 3, dealbreaker: seniority, why: "Seniority far off: Principal with 12+ years for a 4-year engineer."}
+
+  - id: graduate-program
+    title: Graduate Software Engineer 2027
+    company: Atlas Bank
+    location: Melbourne VIC
+    description: |
+      Our 2027 Graduate Program is open to final-year students and recent graduates (graduated in the
+      last 2 years) in computer science or engineering. Rotate through three teams over 18 months.
+      $78,000 + super.
+    label: {score: 2, dealbreaker: seniority,
+            why: "Graduate program for a 4-year engineer, outside its eligibility, and pay far below minimum."}
+
+  - id: qa-automation
+    title: QA Automation Engineer
+    company: Fernhill Health
+    location: Melbourne VIC
+    description: |
+      We need a QA Automation Engineer to build our test framework. $125,000 + super.
+      Essential: 3+ years in test automation; Python with pytest and Playwright or Selenium; API testing;
+      test planning. You'll work with developers to improve quality across teams.
+    label: {score: 4, dealbreaker: null,
+            why: "Adjacent discipline (QA for a backend engineer), and pay below the $140k minimum."}
+
+  - id: remote-pr-ok
+    title: Backend Engineer (Python), Remote
+    company: Tidewater Labs
+    location: Remote, Australia
+    description: |
+      Fully remote within Australia. Applicants must be Australian citizens or permanent residents.
+      $155,000 + super.
+      You'll build Python services (Django and FastAPI) on AWS. 3+ years of Python backend experience;
+      PostgreSQL; Celery or other job queues; production support.
+    label: {score: 9, dealbreaker: null,
+            why: "Core match and remote; permanent residents are eligible, so work rights are not a dealbreaker."}
+
+  - id: go-kubernetes
+    title: Senior Backend Engineer (Go)
+    company: Swiftlane
+    location: Melbourne VIC
+    description: |
+      Swiftlane builds logistics routing. We're hiring a Senior Backend Engineer. $175,000 + super.
+      Essential: 5+ years of backend engineering; production Go; Kubernetes; gRPC.
+      Python experience is a bonus.
+    label: {score: 5, dealbreaker: null,
+            why: "Same discipline, but Go and Kubernetes are essential, and 5+ years asked for 4."}

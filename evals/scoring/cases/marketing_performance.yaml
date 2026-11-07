@@ -1,0 +1,181 @@
+# A made-up mid-level B2B performance marketer in Western Sydney. Australian citizen,
+# full-time only, $130k minimum. The jobs cover each scoring rule for a marketing CV.
+#
+# Labels are a first draft written with the dataset. Review every score and change any you
+# disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
+id: marketing_performance
+country: australia
+labels_reviewed: false
+local_areas: ["Sydney NSW"]
+
+profile:
+  personal: {full_name: Sam Taylor, city: Parramatta, province_state: NSW, country: Australia}
+  work_authorization:
+    legally_authorized_to_work: "Yes"
+    require_sponsorship: "No"
+    work_permit_type: Australian citizen
+  availability: {available_for_full_time: "Yes", available_for_contract: "No", willing_to_relocate: "No"}
+  compensation: {salary_currency: AUD, salary_range_min: "130000", salary_expectation: "140000"}
+  experience:
+    years_of_experience_total: "5"
+    current_job_title: Performance Marketing Manager
+    target_role: Performance Marketing Manager
+
+resume: |
+  SAM TAYLOR
+  Parramatta, NSW | sam.taylor@example.com
+
+  SUMMARY
+  B2B performance marketer with 5 years in SaaS and agency roles. I run paid search and paid social
+  that turns into pipeline, and I report on revenue, not clicks.
+
+  EXPERIENCE
+  Performance Marketing Manager, Cloudline (B2B SaaS), Sydney | Mar 2022 - Present
+  - Own a $1.2M annual paid budget across Google Ads, LinkedIn Ads and Meta Ads.
+  - Cut cost per lead 32% in 12 months by rebuilding account structure and audiences.
+  - Built HubSpot lead scoring with sales; MQL to SQL conversion up 18%.
+  - Built GA4 and Looker Studio dashboards that tie spend to Salesforce pipeline.
+  - Manage one paid media specialist and an external creative agency.
+
+  Digital Marketing Specialist, Brightwave Digital (agency), Sydney | Feb 2019 - Feb 2022
+  - Ran Google Ads and LinkedIn campaigns for 9 B2B clients in software and professional services.
+  - Ran landing page A/B tests in Unbounce; average conversion rate up from 2.1% to 3.4%.
+  - Wrote monthly performance reports and presented them to clients.
+
+  EDUCATION
+  Bachelor of Business (Marketing), University of Technology Sydney, 2018
+
+  SKILLS
+  Paid media: Google Ads, LinkedIn Ads, Meta Ads, Microsoft Ads
+  Platforms: HubSpot, Salesforce, Unbounce, Google Tag Manager
+  Analytics: GA4, Looker Studio, basic SQL, Excel
+
+jobs:
+  - id: senior-b2b-performance
+    title: Senior Performance Marketing Manager
+    company: Ledgerly
+    location: Sydney NSW (Hybrid)
+    description: |
+      Ledgerly is a B2B finance software company growing fast across ANZ. We're hiring a Senior
+      Performance Marketing Manager to own paid acquisition. $150,000 - $170,000 + super, hybrid
+      from our Sydney CBD office.
+      What you'll do: plan and run paid search and paid social (Google Ads, LinkedIn Ads, Meta);
+      manage a $1.5M budget; work with sales on lead quality; report on pipeline and CAC.
+      You have: 5+ years in performance marketing, B2B SaaS experience essential, hands-on Google Ads
+      and LinkedIn Ads, HubSpot or similar, strong GA4 and reporting skills.
+      Highly regarded: experience managing a small team or agency.
+    label: {score: 9, dealbreaker: null,
+            why: "Does this job now: B2B SaaS paid search and social, budget, HubSpot, GA4, local, pay fits."}
+
+  - id: b2c-ecommerce-digital
+    title: Digital Marketing Manager
+    company: Ivy & Stone
+    location: Alexandria NSW
+    description: |
+      Australian fashion label Ivy & Stone is looking for a Digital Marketing Manager to grow online
+      sales. $135,000 + super.
+      You'll run Meta, TikTok and Google Shopping, lead email and SMS in Klaviyo, and work with our
+      Shopify team on conversion.
+      Essential: 4+ years in B2C ecommerce marketing; proven Meta and TikTok ads for direct-to-consumer
+      brands; Klaviyo; Shopify. Fashion or beauty experience is a plus.
+    label: {score: 6, dealbreaker: null,
+            why: "Same discipline (performance), but B2C ecommerce, TikTok and Klaviyo are essential and missing."}
+
+  - id: head-of-marketing
+    title: Head of Marketing
+    company: Northgate Health
+    location: Sydney NSW
+    description: |
+      Northgate Health is hiring a Head of Marketing to lead a team of 15 across brand, digital,
+      content and communications, reporting to the CEO. You'll set marketing strategy, own a $6M
+      budget and sit on the executive team.
+      You have: 12+ years in marketing with at least 5 in senior leadership; experience leading
+      multi-disciplinary teams; brand strategy and board reporting.
+    label: {score: 3, dealbreaker: seniority,
+            why: "Seniority far off: an executive role needing 12+ years for a 5-year manager of one."}
+
+  - id: growth-lead-melbourne
+    title: Growth Marketing Lead
+    company: Payloom Labs
+    location: Melbourne VIC (4 days in office)
+    description: |
+      B2B fintech Payloom Labs is hiring a Growth Marketing Lead in our Melbourne office (4 days a week
+      in office). $145,000 - $160,000 + super.
+      You'll own paid acquisition across Google and LinkedIn, run experiments on our funnel and work
+      closely with product. 5+ years in B2B growth or performance marketing; HubSpot; GA4.
+    label: {score: 2, dealbreaker: location,
+            why: "Great match on paper, but onsite in Melbourne and the candidate won't relocate."}
+
+  - id: pr-comms-manager
+    title: PR and Communications Manager
+    company: Harbour Arts Foundation
+    location: Sydney NSW
+    description: |
+      We're looking for a PR and Communications Manager to lead media relations for a major arts
+      foundation. You'll write media releases, build relationships with journalists, manage issues and
+      crisis communications, and prepare speeches for our CEO.
+      Essential: 5+ years in public relations or corporate communications; an established media network;
+      excellent writing. $125,000 + super.
+    label: {score: 3, dealbreaker: null,
+            why: "Adjacent discipline: PR and communications, not performance marketing."}
+
+  - id: marketing-automation-marketo
+    title: Marketing Automation Specialist
+    company: Corvan Software
+    location: North Sydney NSW
+    description: |
+      Corvan builds supply chain software for enterprise customers. We need a Marketing Automation
+      Specialist to run our Marketo instance and lifecycle programs. $130,000 - $140,000 + super.
+      You'll build nurture programs, own lead scoring with sales, keep Salesforce data clean and
+      report on funnel conversion.
+      You have: 3+ years in B2B marketing operations or automation; lead scoring and nurture
+      experience; Salesforce. Marketo experience is preferred.
+    label: {score: 7, dealbreaker: null,
+            why: "Most must-haves shown (B2B, lead scoring, Salesforce); Marketo vs HubSpot is learnable."}
+
+  - id: paid-search-contract
+    title: Paid Search Specialist (6 month contract)
+    company: Talent Bridge Recruitment
+    location: Sydney NSW
+    description: |
+      Our client, a B2B software company, needs a Paid Search Specialist on a 6 month contract.
+      $700 per day. Immediate start.
+      You'll restructure their Google Ads accounts and improve lead quality. 3+ years of Google Ads
+      in B2B; strong GA4 skills.
+    label: {score: 4, dealbreaker: work_type,
+            why: "Strong skill match, but contract-only and the candidate wants full-time work only."}
+
+  - id: defence-baseline
+    title: Performance Marketing Manager
+    company: Aegis Defence Systems
+    location: Sydney NSW
+    description: |
+      Aegis Defence Systems is recruiting a Performance Marketing Manager for our Sydney office to run
+      paid search and LinkedIn campaigns for our civilian training products. $140,000 + super.
+      Due to the nature of our work, applicants must currently hold an active Baseline security
+      clearance. 4+ years in B2B performance marketing; Google Ads; LinkedIn Ads.
+    label: {score: 3, dealbreaker: clearance,
+            why: "The skills fit, but an active Baseline clearance is required and the candidate holds none."}
+
+  - id: software-engineer
+    title: Software Engineer (Python)
+    company: Ferro Analytics
+    location: Sydney NSW
+    description: |
+      We're hiring a Software Engineer to build data pipelines and APIs in Python. You'll work with
+      FastAPI, PostgreSQL and AWS. 3+ years of professional software development in Python required;
+      experience with Docker and CI/CD.
+    label: {score: 1, dealbreaker: null, why: "Different field."}
+
+  - id: seo-content-low-pay
+    title: SEO and Content Specialist
+    company: Quill Legal Tech
+    location: Sydney NSW (Hybrid)
+    description: |
+      Quill is a B2B legal software company hiring an SEO and Content Specialist. $95,000 - $105,000
+      package including super.
+      You'll own our blog and organic search: keyword research, writing and editing long-form content,
+      technical SEO with our developers, and reporting in GA4.
+      You have: 3+ years in SEO and content marketing; excellent writing; Ahrefs or Semrush.
+    label: {score: 4, dealbreaker: null,
+            why: "A different marketing specialism (SEO and content), and pay well below the $130k minimum."}
