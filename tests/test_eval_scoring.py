@@ -144,7 +144,9 @@ def test_perfect_ai_scores_perfectly(fake):
 
 def test_scores_come_back_off_and_missing(fake):
     fake(FakeAI(offset=2, drop={"Shelfwise"}))
-    result = run.run(dataset.load(only=["backend_engineer"]), repeats=1, log=lambda *_: None)
+    candidates = dataset.load(only=["backend_engineer"])
+    candidates[0].labels_reviewed = False  # the report warns until labels are reviewed
+    result = run.run(candidates, repeats=1, log=lambda *_: None)
     s = result["summary"]
     assert s["missing"] == 1 and s["scored"] == 9 and s["bias"] > 1.5  # clamped at 10, so a little under 2
     assert s["dealbreaker_recall"] < 1 and s["dealbreakers_missed"]

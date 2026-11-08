@@ -1,0 +1,188 @@
+# A made-up business analyst in Sydney with 6 years in banking and insurance. Australian citizen
+# (no clearance), takes full-time or contract work, $130k minimum. The jobs test telling a BA role
+# apart from its neighbours (data analyst, BI developer, product owner, project manager, process
+# improvement), plus a government role, a missing platform must-have and the usual dealbreakers.
+# No industry is set: the app has no business analysis option yet, so this is how a BA meets it today.
+#
+# Labels are a first draft written with the dataset. Review every score and change any you
+# disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
+id: business_analyst
+country: australia
+labels_reviewed: true
+local_areas: ["Sydney NSW"]
+
+profile:
+  personal: {full_name: Morgan Lee, city: Chatswood, province_state: NSW, country: Australia}
+  work_authorization:
+    legally_authorized_to_work: "Yes"
+    require_sponsorship: "No"
+    work_permit_type: Australian citizen
+  availability: {available_for_full_time: "Yes", available_for_contract: "Yes", willing_to_relocate: "No"}
+  compensation: {salary_currency: AUD, salary_range_min: "130000", salary_expectation: "145000"}
+  experience:
+    years_of_experience_total: "6"
+    current_job_title: Senior Business Analyst
+    target_role: Senior Business Analyst
+
+resume: |
+  MORGAN LEE
+  Chatswood, NSW | morgan.lee@example.com
+
+  SUMMARY
+  Business analyst with 6 years in banking and insurance, taking change from first workshop to go-live.
+
+  EXPERIENCE
+  Senior Business Analyst, Harbourview Bank, Sydney | Feb 2022 - Present
+  - Led requirements workshops with operations, risk and product teams for a new home loan origination platform.
+  - Wrote 300+ user stories with acceptance criteria in Jira and kept the backlog groomed with the product owner.
+  - Mapped current and future state processes in BPMN (Visio); cut loan approval steps from 14 to 9.
+  - Planned and ran UAT with 40 business testers; go-live with no priority-one defects.
+
+  Business Analyst, Greystone Insurance, Sydney | Mar 2019 - Jan 2022
+  - Gathered requirements and wrote business cases for a claims system upgrade ($4M program).
+  - Did gap analysis between the old and new claims systems and wrote the data migration rules.
+  - Built Power BI reports on claims turnaround for the operations manager; wrote SQL queries to check the data.
+
+  EDUCATION
+  Bachelor of Commerce (Information Systems), Macquarie University, 2018
+
+  SKILLS
+  Analysis: requirements elicitation, user stories, acceptance criteria, gap analysis, business cases
+  Process: BPMN, process mapping, Visio
+  Delivery: Agile (Scrum), UAT, stakeholder management
+  Tools: Jira, Confluence, Power BI, SQL (basic), Excel
+
+jobs:
+  - id: senior-ba-bank
+    title: Senior Business Analyst
+    company: Lantern Mutual Bank
+    location: Sydney NSW (Hybrid)
+    description: |
+      Lantern Mutual Bank is modernising its lending platforms. We're hiring a Senior Business Analyst
+      for our digital transformation team. $150,000 - $165,000 + super, hybrid from our Sydney office.
+      You have: 5+ years as a business analyst, ideally in banking or financial services; requirements
+      elicitation and user stories; process modelling (BPMN); UAT; Agile delivery with Jira and Confluence;
+      strong stakeholder management. Highly regarded: CBAP or CCBA certification.
+    label: {score: 9, dealbreaker: null,
+            why: "Does this job now: banking BA, requirements, BPMN, UAT, Jira, local, pay fits; CBAP is only desirable."}
+
+  - id: gov-ba-contract
+    title: Business Analyst (12 month contract)
+    company: NSW Department of Civic Services
+    location: Parramatta NSW (Hybrid)
+    description: |
+      A NSW Government department needs a Business Analyst for a 12 month contract on its case management
+      system replacement. $900 per day + super. Applicants must be Australian citizens and hold or be able
+      to obtain a Baseline security clearance.
+      Address the selection criteria: requirements elicitation with diverse stakeholders, process modelling,
+      user acceptance testing, and writing clear documentation. 4+ years as a business analyst.
+    label: {score: 9, dealbreaker: null,
+            why: "Core BA match; a citizen who can obtain Baseline, takes contract work, and Parramatta is local."}
+
+  - id: data-analyst
+    title: Data Analyst
+    company: Wattle Retail Group
+    location: Sydney NSW
+    description: |
+      We're hiring a Data Analyst to turn sales data into insight. $120,000 + super.
+      Essential: 3+ years in data analysis; advanced SQL and Python; statistics and experiment analysis;
+      building Power BI or Tableau dashboards; data modelling.
+    label: {score: 4, dealbreaker: null,
+            why: "Adjacent discipline: shares SQL and Power BI, but advanced SQL, Python and statistics are core and missing; pay below minimum."}
+
+  - id: bi-developer
+    title: BI Developer
+    company: Quarry Point Analytics
+    location: Sydney NSW
+    description: |
+      BI Developer to build our reporting platform. $140,000 + super.
+      Essential: Power BI with DAX and data modelling; SQL Server and SSIS; Azure Data Factory; dimensional
+      modelling (star schemas). 3+ years developing BI solutions.
+    label: {score: 3, dealbreaker: null,
+            why: "A developer role: DAX, SSIS, Azure Data Factory and dimensional modelling are core; the candidate only builds simple reports."}
+
+  - id: product-owner
+    title: Product Owner
+    company: Brightledger Software
+    location: Sydney NSW (Hybrid)
+    description: |
+      Product Owner for our payments product. $155,000 + super.
+      You'll own the product backlog and roadmap, set priorities with stakeholders and work daily with two
+      Scrum teams. Essential: 3+ years as a product owner or product manager; defining product vision and
+      measuring outcomes. Desirable: PSPO certification, payments or banking experience.
+    label: {score: 5, dealbreaker: null,
+            why: "Close neighbour (backlog, user stories, Scrum, banking), but 3+ years as a product owner is essential and missing."}
+
+  - id: project-manager
+    title: Project Manager
+    company: Ironbark Infrastructure
+    location: Sydney NSW
+    description: |
+      Project Manager to deliver IT projects for our operations division. $150,000 + super.
+      Essential: 5+ years managing projects end to end; budgets, schedules, risks and vendors; PMP or
+      PRINCE2 certification; reporting to a steering committee.
+    label: {score: 4, dealbreaker: null,
+            why: "Adjacent discipline: works alongside projects but hasn't managed budgets, schedules or vendors, and no PMP/PRINCE2."}
+
+  - id: head-of-ba-practice
+    title: Head of Business Analysis
+    company: Southgate Insurance
+    location: Sydney NSW
+    description: |
+      Lead our business analysis practice of 15 analysts: hiring, coaching, methods and standards, and
+      demand planning across the portfolio. You have 12+ years in business analysis, including 4+ years
+      leading BA teams. $210,000 + super.
+    label: {score: 3, dealbreaker: seniority,
+            why: "Seniority far off: practice lead with 12+ years and team leadership for a 6-year individual contributor."}
+
+  - id: salesforce-ba
+    title: Business Analyst - Salesforce
+    company: Coralbay Consulting
+    location: Sydney NSW (Hybrid)
+    description: |
+      Business Analyst for Salesforce CRM implementations at our clients. $140,000 + super.
+      Essential: 3+ years as a business analyst on Salesforce projects; Salesforce Administrator
+      certification; requirements, user stories and process mapping; client-facing workshops.
+    label: {score: 6, dealbreaker: null,
+            why: "Same discipline and the core BA skills fit, but Salesforce experience and the admin certification are essential and missing."}
+
+  - id: graduate-ba
+    title: Graduate Business Analyst
+    company: Kelpie Logistics
+    location: Sydney NSW
+    description: |
+      Join our 2027 graduate program as a Graduate Business Analyst. For recent graduates (within 2 years)
+      in business or IT. $75,000 + super. Training and mentoring provided.
+    label: {score: 2, dealbreaker: seniority,
+            why: "Graduate program for a 6-year BA, outside its eligibility, and pay far below minimum."}
+
+  - id: process-improvement
+    title: Process Improvement Analyst
+    company: Bluegum Health Insurance
+    location: North Sydney NSW
+    description: |
+      Process Improvement Analyst for our claims operations. $135,000 + super.
+      You'll map processes, find waste and run improvement projects with the operations teams.
+      Essential: Lean Six Sigma Green Belt; 3+ years in process improvement or operational excellence;
+      process mapping; data analysis in Excel. Insurance experience highly regarded.
+    label: {score: 6, dealbreaker: null,
+            why: "Process mapping and insurance experience fit, but the Lean Six Sigma Green Belt and process improvement track record are essential and missing."}
+
+  - id: ba-perth-onsite
+    title: Senior Business Analyst
+    company: Westshore Resources
+    location: Perth WA (onsite)
+    description: |
+      Senior Business Analyst for our ERP program, onsite in our Perth office 5 days a week.
+      $160,000 + super. 5+ years as a BA; requirements, process modelling, UAT; mining or energy a plus.
+    label: {score: 2, dealbreaker: location,
+            why: "Strong skill match, but onsite in Perth and the candidate won't relocate."}
+
+  - id: accounts-payable
+    title: Accounts Payable Officer
+    company: Redgum Hospitality
+    location: Sydney NSW
+    description: |
+      Accounts Payable Officer to process invoices, reconcile supplier statements and run weekly payment
+      runs in Xero. 2+ years in accounts payable. $70,000 + super.
+    label: {score: 1, dealbreaker: null, why: "Different field."}
