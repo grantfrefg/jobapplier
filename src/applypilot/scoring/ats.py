@@ -66,6 +66,7 @@ def ad_terms(job: dict | None) -> list[str]:
              if _has(t, ad) and t not in ("certified", "certification", "certificate")]
     first = str((job or {}).get("score_reasoning") or "").split("\n", 1)[0]
     terms += [k.strip(" []()\"'.") for k in first.split(",") if 1 < len(k.strip(" []()\"'.")) <= 40]
+    terms += facts.missing_terms(job)  # the must-haves the resume lacks, as the scorer read the ad
     seen, out = set(), []
     for t in terms:
         if t.lower() not in seen and not any(t.lower() in o.lower() and t.lower() != o.lower() for o in terms):
