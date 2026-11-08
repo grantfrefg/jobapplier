@@ -15,7 +15,7 @@ python -m evals.scoring                # run it with the AI and key saved in the
 python -m evals.scoring --compare evals/scoring/results/OLD.json evals/scoring/results/NEW.json
 ```
 
-A run scores 27 jobs 3 times in batches of 10: 9 AI requests. With Gemini they count towards the
+A run scores 39 jobs for 4 candidates 3 times in batches of 10: 15 AI requests. With Gemini they count towards the
 day's free-tier budget, like the app's own requests. Results go to `evals/scoring/results/` as JSON
 (everything) and Markdown (the report). The dataset is made up, so saved results are fine to commit
 as baselines.

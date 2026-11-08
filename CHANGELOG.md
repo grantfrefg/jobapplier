@@ -8,6 +8,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-07
+
+### Fixed
+- **Australian citizens were marked down for government jobs that accept "hold or be able to obtain" a security clearance.** The scorer treated it as a clearance dealbreaker (a NSW government business analyst role scored 3 instead of 9 in the scoring eval). Your facts now tell the scorer outright whether you can obtain an Australian clearance (citizens can; permanent residents and other visa holders can't), and the prompt says plainly that "hold or be able to obtain" is fine for a citizen. A role that needs a current clearance is still a dealbreaker without one.
+
+### Added
+- Scoring eval: a made-up business analyst with 12 jobs, testing BA roles against their neighbours (data analyst, BI developer, product owner, project manager, process improvement), a government role and a missing platform must-have. No industry is set, as the app has no business analysis option yet.
+
 ## [0.14.1] - 2026-11-07
 
 ### Fixed
