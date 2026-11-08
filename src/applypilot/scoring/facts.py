@@ -459,6 +459,41 @@ def new_tools(text: str, source: Source) -> list[str]:
     return sorted(f for f in found if not any(f != g and f in g for g in found))
 
 
+_YEARS = re.compile(r"\d+\s*\+?\s*(?:years?|yrs?)\b|\byears?\b", re.I)
+
+
+def missing_terms(job: dict | None) -> list[str]:
+    """The ad's must-haves the scorer found the resume lacks (scorer.py: missing_must_haves)."""
+    raw = str((job or {}).get("missing_must_haves") or "")
+    # Years of experience aren't a term a resume or an ATS search uses ("12+ years in business analysis")
+    return list(dict.fromkeys(t.strip() for t in raw.split(",")
+                              if 1 < len(t.strip()) <= 40 and not _YEARS.search(t)))
+
+
+def claimed_missing(text: str, missing: list[str], source: Source) -> list[str]:
+    """Must-haves the candidate lacks that the text claims anyway: in any field, the usual
+    fabrication is the AI copying the ad's tools and skills. A term the resume or profile does
+    mention (in any known form) is never flagged: then the scorer was wrong, not the writer."""
+    t = normalize(text)
+    found = []
+    for term in missing:
+        forms = {term, *aliases_of(term)}
+        if any(source.mentions(f) for f in forms):
+            continue
+        if any(re.search(rf"(?<![a-z0-9]){re.escape(normalize(f).strip())}(?:e?s)?(?![a-z0-9])", t)
+               for f in forms if normalize(f).strip()):
+            found.append(term)
+    return found
+
+
+def merge_terms(*groups: list[str]) -> list[str]:
+    """Terms from several checks, once each, leaving out any that's part of a longer one
+    ("salesforce" when "Salesforce Administrator certification" is there too)."""
+    terms = list(dict.fromkeys(t for g in groups for t in g))
+    low = [t.lower() for t in terms]
+    return [t for t, lt in zip(terms, low) if not any(lt != o and lt in o for o in low)]
+
+
 def header_problems(header: str, source: Source) -> list[str]:
     """"Job Title at Employer": both parts must come from the resume."""
     title, sep, employer = (header or "").partition(" at ")

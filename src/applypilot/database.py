@@ -215,6 +215,7 @@ _ALL_COLUMNS: dict[str, str] = {
     # Scoring
     "fit_score": "INTEGER",
     "score_reasoning": "TEXT",
+    "missing_must_haves": "TEXT",    # the ad's must-haves the resume lacks, per the scorer ("a, b, c")
     "scored_at": "TEXT",
     # Tailoring
     "tailored_resume_path": "TEXT",
