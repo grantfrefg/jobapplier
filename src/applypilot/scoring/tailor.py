@@ -612,7 +612,8 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
         errors.append(f"Summary calls the candidate '{', '.join(claims)}': not a title in their resume. "
                       "Describe what they've done instead.")
     prose = _generated_text({**fixed, "skills": {}, "title": ""}, "")
-    tools = facts.new_tools(prose, source)
+    tools = facts.merge_terms(facts.new_tools(prose, source),
+                              facts.claimed_missing(_generated_text(fixed, ""), facts.missing_terms(job), source))
     if tools:
         errors.append(f"Mentions {', '.join(tools)}, which the resume never does. Remove them.")
     for entry in fixed.get("experience") or []:
@@ -638,10 +639,12 @@ def _letter_errors(letter: str, source: "facts.Source", resume_text: str, profil
     if told:
         resume_text = resume_text + "\n" + told
         source = facts.source_for(resume_text, profile)
-    return letter_problems(letter, source, resume_text, (job or {}).get("full_description") or "")
+    return letter_problems(letter, source, resume_text, (job or {}).get("full_description") or "",
+                           facts.missing_terms(job))
 
 
-def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_ad: str = "") -> list[str]:
+def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_ad: str = "",
+                    missing: list[str] | None = None) -> list[str]:
     """Facts in a cover letter that aren't in the resume.
 
     Numbers from the job ad are allowed too: "your team of 40 engineers" is about the employer.
@@ -652,7 +655,7 @@ def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_a
     claims = facts.letter_role_claims(letter, source)
     if claims:
         problems.append(f"Calls the candidate '{', '.join(claims)}': not a title in their resume.")
-    tools = facts.new_tools(letter, source)
+    tools = facts.merge_terms(facts.new_tools(letter, source), facts.claimed_missing(letter, missing or [], source))
     if tools:
         problems.append(f"Mentions {', '.join(tools)}, which the resume never does.")
     invented = new_numbers(resume_text + "\n" + job_ad, letter)

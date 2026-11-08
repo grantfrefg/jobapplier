@@ -84,7 +84,11 @@ rate is roughly the annual salary / 230. No pay stated: ignore pay.
 Return ONLY a JSON object of this shape, with exactly one entry per posting:
 {"results": [{"id": "<posting id>", "score": <integer 1-10>,
               "keywords": "<comma-separated must-haves from the posting that the resume shows>",
-              "reasoning": "<2-3 sentences: the main reason for the score, the biggest gap or dealbreaker>"}]}"""
+              "missing": "<comma-separated must-haves from the posting that the resume doesn't show>",
+              "reasoning": "<2-3 sentences: the main reason for the score, the biggest gap or dealbreaker>"}]}
+In "keywords" and "missing", list each must-have as a short term in the posting's own words (a tool, skill,
+method, qualification or certification, 1-4 words, e.g. "Salesforce", "BPMN", "CPA", "paid social"), not a
+sentence. Leave out years of experience, location, pay and work rights. Empty string if none."""
 
 # The same prompt for UK jobs (market.py): the passages that differ
 UK_SWAPS = [
@@ -170,8 +174,8 @@ def score_batch(resume_text: str, jobs: list[dict], profile: dict | None = None,
         {"role": "user", "content": (f"CANDIDATE FACTS:\n{candidate_brief(profile or {}, local_areas)}\n\n"
                                      f"RESUME:\n{resume_text}\n\n---\n\nJOB POSTINGS ({len(ids)}):\n\n{postings}")},
     ]
-    # ~150 output tokens per job is plenty for score + keywords + reasoning
-    data = get_client().chat_json(messages, temperature=0.2, max_tokens=300 + 250 * len(ids))
+    # ~200 output tokens per job is plenty for score + keywords + missing + reasoning
+    data = get_client().chat_json(messages, temperature=0.2, max_tokens=300 + 320 * len(ids))
     entries = data.get("results", data) if isinstance(data, dict) else data
 
     scored: dict[str, dict] = {}
@@ -185,12 +189,30 @@ def score_batch(resume_text: str, jobs: list[dict], profile: dict | None = None,
             continue
         if job is None or not 1 <= score <= 10:
             continue
-        keywords = entry.get("keywords", "")
-        if isinstance(keywords, list):
-            keywords = ", ".join(map(str, keywords))
-        scored[job["url"]] = {"score": score, "keywords": str(keywords),
+        score = min(score, _dealbreaker_cap(str(entry.get("reasoning", ""))))
+        scored[job["url"]] = {"score": score, "keywords": _terms(entry.get("keywords")),
+                              "missing": _terms(entry.get("missing")),
                               "reasoning": str(entry.get("reasoning", ""))}
     return scored
+
+
+_DEALBREAKER = re.compile(r"(?<!not a )(?<!n't a )(?<!no )(?<!any )(?<!never a )\bdeal-?breakers?\b", re.I)
+_WORK_TYPE = re.compile(r"\bwork type\b|\bcontract(?:-only| only)\b|\bfull-time only\b", re.I)
+
+
+def _dealbreaker_cap(reasoning: str) -> int:
+    """The prompt's own rule, kept in code: a reply that names a dealbreaker scores 3 or lower (4 for
+    work type). The AI sometimes names one and still gives a 4 (seen in the scoring eval)."""
+    if not _DEALBREAKER.search(reasoning):
+        return 10
+    return 4 if _WORK_TYPE.search(reasoning) else 3
+
+
+def _terms(value) -> str:
+    """A reply's list of must-haves (a list or a comma-separated string) as "a, b, c"."""
+    if isinstance(value, list):
+        value = ", ".join(map(str, value))
+    return ", ".join(t.strip() for t in str(value or "").split(",") if t.strip())
 
 
 def score_job(resume_text: str, job: dict) -> dict:
@@ -307,8 +329,9 @@ def run_scoring(limit: int = 0, rescore: bool = False, batch_size: int | None = 
                 log.warning("No score returned for '%s'; will retry next run.", job.get("title", "?")[:60])
                 continue
             conn.execute(
-                "UPDATE jobs SET fit_score = ?, score_reasoning = ?, scored_at = ? WHERE url = ?",
-                (r["score"], f"{r['keywords']}\n{r['reasoning']}", now, job["url"]),
+                "UPDATE jobs SET fit_score = ?, score_reasoning = ?, missing_must_haves = ?, scored_at = ? "
+                "WHERE url = ?",
+                (r["score"], f"{r['keywords']}\n{r['reasoning']}", r.get("missing", ""), now, job["url"]),
             )
             scored += 1
             log.info("score=%d  %s", r["score"], job.get("title", "?")[:60])

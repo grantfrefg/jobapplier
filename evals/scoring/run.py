@@ -58,7 +58,7 @@ def run(candidates: list[Candidate], repeats: int = 3, batch_size: int | None = 
     batch_size = max(1, int(batch_size or config.DEFAULTS["score_batch_size"]))
     records = {(c.id, j.id): {"candidate": c.id, "job": j.id, "title": j.title, "label": j.score,
                               "dealbreaker": j.dealbreaker, "why": j.why, "scores": [None] * repeats,
-                              "reasoning": [""] * repeats}
+                              "reasoning": [""] * repeats, "missing": [""] * repeats}
                for c in candidates for j in c.jobs}
     requests = errors = 0
     stopped = ""
@@ -87,6 +87,7 @@ def run(candidates: list[Candidate], repeats: int = 3, batch_size: int | None = 
                     if result:
                         rec = records[(c.id, job.id)]
                         rec["scores"][rep], rec["reasoning"][rep] = result["score"], result["reasoning"]
+                        rec["missing"][rep] = result.get("missing", "")  # the ad's must-haves the resume lacks
             if stopped:
                 break
         log(f"  repeat {rep + 1}/{repeats} done")

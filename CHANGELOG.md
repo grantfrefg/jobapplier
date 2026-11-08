@@ -8,6 +8,12 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-08
+
+### Changed
+- **The ATS check and the fact-check now work for any job, not just the fields with word lists.** The scorer lists, for each job, the ad's must-haves your resume doesn't show (same request as before). The ATS check counts them as the ad's keywords, and a tailored resume or cover letter that claims one of them is sent back, e.g. "Salesforce" for a business analyst who has never used it. A must-have your resume does mention, in any form, is never flagged.
+- **A job the scorer itself calls a dealbreaker now always scores 3 or lower** (4 for a work type you don't want). It sometimes named a dealbreaker and still gave a 4.
+
 ## [0.14.2] - 2026-11-07
 
 ### Fixed
