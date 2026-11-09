@@ -701,6 +701,39 @@ function atsBadge(a) {
   return el("span", { class: "badge " + tone, title: lines.join("\n"), style: "cursor:help" }, "ATS " + a.score);
 }
 
+// Recruiter screen (simulated, scoring/screen.py): how an employer's AI screener might rate the resume.
+// Run on request (two AI requests); it only reports and never changes the documents.
+const SCREEN_VERDICT = { advance: "likely to advance", maybe: "a maybe", reject: "unlikely to advance" };
+function screenBadge(j) {
+  const s = j.screen;
+  if (!s) return el("a", { href: "#", title: "Simulate an employer's AI screener: it rates your base resume and " +
+    "this job's resume against the ad (two AI requests). Only a report: it never changes your documents.",
+    onclick: (e) => { e.preventDefault(); runScreen(j); } }, "recruiter screen");
+  const t = s.tailored, b = s.base;
+  const lines = ["Recruiter screen (simulated): how an employer's AI screener might rate this resume, reading " +
+    "only the ad and the resume. Real screeners vary: treat it as an estimate.", ""];
+  if (b) lines.push("Your base resume: " + b.score + "/10 (" + SCREEN_VERDICT[b.verdict] + ")");
+  lines.push((s.own ? "Your own resume for this job: " : "Tailored resume: ") + t.score + "/10 (" + SCREEN_VERDICT[t.verdict] + ")");
+  if (t.not_shown.length) lines.push("", "Not shown in the resume:", ...t.not_shown.map((x) => "- " + x),
+    "Only add one if it's true: tailoring won't invent it.");
+  if (t.noticed.length) lines.push("", "A recruiter would notice:", ...t.noticed.map((x) => "- " + x));
+  if (s.stale) lines.push("", "The resume changed since this screen: click to screen it again.");
+  else lines.push("", "Click to screen it again (two AI requests).");
+  const label = "Screen " + (b ? b.score + " → " : "") + t.score + (s.stale ? " (old)" : "");
+  return el("span", { class: "badge " + (t.verdict === "advance" && !s.stale ? "ok" : "warn"), title: lines.join("\n"),
+    style: "cursor:pointer", onclick: () => runScreen(j) }, label);
+}
+async function runScreen(j) {
+  if (!confirm("Run the recruiter screen for \"" + (j.title || "this job") + "\"?\nAI use: two requests " +
+               "(your base resume and this job's resume). It only reports; your documents don't change.")) return;
+  toast("Screening… this takes a few seconds.");
+  await guarded(async () => {
+    const s = await post("/api/jobs/screen", { url: j.url });
+    toast("Recruiter screen: " + (s.base ? s.base.score + " → " : "") + s.tailored.score + "/10");
+    loadJobs();
+  });
+}
+
 // "Reads human": patterns that make documents read as AI-written (scoring/voice.py, no AI)
 function humanBadge(h) {
   const lines = ["Reads human: a check for what makes a resume or letter sound AI-written (no AI used)."];
@@ -779,6 +812,8 @@ async function loadJobs() {
       title: j.own_resume ? "Your own file, used instead of the generated resume" : "" }, j.own_resume ? "Your resume" : "Resume"));
     if (j.ats) docs.push(" · ", atsBadge(j.ats));
     if (j.human) docs.push(" · ", humanBadge(j.human));
+    if (j.tailored && !j.duplicate_of && (j.screen || (!j.applied_at && j.has_description)))
+      docs.push(" · ", screenBadge(j));
     if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank",
       title: j.own_cover ? "Your own file, used instead of the generated cover letter" : "" }, j.own_cover ? "Your cover letter" : "Cover letter"));
     if (!j.applied_at && !j.duplicate_of) docs.push(el("div", { class: "own-docs" }, ownDocLinks(j),

@@ -263,6 +263,37 @@ def _fill_ats(job: dict) -> None:
     job["ats_score"], job["ats_report"] = report["score"], json.dumps(report)
 
 
+def _resume_text(job: dict) -> str:
+    """The text of the resume this job uses (your own file, else the generated one); "" if unreadable."""
+    from applypilot.own_docs import extract_text
+    try:
+        own = job.get("own_resume_path")
+        if own and Path(own).exists():
+            return extract_text(Path(own))
+        base = job.get("tailored_resume_path")
+        for suffix in (".md", ".txt") if base else ():
+            if Path(base).with_suffix(suffix).exists():
+                return Path(base).with_suffix(suffix).read_text(encoding="utf-8")
+    except Exception:
+        pass
+    return ""
+
+
+def _screen_summary(raw: str | None, job: dict, current_text: str | None = None) -> dict | None:
+    """The stored recruiter screen for the job list, with "stale" when the resume changed since."""
+    try:
+        report = json.loads(raw or "null")
+    except ValueError:
+        return None
+    if not isinstance(report, dict) or not report.get("tailored"):
+        return None
+    if current_text is None:
+        current_text = _resume_text(job)
+    from applypilot.scoring.screen import fingerprint
+    stale = bool(current_text) and fingerprint(current_text) != report.get("resume_hash")
+    return {k: report.get(k) for k in ("base", "tailored", "when", "own")} | {"stale": stale}
+
+
 def _letter_openings() -> dict[str, str]:
     """First sentence of every generated cover letter, by file (for "opens like another letter")."""
     from applypilot.scoring import voice
@@ -833,8 +864,8 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
                    application_url, apply_status, description, discovered_at,
                    apply_error, applied_at, duplicate_of, redo_requested, tailor_status, tailor_issues,
                    COALESCE(tailor_attempts, 0) AS tailor_attempts,
-                   apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report,
-                   tailored_resume_path, cover_letter_path, score_reasoning, full_description,
+                   apply_site, apply_site_name, apply_account, apply_site_url, ats_score, ats_report, screen_report,
+                   tailored_resume_path, cover_letter_path, own_resume_path, score_reasoning, full_description,
                    tailored_resume_path IS NOT NULL AS generated_resume,
                    full_description IS NOT NULL AS has_description,
                    cover_letter_path IS NOT NULL AS generated_cover,
@@ -859,12 +890,14 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
             job["ats"] = report and {k: report.get(k) for k in ("score", "keyword_match", "missing_have",
                                                                 "missing_gap", "issues", "removed_skills",
                                                                 "unreadable", "other_form")}
+            job["screen"] = _screen_summary(job.pop("screen_report", None), job)
             # Why it scored what it did (stored as "<matched must-haves>\n<reasoning>")
             keywords, _, reason = (job.pop("score_reasoning", None) or "").partition("\n")
             job["score_reason"] = (reason or keywords).strip()
             job["score_keywords"] = keywords.strip() if reason else ""
             job["kind"] = look.job_kind(job)
-            for k in ("tailored_resume_path", "cover_letter_path", "full_description", "description"):
+            for k in ("tailored_resume_path", "cover_letter_path", "own_resume_path", "full_description",
+                      "description"):
                 job.pop(k, None)
             out.append({**job, "link": apply_link(r)})
         return out
@@ -1027,6 +1060,34 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
                 text = candidate
                 break
         return pdf.build_html(pdf.parse_resume(text), layout=layout or None, accent=accent or None)
+
+    @app.post("/api/jobs/screen")
+    def screen_job(body: dict) -> dict:
+        """Recruiter screen (simulated): the base resume and this job's resume, two AI requests.
+
+        Only reports: nothing it finds goes back into tailoring.
+        """
+        from applypilot.own_docs import documents
+        from applypilot.scoring import screen
+        url = str(body.get("url") or "")
+        row = get_connection().execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone()
+        if not row:
+            raise HTTPException(404, "No such job")
+        job = dict(row)
+        doc = documents(job)["resume"]
+        if not doc["file"] and not doc["text"]:
+            raise HTTPException(400, "This job has no resume yet: tailor it first")
+        base = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
+        try:
+            report = screen.run(job, base, doc["text"], own=doc["own"])
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        except Exception as e:  # the AI request failed, the day's budget is spent, ...
+            raise HTTPException(502, f"The screen couldn't run: {e}") from e
+        conn = get_connection()
+        conn.execute("UPDATE jobs SET screen_report = ? WHERE url = ?", (json.dumps(report), url))
+        conn.commit()
+        return _screen_summary(json.dumps(report), {**job, "own_resume": doc["own"]}, doc["text"])
 
     @app.get("/api/jobs/text")
     def job_text(url: str, kind: str = "resume") -> dict:
