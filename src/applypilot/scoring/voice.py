@@ -184,7 +184,7 @@ def check(resume_text: str, letter: str = "", job_ad: str = "", original_resume:
     prose = _summary(resume_text) + "\n" + (letter or "")
     everything = (resume_text or "") + "\n" + (letter or "")
 
-    words = banned_in(everything, original_resume)
+    words = banned_in(everything, original_resume, job_ad)
     stock = [s for s in _STOCK if s in everything.lower() and s not in (original_resume or "").lower()]
     if words or stock:
         issues.append("Stock phrases recruiters spot: " + ", ".join(dict.fromkeys(words + stock)))

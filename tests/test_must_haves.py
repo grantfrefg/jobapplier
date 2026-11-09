@@ -164,3 +164,39 @@ def test_tailoring_sends_back_the_ads_title_as_the_candidates():
     out = tailor.check_facts(resume, letter, BA_TEXT, {}, PO_JOB)
     assert any("product owner" in e for e in out["errors"])
     assert any("product owner" in e for e in out["letter_errors"])
+
+
+# -- banned words: the job ad's own phrases are fine (no per-field lists) ---------------
+
+NURSE_AD = ("Registered Nurse. You'll improve the patient journey across the ward and work in a dynamic team "
+            "environment. We're passionate about care.")
+
+
+@pytest.mark.parametrize("text, ad, banned", [
+    ("Improved the patient journey for 40 beds.", NURSE_AD, []),
+    ("Improved the patient journey for 40 beds.", "", ["journey"]),  # without the ad: as before
+    ("A dynamic nurse on a journey.", NURSE_AD, ["dynamic", "journey"]),  # filler, though the ad says "dynamic"
+    ("Passionate about care.", NURSE_AD, ["passionate"]),
+    ("Improved the patient journey; a dynamic nurse.", NURSE_AD, ["dynamic"]),
+    ("Monitored the cloud ecosystem daily.", "Monitor the threat landscape and our cloud ecosystem.", []),
+    ("Mapped the vendor ecosystem.", "Monitor the threat landscape and our cloud ecosystem.", ["ecosystem"]),
+])
+def test_a_phrase_the_ad_uses_is_not_a_banned_word(text, ad, banned):
+    from applypilot.scoring.validator import banned_in
+    assert banned_in(text, "", ad) == banned
+
+
+def test_the_ad_reaches_the_letter_and_resume_checks():
+    from applypilot.scoring import cover_letter
+    from applypilot.scoring.validator import validate_cover_letter, validate_json_fields
+    letter = "Dear Hiring Manager,\n\nOn my ward I improved the patient journey for 40 beds.\n\nKind regards,\nSam"
+    assert any("Banned" in e for e in validate_cover_letter(letter)["errors"])
+    assert not any("Banned" in e for e in validate_cover_letter(letter, job_ad=NURSE_AD)["errors"])
+    resume = {"title": "Registered Nurse", "summary": "Nurse who improved the patient journey for 40 beds.",
+              "skills": {"Clinical": "wound care"}, "education": "Uni | BN",
+              "experience": [{"header": "Registered Nurse at Ward 4", "bullets": ["Ran wound care."]}]}
+    without = validate_json_fields(resume, {}, original_text="Registered Nurse")
+    with_ad = validate_json_fields(resume, {}, original_text="Registered Nurse", job_ad=NURSE_AD)
+    assert any("journey" in e for e in without["errors"]) and not any("journey" in e for e in with_ad["errors"])
+    assert "phrase the job ad itself uses" in tailor._tailor_rules({})
+    assert "phrase the job ad itself uses" in cover_letter.cover_letter_rules({})
