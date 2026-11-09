@@ -317,6 +317,8 @@ const PROFILE_FIELDS = {
     "Engineer. Guides scoring.",
   "experience.industry": "Your field. It sets the skill boxes below and how tailored resumes group your skills, " +
     "and tells the scorer what field you're in.",
+  "experience.field": "Only if your industry isn't listed (choose Other): your field in a few words, e.g. " +
+    "Business analysis, Nursing, Law. Left empty, the AI works it out from your resume.",
   "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
 };
 const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
