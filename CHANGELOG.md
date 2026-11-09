@@ -8,6 +8,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-09
+
 ### Changed
 - **Your field's own phrases aren't treated as AI filler when the job ad uses them.** Words like "journey", "landscape" or "ecosystem" are on the list of words that make writing sound AI-written, so "patient journey" in a nursing letter or "threat landscape" for a security role was rejected. Now a phrase the job ad itself uses is fine, in any field, with no list to keep up. Filler stays out even when the ad says it ("dynamic team", "passionate about", "fast-paced environment").
 - **Made-up job titles are caught in any field, using the ad's own title.** The usual slip is a tailored resume or letter calling you by the job's title when you've never held it ("an experienced Product Owner" for a business analyst, "as a paralegal" for a legal assistant). That's now sent back for another attempt for any title, not only the ones on a word list. Naming the job ("the Product Owner role"), other people ("worked with the product owner") and titles your resume has are all fine.
