@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-09
+
+### Added
+- **Recruiter screen (simulated).** On the Apply tab, **recruiter screen** on a job asks the other side's question: reading only the job ad and the resume, would an employer's AI screener send you to the next round? It rates your base resume and this job's resume out of 10 ("Screen 5 → 8"), says advance / maybe / reject, lists the ad's must-haves the resume doesn't show, and the 2–3 things a recruiter would notice first. It uses two AI requests and runs only when you press it. It only reports: nothing it finds goes back into tailoring, so it can't push a resume into claiming things. If you edit the resume afterwards, the badge says "(old)". Real screeners vary, so treat it as an estimate.
+
 ## [0.15.1] - 2026-11-09
 
 ### Added

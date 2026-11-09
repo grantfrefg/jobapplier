@@ -256,6 +256,8 @@ _ALL_COLUMNS: dict[str, str] = {
     # ATS check of the tailored resume (scoring/ats.py): 0-100 and the details
     "ats_score": "INTEGER",
     "ats_report": "TEXT",
+    # Recruiter screen (scoring/screen.py), run on request: JSON with the base and tailored results
+    "screen_report": "TEXT",
 }
 
 
