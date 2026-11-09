@@ -239,3 +239,36 @@ def test_the_preview_sample_follows_the_industry():
     assert "Performance Marketing Manager" in look.sample_for(marketer)
     assert "Operations Coordinator" in look.sample_for({"experience": {"industry": "Finance and accounting"}})
     assert look.sample_for({}) == look.SAMPLE  # nothing set: as before
+
+
+# -- step 4: "Other: type your field", or the AI judges the field from the resume ----------
+
+def test_the_field_comes_from_the_industry_or_what_you_typed():
+    from applypilot import industries
+    f = industries.field
+    assert f({"experience": {"industry": "Healthcare", "field": "ignored"}}) == "Healthcare"
+    assert f({"experience": {"industry": "Other", "field": " Business analysis \n"}}) == "Business analysis"
+    assert f({"experience": {"field": "Nursing"}}) == "Nursing"
+    assert f({"experience": {"industry": "Other"}}) == "" and f({}) == ""
+    assert len(f({"experience": {"field": "x" * 200}})) == 60
+
+
+def test_every_prompt_uses_the_field_or_says_to_judge_it():
+    from applypilot.apply import prompt
+    from applypilot.scoring.context import candidate_brief
+    ba = {"experience": {"industry": "Other", "field": "Business analysis", "current_job_title": "Business Analyst"}}
+    assert "(field: business analysis)" in candidate_brief(ba)
+    assert "This candidate works in business analysis: group their skills the way people in that field do" in \
+        tailor._tailor_rules(ba)
+    assert "a Business Analyst in business analysis" in prompt._build_screening_section(
+        {**ba, "personal": {}, "work_authorization": {}})
+    assert "(field not stated: judge it from the resume)" in candidate_brief({})
+    assert "Work out the candidate's field from their resume" in tailor._tailor_rules({})
+    # A named industry keeps its own skill groups
+    assert "group their skills like Channels" in tailor._tailor_rules(MARKETER)
+
+
+def test_setup_offers_the_field_box(client):
+    profile = client.get("/api/profile").json()["profile"]
+    keys = list(profile["experience"])
+    assert keys.index("field") == keys.index("industry") + 1 and profile["experience"]["field"] == ""

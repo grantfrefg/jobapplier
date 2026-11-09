@@ -8,6 +8,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Added
+- **Your field, in your own words.** Setup -> Your profile -> Experience has a **Field** box under Industry. If your industry isn't listed, choose Other and type your field (e.g. Business analysis, Nursing, Law): the scorer is told it, tailored resumes group your skills the way that field does, and the Claude Code / Codex engines describe you by it. Left empty, the scorer and tailoring are told to work your field out from your resume.
+
 ## [0.15.1] - 2026-11-09
 
 ### Changed

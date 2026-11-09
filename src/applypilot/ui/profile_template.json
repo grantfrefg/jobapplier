@@ -42,7 +42,8 @@
     "current_job_title": "",
     "current_company": "",
     "target_role": "",
-    "industry": ""
+    "industry": "",
+    "field": ""
   },
   "skills_boundary": {
     "skills": [],
