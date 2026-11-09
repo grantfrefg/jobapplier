@@ -151,6 +151,8 @@ def _setup_profile() -> dict:
         "current_job_title": current_title,
         "target_role": target_role,
         "industry": industry,
+        "field": (Prompt.ask("Your field in a few words (e.g. 'Business analysis', 'Nursing')", default="")
+                  if industry in ("", "Other") else ""),
     }
 
     # -- Skills Boundary: the industry's skill boxes (as on the Setup page) --

@@ -101,6 +101,17 @@ def of(profile: dict | None) -> str:
     return name if name in INDUSTRIES else ""
 
 
+def field(profile: dict | None) -> str:
+    """The candidate's field, to tell the AI: the industry chosen, else the field typed under Other
+    ("Business analysis", "Nursing"), else "" (the prompts then say to judge it from the resume)."""
+    exp = (profile or {}).get("experience") or {}
+    name = of(profile)
+    if name and name != "Other":
+        return name
+    typed = " ".join(str(exp.get("field") or "").split())[:60]
+    return typed
+
+
 def skill_layouts() -> dict[str, list[list[str]]]:
     """For the Setup form: industry -> [[profile key, examples], ...]."""
     return {name: [[key, examples] for key, examples in d["skills"]] for name, d in INDUSTRIES.items()}

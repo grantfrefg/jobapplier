@@ -1,0 +1,1046 @@
+{
+  "meta": {
+    "when": "2026-11-09T21:35:55+00:00",
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite",
+    "prompt": "69a10efeba0d",
+    "commit": "65b71ee",
+    "repeats": 3,
+    "batch_size": 10,
+    "seed": 0,
+    "requests": 15,
+    "failed_requests": 0,
+    "seconds": 33.9,
+    "labels_reviewed": true,
+    "stopped": ""
+  },
+  "summary": {
+    "jobs": 39,
+    "scored": 39,
+    "missing": 0,
+    "mae": 0.56,
+    "bias": 0.1,
+    "within_1": 0.95,
+    "exact": 0.49,
+    "spearman": 0.95,
+    "dealbreaker_recall": 1.0,
+    "dealbreakers_missed": [],
+    "false_dealbreakers": [],
+    "unstable": 4,
+    "mean_spread": 0.67
+  },
+  "by_candidate": {
+    "backend_engineer": {
+      "jobs": 10,
+      "scored": 10,
+      "missing": 0,
+      "mae": 0.6,
+      "bias": 0.0,
+      "within_1": 1.0,
+      "exact": 0.4,
+      "spearman": 0.95,
+      "dealbreaker_recall": 1.0,
+      "dealbreakers_missed": [],
+      "false_dealbreakers": [],
+      "unstable": 0,
+      "mean_spread": 0.5
+    },
+    "business_analyst": {
+      "jobs": 12,
+      "scored": 12,
+      "missing": 0,
+      "mae": 0.58,
+      "bias": 0.08,
+      "within_1": 0.92,
+      "exact": 0.5,
+      "spearman": 0.93,
+      "dealbreaker_recall": 1.0,
+      "dealbreakers_missed": [],
+      "false_dealbreakers": [],
+      "unstable": 1,
+      "mean_spread": 0.58
+    },
+    "marketing_coordinator_whv": {
+      "jobs": 7,
+      "scored": 7,
+      "missing": 0,
+      "mae": 0.57,
+      "bias": 0.57,
+      "within_1": 1.0,
+      "exact": 0.43,
+      "spearman": 0.96,
+      "dealbreaker_recall": 1.0,
+      "dealbreakers_missed": [],
+      "false_dealbreakers": [],
+      "unstable": 1,
+      "mean_spread": 0.86
+    },
+    "marketing_performance": {
+      "jobs": 10,
+      "scored": 10,
+      "missing": 0,
+      "mae": 0.5,
+      "bias": -0.1,
+      "within_1": 0.9,
+      "exact": 0.6,
+      "spearman": 0.94,
+      "dealbreaker_recall": 1.0,
+      "dealbreakers_missed": [],
+      "false_dealbreakers": [],
+      "unstable": 2,
+      "mean_spread": 0.8
+    }
+  },
+  "misses": [
+    {
+      "case": "business_analyst/process-improvement",
+      "label": 6,
+      "ai": 4,
+      "off_by": 2
+    },
+    {
+      "case": "marketing_performance/b2c-ecommerce-digital",
+      "label": 6,
+      "ai": 4,
+      "off_by": 2
+    }
+  ],
+  "records": [
+    {
+      "candidate": "backend_engineer",
+      "job": "python-backend-match",
+      "title": "Backend Engineer (Python)",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Does this job now: Python services, Postgres, AWS, on call, local.",
+      "scores": [
+        10,
+        10,
+        10
+      ],
+      "reasoning": [
+        "Perfect match. The candidate has 4 years of Python backend experience with FastAPI/Django, AWS, PostgreSQL, Docker, and production/on-call experience, meeting the salary and hybrid location requirements.",
+        "An ideal fit for the candidate's exact background, covering 4 years of Python, FastAPI/Django, AWS, PostgreSQL, Docker, and on-call production experience within the salary range.",
+        "An exact match for a mid-level Python backend engineer. The candidate has 4 years of experience with Python, FastAPI, PostgreSQL, AWS, Docker, and production/on-call experience. The salary range ($150k-$165k + super) meets the candidate's minimum."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 10
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "java-spring",
+      "title": "Backend Engineer",
+      "label": 5,
+      "dealbreaker": null,
+      "why": "Same discipline, but Java and Spring Boot are essential and the core language is missing.",
+      "scores": [
+        4,
+        3,
+        4
+      ],
+      "reasoning": [
+        "The candidate is a Python engineer and does not have the mandatory Java, Spring Boot, and Kafka experience required for this backend role.",
+        "The candidate is a Python engineer and completely lacks Java and Spring Boot, which are mandatory for this role.",
+        "The candidate is a Python engineer, whereas this role requires Java and Spring Boot as essential must-haves."
+      ],
+      "missing": [
+        "Java, Spring Boot, Kafka",
+        "3+ years of Java and Spring Boot, Kafka, microservices on AWS",
+        "Java, Spring Boot, Kafka, microservices on AWS"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "data-engineer",
+      "title": "Data Engineer",
+      "label": 4,
+      "dealbreaker": null,
+      "why": "Adjacent discipline: shares Python and SQL, but Airflow, dbt, Snowflake and modelling are core and missing.",
+      "scores": [
+        4,
+        4,
+        4
+      ],
+      "reasoning": [
+        "Adjacent discipline. This is a Data Engineering role requiring heavy data warehousing and pipeline tools (Airflow, dbt, Snowflake) which are not present in the candidate's software engineering resume.",
+        "This is a data engineering role focusing on analytics platforms and data pipelines, which is an adjacent discipline to the candidate's backend software engineering background.",
+        "Different discipline: This is a Data Engineer role focusing on pipelines, Airflow, dbt, and Snowflake rather than backend software engineering services."
+      ],
+      "missing": [
+        "Airflow, dbt, Snowflake, data modelling (Kimball), Spark",
+        "Airflow, dbt, Snowflake, data modelling (Kimball), Spark",
+        "Airflow, dbt, Snowflake, data modelling (Kimball), Spark"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "canberra-citizen-nv1",
+      "title": "Python Developer",
+      "label": 1,
+      "dealbreaker": "work_rights",
+      "why": "Citizenship required (candidate is a permanent resident), NV1 needs it too, and onsite in Canberra.",
+      "scores": [
+        2,
+        3,
+        2
+      ],
+      "reasoning": [
+        "Dealbreaker: Security clearance and work rights. The role is onsite in Canberra and requires Australian citizenship and an NV1 security clearance, which the candidate does not have.",
+        "Dealbreaker: The candidate is a permanent resident (not a citizen) and cannot obtain the mandatory NV1 security clearance required for this APS6 role.",
+        "Dealbreaker: Security clearance and citizenship. The role requires an Australian citizen who holds or can obtain an NV1 security clearance, which the candidate (who is a permanent resident but not a citizen) cannot obtain."
+      ],
+      "missing": [
+        "Australian citizenship, NV1 security clearance",
+        "Australian citizenship, NV1 security clearance",
+        "Australian citizen, NV1 security clearance, Django"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "contract-python",
+      "title": "Python Engineer (6 month contract)",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Core match, and the candidate takes contract work: a day rate is fine.",
+      "scores": [
+        9,
+        9,
+        10
+      ],
+      "reasoning": [
+        "Strong match for a 6-month contract. The candidate has direct experience building FastAPI services on AWS with PostgreSQL and 4 years of Python backend experience, matching the day rate and tech stack.",
+        "The candidate has exactly the right experience (4 years), tech stack (FastAPI, AWS, PostgreSQL), and is open to contract work at a rate well above their minimum.",
+        "The candidate has 4 years of Python backend experience, builds FastAPI services on AWS, and has PostgreSQL experience. At $950 per day (approx 218k annual equivalent), it meets salary expectations and matches their work type."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 9
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "principal-engineer",
+      "title": "Principal Engineer",
+      "label": 3,
+      "dealbreaker": "seniority",
+      "why": "Seniority far off: Principal with 12+ years for a 4-year engineer.",
+      "scores": [
+        2,
+        2,
+        2
+      ],
+      "reasoning": [
+        "Dealbreaker: Seniority far off. The role is Principal Engineer requiring 12+ years and staff/principal background, while the candidate has 4 years.",
+        "Dealbreaker: Seniority is far off, requiring 12+ years and principal level experience while the candidate has 4 years.",
+        "Dealbreaker: Seniority far off. The role requires a Principal Engineer with 12+ years of experience, while the candidate has about 4 years."
+      ],
+      "missing": [
+        "12+ years of software engineering, staff or principal experience, large distributed payment systems",
+        "12+ years of software engineering, staff or principal engineer experience, distributed payment systems architecture",
+        "12+ years of software engineering, staff or principal engineer experience, distributed payment systems architecture"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "graduate-program",
+      "title": "Graduate Software Engineer 2027",
+      "label": 2,
+      "dealbreaker": "seniority",
+      "why": "Graduate program for a 4-year engineer, outside its eligibility, and pay far below minimum.",
+      "scores": [
+        3,
+        2,
+        2
+      ],
+      "reasoning": [
+        "Dealbreaker: Seniority far off. The candidate has 4 years of experience and is past the graduate eligibility window (graduated in 2020).",
+        "Dealbreaker: Seniority is far off, as this is a graduate program for those who graduated in the last 2 years, whereas the candidate graduated in 2020.",
+        "Dealbreaker: Seniority far off. The candidate has 4 years of experience, whereas this role is a graduate program specifically for students or those who graduated in the last 2 years."
+      ],
+      "missing": [
+        "final-year students and recent graduates",
+        "Final-year student or recent graduate in the last 2 years",
+        "final-year student or recent graduate"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "qa-automation",
+      "title": "QA Automation Engineer",
+      "label": 4,
+      "dealbreaker": null,
+      "why": "Adjacent discipline (QA for a backend engineer), and pay below the $140k minimum.",
+      "scores": [
+        4,
+        4,
+        4
+      ],
+      "reasoning": [
+        "Adjacent discipline. The role is for a QA Automation Engineer rather than a backend software engineer, missing dedicated test automation framework experience.",
+        "This is an adjacent QA automation role rather than a backend engineering position, and the resume lacks dedicated test automation experience.",
+        "Adjacent discipline: This is a QA Automation Engineer role rather than a backend software engineering position, though it uses Python and pytest."
+      ],
+      "missing": [
+        "test automation, pytest, Playwright or Selenium, API testing",
+        "3+ years in test automation, pytest and Playwright or Selenium, API testing, test planning",
+        "Playwright, Selenium, test automation experience"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "remote-pr-ok",
+      "title": "Backend Engineer (Python), Remote",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Core match and remote; permanent residents are eligible, so work rights are not a dealbreaker.",
+      "scores": [
+        10,
+        9,
+        10
+      ],
+      "reasoning": [
+        "An exceptional match. The candidate has 4 years of exact stack experience (Python, FastAPI, Django, AWS, PostgreSQL, Celery) and meets all requirements including work rights and salary.",
+        "Strong match for a Python backend role requiring 3+ years experience, Django/FastAPI, AWS, and PostgreSQL, all of which the candidate possesses.",
+        "Strong match for a Python backend role in Australia with permanent residency accepted. The candidate has experience with Python, Django, FastAPI, AWS, PostgreSQL, and Celery, and the salary of $155k + super meets their minimum."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 10
+    },
+    {
+      "candidate": "backend_engineer",
+      "job": "go-kubernetes",
+      "title": "Senior Backend Engineer (Go)",
+      "label": 5,
+      "dealbreaker": null,
+      "why": "Same discipline, but Go and Kubernetes are essential, and 5+ years asked for 4.",
+      "scores": [
+        4,
+        4,
+        4
+      ],
+      "reasoning": [
+        "Senior backend role focused on Go and Kubernetes, which the candidate lacks. The candidate has 4 years of experience and Python/AWS stack, not Go.",
+        "The candidate is short on years of experience and lacks Go, Kubernetes, and gRPC, which are strict must-haves for this role.",
+        "The role requires 5+ years of backend experience and a core stack of Go, Kubernetes, and gRPC, whereas the candidate's stack is Python and AWS (ECS/Lambda)."
+      ],
+      "missing": [
+        "5+ years of backend engineering, Go, Kubernetes, gRPC",
+        "5+ years of backend engineering, production Go, Kubernetes, gRPC",
+        "Go, 5+ years backend engineering, Kubernetes, gRPC"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "senior-ba-bank",
+      "title": "Senior Business Analyst",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Does this job now: banking BA, requirements, BPMN, UAT, Jira, local, pay fits; CBAP is only desirable.",
+      "scores": [
+        10,
+        10,
+        10
+      ],
+      "reasoning": [
+        "This role is a direct match for the candidate's 6 years of senior business analysis experience in banking, covering all essential requirements like BPMN, Jira/Confluence, UAT, and stakeholder management.",
+        "Exceptional fit: the candidate's exact background in banking, lending platforms, agile BA delivery, user stories, and BPMN process modelling matches the must-haves perfectly.",
+        "Perfect match. Morgan has 6 years of banking business analysis experience, covering every single must-have including BPMN, user stories, UAT, and Agile delivery."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 10
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "gov-ba-contract",
+      "title": "Business Analyst (12 month contract)",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Core BA match; a citizen who can obtain Baseline, takes contract work, and Parramatta is local.",
+      "scores": [
+        9,
+        9,
+        9
+      ],
+      "reasoning": [
+        "An excellent fit for a 12-month contract matching the candidate's senior BA experience, local to Parramatta, and accepting of Australian citizens who can obtain a clearance.",
+        "Strong match: meets all the core BA requirements, citizenship and security clearance conditions, and offers an excellent day rate exceeding the minimum salary.",
+        "The candidate has 6 years of business analysis experience covering all essential criteria including requirements workshops, process mapping (BPMN), and UAT. They meet all work rights and clearance requirements, and the day rate significantly exceeds their minimum salary expectations."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 9
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "data-analyst",
+      "title": "Data Analyst",
+      "label": 4,
+      "dealbreaker": null,
+      "why": "Adjacent discipline: shares SQL and Power BI, but advanced SQL, Python and statistics are core and missing; pay below minimum.",
+      "scores": [
+        4,
+        3,
+        4
+      ],
+      "reasoning": [
+        "The candidate is a business analyst, making this an adjacent data analysis role. They lack advanced SQL, Python, statistics, and data modelling, and the salary is below their minimum requirement.",
+        "Adjacent discipline: this is a Data Analyst role requiring heavy technical skills like Python, statistics, and advanced data modelling which are outside the candidate's core business analysis scope.",
+        "Data Analyst is an adjacent discipline; Morgan has basic SQL and some Power BI but lacks advanced Python, statistics, and dedicated data analysis experience."
+      ],
+      "missing": [
+        "advanced SQL, Python, statistics and experiment analysis, data modelling",
+        "advanced SQL, Python, statistics and experiment analysis, data modelling",
+        "advanced SQL and Python, statistics and experiment analysis, data modelling"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "bi-developer",
+      "title": "BI Developer",
+      "label": 3,
+      "dealbreaker": null,
+      "why": "A developer role: DAX, SSIS, Azure Data Factory and dimensional modelling are core; the candidate only builds simple reports.",
+      "scores": [
+        4,
+        3,
+        4
+      ],
+      "reasoning": [
+        "Adjacent discipline: The role is for a BI Developer requiring heavy technical data engineering skills (SSIS, ADF, dimensional modelling) which exceeds the candidate's basic SQL and reporting background.",
+        "This is a BI Developer technical engineering role, which is an adjacent discipline to business analysis. The candidate is missing almost all core technical data engineering must-haves like SSIS, Azure Data Factory, and advanced data modelling.",
+        "BI Developer is a technical engineering role distinct from business analysis, and Morgan lacks the required data engineering stack (SSIS, ADF, dimensional modelling)."
+      ],
+      "missing": [
+        "DAX, data modelling, SQL Server and SSIS, Azure Data Factory, dimensional modelling, 3+ years developing BI solutions",
+        "DAX, data modelling, SQL Server, SSIS, Azure Data Factory, dimensional modelling, SSIS",
+        "SQL Server and SSIS, Azure Data Factory, dimensional modelling"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "product-owner",
+      "title": "Product Owner",
+      "label": 5,
+      "dealbreaker": null,
+      "why": "Close neighbour (backlog, user stories, Scrum, banking), but 3+ years as a product owner is essential and missing.",
+      "scores": [
+        6,
+        4,
+        5
+      ],
+      "reasoning": [
+        "The candidate is a Business Analyst, not a Product Owner, so they lack direct product management and product vision experience, though they have banking domain knowledge and Agile backlog grooming skills.",
+        "Adjacent discipline: the candidate is a Business Analyst, not a Product Owner who owns product vision and commercial roadmaps.",
+        "Product Owner is an adjacent discipline to Business Analyst, and the candidate lacks the required years specifically holding a PO title."
+      ],
+      "missing": [
+        "3+ years as a product owner or product manager, defining product vision",
+        "3+ years as a product owner or product manager, defining product vision",
+        "3+ years as a product owner or product manager, defining product vision"
+      ],
+      "ai": 5
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "project-manager",
+      "title": "Project Manager",
+      "label": 4,
+      "dealbreaker": null,
+      "why": "Adjacent discipline: works alongside projects but hasn't managed budgets, schedules or vendors, and no PMP/PRINCE2.",
+      "scores": [
+        4,
+        4,
+        3
+      ],
+      "reasoning": [
+        "This is an adjacent project management role rather than a business analysis role. The candidate lacks end-to-end project management experience including budget management and the required project management certifications.",
+        "Adjacent discipline: the candidate is a Business Analyst, not an end-to-end Project Manager with formal project management certifications.",
+        "This is a Project Manager role requiring full project lifecycle ownership, budgets, vendor management, and formal project management certifications (PMP/PRINCE2) which the candidate lacks. The candidate is a Business Analyst, making this an adjacent discipline with significant gaps."
+      ],
+      "missing": [
+        "managing projects end to end, budgets, schedules, risks and vendors, PMP or PRINCE2 certification, reporting to a steering committee",
+        "5+ years managing projects end to end, PMP or PRINCE2 certification",
+        "end to end project management, budgets, schedules, risks and vendors, PMP or PRINCE2 certification, steering committee reporting"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "head-of-ba-practice",
+      "title": "Head of Business Analysis",
+      "label": 3,
+      "dealbreaker": "seniority",
+      "why": "Seniority far off: practice lead with 12+ years and team leadership for a 6-year individual contributor.",
+      "scores": [
+        3,
+        3,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker: Seniority far off. The candidate has 6 years of total experience, while this Head of role requires 12+ years and management of BA teams.",
+        "Seniority dealbreaker: the role requires 12+ years of experience and team leadership, whereas the candidate has 6 years and is a senior individual contributor.",
+        "Seniority far off: Head of Business Analysis requiring 12+ years of experience and team leadership, while Morgan has 6 years and no formal people leadership."
+      ],
+      "missing": [
+        "12+ years in business analysis, 4+ years leading BA teams",
+        "12+ years in business analysis, leading BA teams",
+        "12+ years in business analysis, 4+ years leading BA teams"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "salesforce-ba",
+      "title": "Business Analyst - Salesforce",
+      "label": 6,
+      "dealbreaker": null,
+      "why": "Same discipline and the core BA skills fit, but Salesforce experience and the admin certification are essential and missing.",
+      "scores": [
+        5,
+        4,
+        5
+      ],
+      "reasoning": [
+        "The candidate has general BA skills and workshops experience, but lacks Salesforce project experience and the mandatory Salesforce Administrator certification.",
+        "The candidate has strong general BA skills but lacks the essential Salesforce implementation experience and Salesforce Administrator certification.",
+        "Morgan has the general BA skills but lacks the essential Salesforce implementation experience and Salesforce Administrator certification."
+      ],
+      "missing": [
+        "Salesforce projects, Salesforce Administrator certification, 3+ years as a business analyst on Salesforce",
+        "Salesforce projects, Salesforce Administrator certification",
+        "3+ years as a business analyst on Salesforce projects, Salesforce Administrator certification"
+      ],
+      "ai": 5
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "graduate-ba",
+      "title": "Graduate Business Analyst",
+      "label": 2,
+      "dealbreaker": "seniority",
+      "why": "Graduate program for a 6-year BA, outside its eligibility, and pay far below minimum.",
+      "scores": [
+        3,
+        3,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker: Seniority far off. The candidate has 6 years of experience, whereas this is a graduate role for recent graduates within 2 years.",
+        "Seniority far off: this is a graduate role for someone within 2 years of finishing university, whereas the candidate has 6 years of experience.",
+        "Seniority far off: this is a graduate role for someone within 2 years of graduation, whereas Morgan has 6 years of experience."
+      ],
+      "missing": [
+        "",
+        "recent graduate within 2 years",
+        "recent graduate within 2 years"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "process-improvement",
+      "title": "Process Improvement Analyst",
+      "label": 6,
+      "dealbreaker": null,
+      "why": "Process mapping and insurance experience fit, but the Lean Six Sigma Green Belt and process improvement track record are essential and missing.",
+      "scores": [
+        4,
+        5,
+        4
+      ],
+      "reasoning": [
+        "While the candidate has process mapping experience in insurance, they lack the mandatory Lean Six Sigma Green Belt certification and a dedicated operational excellence background.",
+        "The candidate has strong process mapping and insurance background but lacks the mandatory Lean Six Sigma Green Belt certification.",
+        "Morgan has strong process mapping and insurance background, but lacks the mandatory Lean Six Sigma Green Belt certification making this an adjacent fit."
+      ],
+      "missing": [
+        "Lean Six Sigma Green Belt, 3+ years in process improvement or operational excellence",
+        "Lean Six Sigma Green Belt, process improvement or operational excellence",
+        "Lean Six Sigma Green Belt"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "ba-perth-onsite",
+      "title": "Senior Business Analyst",
+      "label": 2,
+      "dealbreaker": "location",
+      "why": "Strong skill match, but onsite in Perth and the candidate won't relocate.",
+      "scores": [
+        3,
+        3,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker: Location is onsite in Perth WA, and the candidate is based in Sydney with no willingness to relocate.",
+        "Dealbreaker on location: the role is onsite 5 days a week in Perth while the candidate is based in Chatswood, NSW and will not relocate. While the seniority and core BA skills match, the geographic mismatch makes this unsuitable.",
+        "Location dealbreaker: the role is onsite in Perth 5 days a week, and Morgan is based in Sydney and will not relocate."
+      ],
+      "missing": [
+        "5+ years as a BA",
+        "Perth location, onsite 5 days a week, ERP program, mining or energy",
+        ""
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "business_analyst",
+      "job": "accounts-payable",
+      "title": "Accounts Payable Officer",
+      "label": 1,
+      "dealbreaker": null,
+      "why": "Different field.",
+      "scores": [
+        1,
+        1,
+        1
+      ],
+      "reasoning": [
+        "Different field: This is an accounting role (Accounts Payable), which does not align with business analysis.",
+        "Different field: accounts payable is an accounting transactional role, completely outside business analysis.",
+        "Completely different field; Accounts Payable is transactional accounting rather than business analysis."
+      ],
+      "missing": [
+        "accounts payable, Xero",
+        "Accounts Payable, Xero, invoice processing",
+        "accounts payable, Xero"
+      ],
+      "ai": 1
+    },
+    {
+      "candidate": "marketing_coordinator_whv",
+      "job": "coordinator-6-month-contract",
+      "title": "Marketing Coordinator (6 month contract)",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Does this job now (social, Mailchimp, Canva, events), and a 6 month contract suits the visa.",
+      "scores": [
+        10,
+        10,
+        10
+      ],
+      "reasoning": [
+        "Perfect fit: 6-month contract matches visa constraints, Sydney location is local, and required tasks (social, Mailchimp, Canva, events) directly mirror the candidate's recent experience.",
+        "Exceptional fit: the 6-month contract duration suits the working holiday visa constraints perfectly, and the duties (Instagram, TikTok, Mailchimp, Canva, events) precisely mirror the candidate's recent experience.",
+        "Perfect fit: the candidate has 18 months of exact experience covering social, Mailchimp, Canva and events, and the 6-month contract duration aligns ideally with the candidate's working holiday visa."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 10
+    },
+    {
+      "candidate": "marketing_coordinator_whv",
+      "job": "coordinator-permanent",
+      "title": "Marketing Coordinator",
+      "label": 8,
+      "dealbreaker": null,
+      "why": "Strong match; a permanent role scores 1 lower on a working holiday visa (no visa mention, not a dealbreaker).",
+      "scores": [
+        7,
+        8,
+        8
+      ],
+      "reasoning": [
+        "Strong match for experience level and core tasks (social, email, promotions). It is a permanent full-time role, so the score is 1 lower for the working holiday visa, and Klaviyo is easily learned.",
+        "Strong match for experience level, skills (Canva, Mailchimp, social), and duties. Scored 1 lower because it is a permanent role on a working holiday visa.",
+        "The candidate has about 1.5 years of experience, Canva, and Mailchimp skills matching this permanent full-time role well. It scores 1 lower due to being permanent rather than a short-term contract which fits working holiday visa limits better."
+      ],
+      "missing": [
+        "Klaviyo",
+        "",
+        ""
+      ],
+      "ai": 8
+    },
+    {
+      "candidate": "marketing_coordinator_whv",
+      "job": "coordinator-citizens-pr-only",
+      "title": "Marketing Coordinator",
+      "label": 2,
+      "dealbreaker": "work_rights",
+      "why": "Citizens or permanent residents only; the candidate is on a working holiday visa.",
+      "scores": [
+        3,
+        3,
+        3
+      ],
+      "reasoning": [
+        "Work rights dealbreaker: the posting explicitly requires applicants to be Australian citizens or permanent residents, which excludes the candidate on a working holiday visa.",
+        "Dealbreaker: The posting explicitly requires applicants to be Australian citizens or permanent residents, which excludes the candidate on a working holiday visa.",
+        "The posting explicitly requires Australian citizenship or permanent residency, which is a dealbreaker for the candidate's working holiday visa. The candidate has the required experience and skills (Canva, email), but fails the citizenship/PR requirement."
+      ],
+      "missing": [
+        "Australian citizens or permanent residents, 1-2 years of marketing coordination experience",
+        "Australian citizens or permanent residents",
+        "Australian citizens or permanent residents"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "marketing_coordinator_whv",
+      "job": "senior-marketing-manager",
+      "title": "Senior Marketing Manager",
+      "label": 2,
+      "dealbreaker": "seniority",
+      "why": "Seniority far off: 8+ years and team leadership for 1.5 years.",
+      "scores": [
+        2,
+        2,
+        1
+      ],
+      "reasoning": [
+        "Seniority far off: the role is for a Senior Marketing Manager requiring 8+ years experience and team management, whereas the candidate has 1.5 years experience as a coordinator.",
+        "Seniority far off: This is a Senior Marketing Manager role requiring 8+ years of experience and team management, whereas the candidate is a coordinator with 1.5 years of experience.",
+        "Seniority far off: the role requires a Senior Marketing Manager with 8+ years experience and team management, whereas the candidate has only 1.5 years of coordinator experience."
+      ],
+      "missing": [
+        "8+ years of marketing experience, managing teams, agency management",
+        "8+ years of marketing experience, 3+ years managing teams, budget ownership, agency management",
+        "8+ years of marketing experience, 3+ years managing teams, budget ownership, agency management"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "marketing_coordinator_whv",
+      "job": "social-casual-3-months",
+      "title": "Social Media Coordinator (casual, 3 months)",
+      "label": 8,
+      "dealbreaker": null,
+      "why": "Social media is core experience and a 3 month casual role suits the visa; on-site video editing is a small gap.",
+      "scores": [
+        9,
+        9,
+        8
+      ],
+      "reasoning": [
+        "Excellent fit for a short-term casual social media coordinator role matching the candidate's 1.5 years of experience and core skills in Instagram and TikTok.",
+        "The candidate's core background is running Instagram and TikTok for a consumer brand, making them an excellent match for this short-term casual social media role.",
+        "Strong match for a short casual festival role that fits the visa constraints, though the candidate's primary experience leans broader than just pure social/short-form video production."
+      ],
+      "missing": [
+        "CapCut",
+        "",
+        "CapCut"
+      ],
+      "ai": 9
+    },
+    {
+      "candidate": "marketing_coordinator_whv",
+      "job": "events-temp",
+      "title": "Events Coordinator (4 month temp)",
+      "label": 5,
+      "dealbreaker": null,
+      "why": "Some event support shown, but event coordination is the core of the role and 2+ years are essential.",
+      "scores": [
+        6,
+        6,
+        4
+      ],
+      "reasoning": [
+        "The candidate has event support experience from their coffee chain role, but falls slightly short of the 2+ years strictly required for this event-focused temporary position.",
+        "The candidate has event coordination experience from their coordinator role, but falls slightly short of the 2+ years specifically in event coordination requested. However, it fits the temp nature of their working holiday visa.",
+        "The candidate has some event support experience from their coffee chain role, but falls short of the required 2+ years dedicated event coordination experience for a heavier temp assignment."
+      ],
+      "missing": [
+        "2+ years in event coordination",
+        "2+ years in event coordination",
+        "2+ years in event coordination"
+      ],
+      "ai": 6
+    },
+    {
+      "candidate": "marketing_coordinator_whv",
+      "job": "content-brisbane-onsite",
+      "title": "Content Marketing Coordinator",
+      "label": 2,
+      "dealbreaker": "location",
+      "why": "Onsite in Brisbane and the candidate won't relocate.",
+      "scores": [
+        2,
+        3,
+        2
+      ],
+      "reasoning": [
+        "Location dealbreaker: the role is onsite 5 days a week in Brisbane, while the candidate is based in Sydney and not willing to relocate.",
+        "Dealbreaker: The role is onsite 5 days a week in Brisbane, but the candidate is based in Sydney and unwilling to relocate.",
+        "Location dealbreaker: the role is onsite 5 days a week in Brisbane, while the candidate is based in Sydney and unwilling to relocate."
+      ],
+      "missing": [
+        "blog posts",
+        "Brisbane QLD location",
+        "onsite in Brisbane"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "senior-b2b-performance",
+      "title": "Senior Performance Marketing Manager",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Does this job now: B2B SaaS paid search and social, budget, HubSpot, GA4, local, pay fits.",
+      "scores": [
+        10,
+        10,
+        10
+      ],
+      "reasoning": [
+        "Perfect fit: The candidate currently works in B2B SaaS performance marketing, has direct experience managing budgets, Google/LinkedIn ads, HubSpot, GA4, and leading small teams, matching all essential criteria.",
+        "Perfect fit: the candidate currently does this exact job in B2B SaaS, managing budgets, paid search/social, lead quality with sales, and pipeline reporting with GA4 and HubSpot. Meets salary expectations and seniority.",
+        "The candidate is a near-perfect fit for this role, with direct B2B SaaS performance marketing experience, management of budgets and paid channels, Salesforce/HubSpot proficiency, and matching salary."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 10
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "b2c-ecommerce-digital",
+      "title": "Digital Marketing Manager",
+      "label": 6,
+      "dealbreaker": null,
+      "why": "Same discipline (performance), but B2C ecommerce, TikTok and Klaviyo are essential and missing.",
+      "scores": [
+        4,
+        4,
+        4
+      ],
+      "reasoning": [
+        "The candidate's background is exclusively B2B SaaS, whereas this role requires B2C ecommerce marketing experience with direct-to-consumer tools like Shopify and Klaviyo.",
+        "Adjacent discipline and domain: the candidate has B2B SaaS experience, whereas this role requires B2C ecommerce marketing with specific tools like Klaviyo and Shopify.",
+        "The candidate has paid media experience with Meta, but lacks the required B2C ecommerce, Shopify, and Klaviyo experience, as they come from a B2B SaaS background."
+      ],
+      "missing": [
+        "B2C ecommerce marketing, Meta and TikTok ads, Klaviyo, Shopify",
+        "B2C ecommerce marketing, Meta and TikTok ads for direct-to-consumer, Klaviyo, Shopify",
+        "B2C ecommerce marketing, TikTok ads, Klaviyo, Shopify"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "head-of-marketing",
+      "title": "Head of Marketing",
+      "label": 3,
+      "dealbreaker": "seniority",
+      "why": "Seniority far off: an executive role needing 12+ years for a 5-year manager of one.",
+      "scores": [
+        3,
+        2,
+        2
+      ],
+      "reasoning": [
+        "Dealbreaker (Seniority far off): The role requires 12+ years of experience with senior leadership and board reporting, whereas the candidate has only 5 years of experience.",
+        "Seniority far off: the posting requires 12+ years of experience with senior leadership and board reporting, whereas the candidate has 5 years of individual contributor and small-team management experience.",
+        "Dealbreaker: Seniority far off. The role requires 12+ years of experience with 5 in senior leadership, managing a team of 15 and sitting on the executive team, whereas the candidate has 5 years total experience."
+      ],
+      "missing": [
+        "12+ years in marketing, 5 in senior leadership, multi-disciplinary teams, brand strategy, board reporting",
+        "12+ years in marketing, senior leadership experience, brand strategy, board reporting",
+        "senior leadership, brand strategy, board reporting"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "growth-lead-melbourne",
+      "title": "Growth Marketing Lead",
+      "label": 2,
+      "dealbreaker": "location",
+      "why": "Great match on paper, but onsite in Melbourne and the candidate won't relocate.",
+      "scores": [
+        7,
+        3,
+        3
+      ],
+      "reasoning": [
+        "The candidate matches the core B2B growth and performance marketing requirements and stack, but the role is onsite in Melbourne and the candidate is based in Parramatta/Sydney with no willingness to relocate.",
+        "Dealbreaker: Location. The role is onsite in Melbourne 4 days a week, and the candidate is based in Parramatta and is unwilling to relocate.",
+        "Dealbreaker: Location. The role is onsite in Melbourne 4 days a week, and the candidate is based in Parramatta and not willing to relocate."
+      ],
+      "missing": [
+        "Melbourne location",
+        "Melbourne location",
+        ""
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "pr-comms-manager",
+      "title": "PR and Communications Manager",
+      "label": 3,
+      "dealbreaker": null,
+      "why": "Adjacent discipline: PR and communications, not performance marketing.",
+      "scores": [
+        3,
+        3,
+        2
+      ],
+      "reasoning": [
+        "This is a PR and communications role, which is an adjacent discipline to performance marketing and lacks the candidate's core paid media and demand generation skill set.",
+        "Adjacent discipline: the role requires PR and corporate communications experience and media relations, which does not match the candidate's performance marketing background.",
+        "Dealbreaker: Different field. The candidate is a B2B performance marketer, whereas this role is in PR and communications."
+      ],
+      "missing": [
+        "Public relations, corporate communications, media network, crisis communications",
+        "public relations or corporate communications, media network, crisis communications",
+        "public relations, corporate communications, media network"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "marketing-automation-marketo",
+      "title": "Marketing Automation Specialist",
+      "label": 7,
+      "dealbreaker": null,
+      "why": "Most must-haves shown (B2B, lead scoring, Salesforce); Marketo vs HubSpot is learnable.",
+      "scores": [
+        6,
+        7,
+        8
+      ],
+      "reasoning": [
+        "The candidate has strong CRM and lead scoring experience from HubSpot/Salesforce, but lacks the specific Marketo automation platform experience that is heavily emphasized for this marketing operations role.",
+        "Strong match in an adjacent marketing sub-discipline; the candidate has HubSpot lead scoring and Salesforce experience, though they lack dedicated Marketo ownership and a pure marketing ops background.",
+        "Strong match in B2B marketing operations and funnel conversion, with Salesforce and lead scoring experience. The only missing must-have is Marketo, which uses HubSpot instead, but this is easily learnable."
+      ],
+      "missing": [
+        "Marketo",
+        "B2B marketing operations or automation, Marketo",
+        "Marketo"
+      ],
+      "ai": 7
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "paid-search-contract",
+      "title": "Paid Search Specialist (6 month contract)",
+      "label": 4,
+      "dealbreaker": "work_type",
+      "why": "Strong skill match, but contract-only and the candidate wants full-time work only.",
+      "scores": [
+        4,
+        4,
+        4
+      ],
+      "reasoning": [
+        "Dealbreaker (Work type): The role is a 6-month contract, but the candidate's facts state they want full-time work and not contract roles.",
+        "Work type dealbreaker: The posting is for a 6-month contract, but the candidate's facts explicitly state they want full-time work and not contract roles.",
+        "Dealbreaker: Work type. The role is a 6-month contract, and the candidate's facts state they want full-time work and not contract."
+      ],
+      "missing": [
+        "Contract work type",
+        "",
+        ""
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "defence-baseline",
+      "title": "Performance Marketing Manager",
+      "label": 3,
+      "dealbreaker": "clearance",
+      "why": "The skills fit, but an active Baseline clearance is required and the candidate holds none.",
+      "scores": [
+        3,
+        3,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker: The posting explicitly requires an applicant who currently holds an active Baseline security clearance, which the candidate does not have.",
+        "Dealbreaker: Security clearance. The posting requires candidates to currently hold an active Baseline security clearance, which the candidate does not have.",
+        "Dealbreaker: Security clearance. The posting requires an active Baseline security clearance, which the candidate does not currently hold."
+      ],
+      "missing": [
+        "Active Baseline security clearance",
+        "Baseline security clearance",
+        "Baseline security clearance"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "software-engineer",
+      "title": "Software Engineer (Python)",
+      "label": 1,
+      "dealbreaker": null,
+      "why": "Different field.",
+      "scores": [
+        1,
+        1,
+        1
+      ],
+      "reasoning": [
+        "This is a software engineering role requiring Python and cloud infrastructure, which is a completely different field from the candidate's marketing background.",
+        "Different field: software engineering is entirely unrelated to the candidate's marketing background.",
+        "Dealbreaker: Different field. This is a software engineering role, while the candidate is a marketing professional."
+      ],
+      "missing": [
+        "Python, FastAPI, PostgreSQL, AWS, Docker, CI/CD",
+        "Python, software development, FastAPI, PostgreSQL, AWS",
+        "Python, FastAPI, PostgreSQL, AWS"
+      ],
+      "ai": 1
+    },
+    {
+      "candidate": "marketing_performance",
+      "job": "seo-content-low-pay",
+      "title": "SEO and Content Specialist",
+      "label": 4,
+      "dealbreaker": null,
+      "why": "A different marketing specialism (SEO and content), and pay well below the $130k minimum.",
+      "scores": [
+        4,
+        4,
+        4
+      ],
+      "reasoning": [
+        "This is an SEO and content role rather than paid performance marketing, representing an adjacent discipline with several missing must-haves like long-form writing and SEO tool expertise.",
+        "Adjacent discipline: the candidate is a paid performance marketer, not an SEO and content specialist. The role focuses on organic search and content creation rather than paid media pipeline generation.",
+        "Adjacent discipline. The candidate does performance marketing rather than dedicated organic SEO and content marketing, and the salary is below their minimum requirement."
+      ],
+      "missing": [
+        "SEO and content marketing, writing, Ahrefs or Semrush",
+        "SEO and content marketing, writing and editing long-form content, technical SEO, Ahrefs or Semrush",
+        "SEO and content marketing, Ahrefs or Semrush, technical SEO"
+      ],
+      "ai": 4
+    }
+  ]
+}

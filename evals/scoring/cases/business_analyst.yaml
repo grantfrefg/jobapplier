@@ -2,7 +2,7 @@
 # (no clearance), takes full-time or contract work, $130k minimum. The jobs test telling a BA role
 # apart from its neighbours (data analyst, BI developer, product owner, project manager, process
 # improvement), plus a government role, a missing platform must-have and the usual dealbreakers.
-# No industry is set: the app has no business analysis option yet, so this is how a BA meets it today.
+# Industry Other with the field typed in (0.15.2): there's no business analysis industry to pick.
 #
 # Labels are a first draft written with the dataset. Review every score and change any you
 # disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
@@ -23,6 +23,8 @@ profile:
     years_of_experience_total: "6"
     current_job_title: Senior Business Analyst
     target_role: Senior Business Analyst
+    industry: Other
+    field: Business analysis
 
 resume: |
   MORGAN LEE
