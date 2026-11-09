@@ -89,6 +89,12 @@ If the resume fails, both documents are regenerated. If only the letter fails, j
 - **Australian spelling.**
 It uses no AI requests. It's a guide, not a prediction of any one vendor's ranking.
 
+**Recruiter screen (simulated).** The fit score asks whether a job suits you (pay, location, work type, visas). **recruiter screen** on a job's row on the Apply tab asks the employer's question instead: an AI playing the employer's screener reads only the ad and a resume and scores 1-10 how likely it would send you to the next round (7+ advance, 5-6 maybe, 4 or lower reject). It screens your base resume and this job's resume, so the badge reads "Screen 5 → 8" when tailoring helped; hover for the must-haves the resume doesn't show and what a recruiter would notice first. It costs two AI requests and runs only when you press it (`scoring/screen.py`).
+- It never feeds back into tailoring. A writer told to raise a screen score starts claiming things; a must-have it lists as not shown is a real gap, which only you can fill, and only if it's true.
+- It doesn't know your preferences or work rights. A citizenship or clearance requirement the resume doesn't state is listed as not shown, without lowering the score: **Work rights in the header** (Setup, resume look) puts them on the resume.
+- Edit the resume afterwards and the badge says "(old)": click it to screen again.
+- Employers' screeners vary (keyword ranking, an LLM, a person skimming), so it's an estimate, not a prediction.
+
 **Your skills list matters.** `skills_boundary` in your profile adds skills that aren't spelled out in your resume. Skills in your resume are always kept, including short or long forms (GCP / Google Cloud Platform) and US spellings of them. The template's example values (JavaScript, Docker, AWS, CI/CD, MongoDB, Git, Linux) are ignored until you tick **My skills list is accurate** under the profile in Setup: remove the ones you don't use and add any you do (e.g. MLOps), then tick it. Hover a job's ATS badge to see any skills removed from its resume.
 
 **Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job).
