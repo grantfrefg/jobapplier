@@ -8,6 +8,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Changed
+- **Made-up job titles are caught in any field, using the ad's own title.** The usual slip is a tailored resume or letter calling you by the job's title when you've never held it ("an experienced Product Owner" for a business analyst, "as a paralegal" for a legal assistant). That's now sent back for another attempt for any title, not only the ones on a word list. Naming the job ("the Product Owner role"), other people ("worked with the product owner") and titles your resume has are all fine.
+
 ## [0.15.0] - 2026-11-08
 
 ### Changed
