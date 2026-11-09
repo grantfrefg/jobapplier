@@ -2,7 +2,7 @@
 # (no clearance), takes full-time or contract work, $130k minimum. The jobs test telling a BA role
 # apart from its neighbours (data analyst, BI developer, product owner, project manager, process
 # improvement), plus a government role, a missing platform must-have and the usual dealbreakers.
-# Industry Other with the field typed in (0.15.2): there's no business analysis industry to pick.
+# Industry Other with the field typed in (0.15.1): there's no business analysis industry to pick.
 #
 # Labels are a first draft written with the dataset. Review every score and change any you
 # disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
