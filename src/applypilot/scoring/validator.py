@@ -84,12 +84,40 @@ _TERMS_OF_ART = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in sorted(TERM
                            + r")\b")
 
 
-def banned_in(text: str, allowed_text: str = "") -> list[str]:
-    """Banned words in the text, except ones the candidate uses in their own resume and the
-    words of a field's set phrases (TERMS_OF_ART, e.g. "customer journey")."""
+# A banned word next to one of these is filler even when the job ad says it ("dynamic team",
+# "passionate about", "fast-paced environment"), so the ad doesn't make it fine.
+_FILLER_NEIGHBOURS = {
+    "team", "teams", "environment", "environments", "individual", "individuals", "person", "people", "culture",
+    "professional", "professionals", "candidate", "workplace", "company", "organisation", "organization",
+    "business", "role", "about", "self-starter", "attitude", "approach", "work", "results", "solutions",
+    "and", "or", "the", "a", "an", "of", "to", "in", "for", "with", "on", "at", "our", "your", "their", "is", "are",
+}
+
+
+def _ad_phrase_ok(low: str, word: str, ad: str) -> bool:
+    """Every use of a one-word banned term in the text sits in a phrase the job ad also uses, with a
+    real word beside it ("patient journey", "threat landscape"): the ad's own name for a thing."""
+    if not ad or " " in word:
+        return False
+    for m in re.finditer(r"\b" + re.escape(word) + r"\b", low):
+        before = re.findall(r"[a-z][a-z-]*", low[:m.start()])[-1:]
+        after = re.findall(r"[a-z][a-z-]*", low[m.end():])[:1]
+        phrases = [f"{n} {word}" for n in before if n not in _FILLER_NEIGHBOURS] + \
+                  [f"{word} {n}" for n in after if n not in _FILLER_NEIGHBOURS]
+        if not any(re.search(r"\b" + re.escape(p) + r"\b", ad) for p in phrases):
+            return False
+    return True
+
+
+def banned_in(text: str, allowed_text: str = "", ad_text: str = "") -> list[str]:
+    """Banned words in the text, except ones the candidate uses in their own resume, the words of a
+    field's set phrases (TERMS_OF_ART, e.g. "customer journey"), and words used in a phrase the job
+    ad uses too ("patient journey" in a nursing ad), which needs no list for each field."""
     low, own = _TERMS_OF_ART.sub(" ", (text or "").lower()), (allowed_text or "").lower()
+    ad = " ".join((ad_text or "").lower().split())
     return [w for w in BANNED_WORDS
-            if re.search(r"\b" + re.escape(w) + r"\b", low) and not re.search(r"\b" + re.escape(w) + r"\b", own)]
+            if re.search(r"\b" + re.escape(w) + r"\b", low) and not re.search(r"\b" + re.escape(w) + r"\b", own)
+            and not _ad_phrase_ok(low, w, ad)]
 
 
 # American spellings an AI tends to use, with the Australian form. Only whole
@@ -207,7 +235,8 @@ def sanitize_text(text: str) -> str:
 
 # ── JSON Field Validation ─────────────────────────────────────────────────
 
-def validate_json_fields(data: dict, profile: dict, mode: str = "normal", original_text: str = "") -> dict:
+def validate_json_fields(data: dict, profile: dict, mode: str = "normal", original_text: str = "",
+                         job_ad: str = "") -> dict:
     """Validate individual JSON fields from an LLM-generated tailored resume.
 
     Args:
@@ -281,8 +310,8 @@ def validate_json_fields(data: dict, profile: dict, mode: str = "normal", origin
     # Banned filler words — severity depends on mode. The summary is read
     # most closely, so there they're errors in normal mode too.
     if mode != "lenient":
-        found_banned = banned_in(all_text, original_text)
-        in_summary = banned_in(str(data["summary"]), original_text)
+        found_banned = banned_in(all_text, original_text, job_ad)
+        in_summary = banned_in(str(data["summary"]), original_text, job_ad)
         if found_banned:
             msg = f"Banned words: {', '.join(found_banned[:5])}"
             if mode == "strict" or in_summary:
@@ -417,7 +446,7 @@ def validate_tailored_resume(text: str, profile: dict, original_text: str = "") 
 
 # ── Cover Letter Validation ──────────────────────────────────────────────
 
-def validate_cover_letter(text: str, mode: str = "normal", original_text: str = "") -> dict:
+def validate_cover_letter(text: str, mode: str = "normal", original_text: str = "", job_ad: str = "") -> dict:
     """Programmatic validation of a cover letter.
 
     Args:
@@ -441,7 +470,7 @@ def validate_cover_letter(text: str, mode: str = "normal", original_text: str = 
     # 2. Banned words and AI-sounding phrasing: a letter is read closely, so
     # these are errors unless lenient
     if mode != "lenient":
-        found = banned_in(text, original_text)
+        found = banned_in(text, original_text, job_ad)
         if found:
             errors.append(f"Banned words: {', '.join(found[:5])}")
         patterns = ai_phrasing(text)

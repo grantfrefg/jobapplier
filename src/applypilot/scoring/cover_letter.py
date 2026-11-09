@@ -129,7 +129,7 @@ plain close, e.g. "Happy to walk through any of this in more detail." No "I woul
 
 BANNED WORDS AND PHRASES (automated validator rejects ANY of these, do not use even once):
 {all_banned}
-A field's set phrases are fine: {terms_of_art}.
+A field's set phrases are fine: {terms_of_art}; so is a phrase the job ad itself uses (e.g. "patient journey").
 
 ALSO BANNED (meta-commentary the validator catches):
 {leak_banned}
@@ -265,7 +265,8 @@ def generate_cover_letter(
             stats["requests"] = stats.get("requests", 0) + 1
         letter = australianise(clean_letter(client.chat(messages, max_tokens=1024, temperature=0.7)), resume_text)
 
-        validation = validate_cover_letter(letter, mode=validation_mode, original_text=known)
+        validation = validate_cover_letter(letter, mode=validation_mode, original_text=known,
+                                           job_ad=job.get("full_description") or job.get("description") or "")
         fact_errors = _fact_errors(letter, known, profile, job.get("full_description") or "")
         validation["errors"] += fact_errors
         same = voice.repeated_opening(letter, voice.recent_openings())
