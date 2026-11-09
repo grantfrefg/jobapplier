@@ -607,7 +607,8 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
     from applypilot.scoring import ats
     added = add_missing_keywords(fixed, list(dict.fromkeys(job_keywords(job) + ats.ad_terms(job))), source)
 
-    claims = facts.role_claims(str(fixed.get("summary", "")), source)
+    claims = facts.merge_terms(facts.role_claims(str(fixed.get("summary", "")), source),
+                               facts.ad_title_claims(str(fixed.get("summary", "")), job, source))
     if claims:
         errors.append(f"Summary calls the candidate '{', '.join(claims)}': not a title in their resume. "
                       "Describe what they've done instead.")
@@ -640,11 +641,11 @@ def _letter_errors(letter: str, source: "facts.Source", resume_text: str, profil
         resume_text = resume_text + "\n" + told
         source = facts.source_for(resume_text, profile)
     return letter_problems(letter, source, resume_text, (job or {}).get("full_description") or "",
-                           facts.missing_terms(job))
+                           facts.missing_terms(job), job)
 
 
 def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_ad: str = "",
-                    missing: list[str] | None = None) -> list[str]:
+                    missing: list[str] | None = None, job: dict | None = None) -> list[str]:
     """Facts in a cover letter that aren't in the resume.
 
     Numbers from the job ad are allowed too: "your team of 40 engineers" is about the employer.
@@ -652,7 +653,8 @@ def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_a
     if not letter:
         return []
     problems = []
-    claims = facts.letter_role_claims(letter, source)
+    claims = facts.merge_terms(facts.letter_role_claims(letter, source),
+                               facts.ad_title_claims(letter, job, source, first_person=True))
     if claims:
         problems.append(f"Calls the candidate '{', '.join(claims)}': not a title in their resume.")
     tools = facts.merge_terms(facts.new_tools(letter, source), facts.claimed_missing(letter, missing or [], source))
