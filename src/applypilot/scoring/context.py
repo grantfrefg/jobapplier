@@ -84,7 +84,8 @@ def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
     lines = [
         f"Target role: {target_role(profile) or 'not stated (judge from the resume)'}"
         + (f", about {yrs} years of experience" if yrs else "")
-        + (f" (field: {industries.of(profile).lower()})" if industries.of(profile) else ""),
+        + (f" (field: {industries.field(profile).lower()})" if industries.field(profile)
+           else " (field not stated: judge it from the resume)"),
         f"Based in: {_location(profile)}"
         + (f" (searching in: {'; '.join(local_areas)}; jobs there and in any of their suburbs are local)"
            if local_areas else "")

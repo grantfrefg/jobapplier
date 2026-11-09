@@ -190,7 +190,7 @@ def _build_screening_section(profile: dict) -> str:
     years = exp.get("years_of_experience_total") or "several"
     from applypilot import industries
     from applypilot.scoring.context import target_role as role_of
-    field = industries.of(profile)
+    field = industries.field(profile)
     who = (f"a {role_of(profile)}" if role_of(profile) else "the professional their resume shows") \
         + (f" in {field.lower()}" if field else "")
     work_auth = profile["work_authorization"]

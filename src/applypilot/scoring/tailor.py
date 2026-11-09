@@ -109,9 +109,17 @@ def _tailor_rules_au(profile, title_now, skills_block, companies_str, projects_s
     from applypilot import industries
     from applypilot.scoring.validator import TERMS_OF_ART_EXAMPLES
     terms_of_art = ", ".join(f'"{t}"' for t in TERMS_OF_ART_EXAMPLES)
-    groups = industries.resume_groups(profile)
-    industry_line = (f"\nThis candidate works in {industries.of(profile).lower()}: group their skills like "
-                     f"{', '.join(groups)} (leave out a group they have nothing for)." if groups else "")
+    # A named industry's own groups; under Other (or none) the AI groups them the way the field does
+    groups = industries.resume_groups(profile) if industries.of(profile) != "Other" else []
+    field = industries.field(profile)
+    if groups:
+        industry_line = (f"\nThis candidate works in {field.lower()}: group their skills like "
+                         f"{', '.join(groups)} (leave out a group they have nothing for).")
+    elif field:
+        industry_line = f"\nThis candidate works in {field.lower()}: group their skills the way people in that field do."
+    else:
+        industry_line = ("\nWork out the candidate's field from their resume and group their skills the way "
+                         "people in that field do.")
     return f"""You are a senior recruiter in Australia rewriting a resume so this candidate
 gets an interview for the target job, in whatever field it is. Return the tailored resume as a JSON object.
 
