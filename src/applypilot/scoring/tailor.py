@@ -196,7 +196,7 @@ Australian recruiters read hundreds of these and reject the ones that sound gene
 - BANNED WORDS (words recruiters and AI detectors flag; using any = rejected, unless the original
   resume itself uses the word):
   {banned_str}
-  A field's set phrases are fine: {terms_of_art}.
+  A field's set phrases are fine: {terms_of_art}; so is a phrase the job ad itself uses (e.g. "patient journey").
 - No em dashes. Use commas, periods, or hyphens.
 - {AU_STYLE}
 
@@ -607,7 +607,8 @@ def check_facts(resume: dict, letter: str, resume_text: str, profile: dict, job:
     from applypilot.scoring import ats
     added = add_missing_keywords(fixed, list(dict.fromkeys(job_keywords(job) + ats.ad_terms(job))), source)
 
-    claims = facts.role_claims(str(fixed.get("summary", "")), source)
+    claims = facts.merge_terms(facts.role_claims(str(fixed.get("summary", "")), source),
+                               facts.ad_title_claims(str(fixed.get("summary", "")), job, source))
     if claims:
         errors.append(f"Summary calls the candidate '{', '.join(claims)}': not a title in their resume. "
                       "Describe what they've done instead.")
@@ -640,11 +641,11 @@ def _letter_errors(letter: str, source: "facts.Source", resume_text: str, profil
         resume_text = resume_text + "\n" + told
         source = facts.source_for(resume_text, profile)
     return letter_problems(letter, source, resume_text, (job or {}).get("full_description") or "",
-                           facts.missing_terms(job))
+                           facts.missing_terms(job), job)
 
 
 def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_ad: str = "",
-                    missing: list[str] | None = None) -> list[str]:
+                    missing: list[str] | None = None, job: dict | None = None) -> list[str]:
     """Facts in a cover letter that aren't in the resume.
 
     Numbers from the job ad are allowed too: "your team of 40 engineers" is about the employer.
@@ -652,7 +653,8 @@ def letter_problems(letter: str, source: "facts.Source", resume_text: str, job_a
     if not letter:
         return []
     problems = []
-    claims = facts.letter_role_claims(letter, source)
+    claims = facts.merge_terms(facts.letter_role_claims(letter, source),
+                               facts.ad_title_claims(letter, job, source, first_person=True))
     if claims:
         problems.append(f"Calls the candidate '{', '.join(claims)}': not a title in their resume.")
     tools = facts.merge_terms(facts.new_tools(letter, source), facts.claimed_missing(letter, missing or [], source))
@@ -725,7 +727,8 @@ def tailor_application(
                      if isinstance(raw_letter, str) and raw_letter.strip() else "")
 
         resume = _australianise_resume(resume, resume_text)
-        validation = validate_json_fields(resume, profile, mode=validation_mode, original_text=resume_text)
+        ad = job.get("full_description") or job.get("description") or ""
+        validation = validate_json_fields(resume, profile, mode=validation_mode, original_text=resume_text, job_ad=ad)
         checked = check_facts(resume, candidate, resume_text, profile, job)
         resume = checked["resume"]
         validation["errors"] += checked["errors"]
@@ -739,7 +742,7 @@ def tailor_application(
 
         # Cover letter: keep the best one seen (a valid one wins)
         if candidate and not letter_ok:
-            cover_check = validate_cover_letter(candidate, mode=validation_mode, original_text=resume_text)
+            cover_check = validate_cover_letter(candidate, mode=validation_mode, original_text=resume_text, job_ad=ad)
             same = voice.repeated_opening(candidate, voice.recent_openings())
             opening_errors = ([f'Cover letter opens like a recent one ("{same[:80]}"): open differently.']
                               if same else [])

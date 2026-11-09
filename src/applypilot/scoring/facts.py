@@ -439,6 +439,54 @@ _FIRST_PERSON_TITLE = re.compile(
     r"((?:[\w+#/-]+\s+){0,4}?(?:%s)s?)\b" % "|".join(ROLE_NOUNS), re.IGNORECASE)
 
 
+# Words in an ad's title that grade the job rather than name it ("Senior", "Lead"), and what follows a
+# separator ("Business Analyst - Salesforce", "Marketing Coordinator (6 month contract)")
+_GRADE = {"senior", "sr", "junior", "jr", "lead", "principal", "staff", "graduate", "entry", "level",
+          "entry-level", "mid", "mid-level", "experienced", "trainee", "intermediate"}
+_NAMED_NOT_CLAIMED = re.compile(r"^\s*(?:roles?|positions?|jobs?|openings?|vacanc(?:y|ies)|opportunit(?:y|ies)|"
+                                r"team|teams|function|practice|vacancy)\b")
+_SOMEONE_ELSE = {"the", "this", "your", "our", "their", "with", "new", "for", "to", "alongside", "supporting"}
+_FIRST_PERSON = r"(?:as an?|i am an?|i'm an?|i've been an?|i have been an?|currently an?|working as an?|" \
+                r"my (?:\w+ )?years as an?|experience as an?)"
+
+
+def ad_title(job: dict | None) -> str:
+    """The role the ad names, without grade words or qualifiers: "Senior Business Analyst - Salesforce"
+    -> "business analyst". Empty if nothing is left."""
+    title = re.split(r"\s[-–|]\s|[(\[,/]", str((job or {}).get("title") or ""))[0]
+    words = [w for w in normalize(title).split() if w not in _GRADE and not w.isdigit()]
+    return " ".join(words).strip()
+
+
+def ad_title_claims(text: str, job: dict | None, source: Source, first_person: bool = False) -> list[str]:
+    """The ad's own job title given to the candidate when their resume never has it: the usual title
+    fabrication in any field ("Experienced product owner with 6 years" for a business analyst).
+
+    Naming the job ("the Product Owner role") or someone else ("worked with the product owner") is fine,
+    and so are plurals (other people). With first_person (a cover letter), only "as a ...", "I'm a ..."
+    and the like count."""
+    title = ad_title(job)
+    if not title or source.mentions(title):
+        return []
+    t = normalize(text)
+    pattern = re.escape(title)
+    for m in re.finditer(rf"(?<![a-z0-9]){pattern}(?![a-z0-9])", t):
+        if t[m.end():m.end() + 1] == "s":
+            continue  # plural: other people
+        if _NAMED_NOT_CLAIMED.match(t[m.end():]):
+            continue  # "the product owner role": the job, not the candidate
+        before = t[:m.start()].split()
+        if first_person:
+            if re.search(rf"\b{_FIRST_PERSON}\s+(?:[\w-]+\s+){{0,3}}$", t[:m.start()]):
+                return [title]
+            continue
+        if before and (before[-1] in _SOMEONE_ELSE
+                       or before[-1] in ("a", "an") and len(before) > 1 and before[-2] in _SOMEONE_ELSE):
+            continue  # "worked with (a) product owner": someone else
+        return [title]
+    return []
+
+
 def letter_role_claims(letter: str, source: Source) -> list[str]:
     """In a cover letter, only first-person titles count ("as a ... engineer"), not "your engineers"."""
     claims = []
