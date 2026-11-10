@@ -300,6 +300,10 @@
         <select id="tailor-style" style="width:auto">
           <option value="full">full rewrite (best keyword match)</option>
           <option value="light">light touch (keeps your own words)</option></select></label>
+      <label style="margin:0" title="After tailoring, an AI playing the employer's screener rates your base resume and each new resume against the ad (2 AI requests per job; 1 after a Redo). It only reports: it never changes your documents.">Recruiter screen
+        <select id="recruiter-screen" style="width:auto">
+          <option value="auto">after tailoring</option>
+          <option value="manual">only when I press it</option></select></label>
     </div>
     <div class="row">
       <button class="btn" id="run-pipeline">Run</button>
@@ -317,7 +321,8 @@
           <option value="cover">Cover letter only</option>
           <option value="review">Fact-check the documents again</option>
           <option value="pdf">Pdf: make the PDFs again</option>
-          <option value="ats">ATS check again</option></select></label>
+          <option value="ats">ATS check again</option>
+          <option value="screen">Recruiter screen again</option></select></label>
       <button class="btn secondary" id="rerun-all">Run again</button>
       <span class="muted" id="discover-failed"></span>
     </div>
@@ -566,11 +571,12 @@
       </dl>
     </details>
     <details class="log-help"><summary>What the recruiter screen means</summary>
-      <p>The fit score asks whether a job suits you. <b>recruiter screen</b> on a job asks the employer's question:
-        an AI playing their screener reads only the ad and a resume and scores, out of 10, how likely it would send
-        you to the next round. It rates your base resume and this job's resume, so <span class="badge ok">Screen 5 → 8</span>
-        means tailoring helped. 7 or more: likely to advance; 5–6: a maybe; 4 or lower: unlikely. It uses two AI
-        requests, only when you press it.</p>
+      <p>The fit score asks whether a job suits you. The recruiter screen asks the employer's question: an AI
+        playing their screener reads only the ad and a resume and scores, out of 10, how likely it would send you to
+        the next round. It rates your base resume and this job's resume, so <span class="badge ok">Screen 5 → 8</span>
+        means tailoring helped. 7 or more: likely to advance; 5–6: a maybe; 4 or lower: unlikely. It runs after
+        tailoring (2 AI requests per job, 1 after a Redo while your resume is unchanged). To save requests, set
+        <b>Recruiter screen</b> on Find jobs to "only when I press it" and use <b>recruiter screen</b> on a job.</p>
       <dl>
         <dt>Not shown in the resume</dt>
         <dd>Hover the badge for the ad's must-haves the resume doesn't show. The screen never feeds back into
@@ -583,7 +589,7 @@
       </dl>
     </details>
     <div class="table-wrap">
-      <table><thead><tr><th>Score</th><th>Job</th><th>Status</th><th>Documents</th><th></th></tr></thead>
+      <table><thead><tr><th>Score</th><th>Job</th><th>Status</th><th>Documents</th><th>Checks</th><th></th></tr></thead>
         <tbody id="jobs"></tbody></table>
     </div>
     <p class="muted" id="jobs-empty"></p>
@@ -898,6 +904,7 @@
         <tr><td>Enrich</td><td>only for pages it can't read otherwise</td></tr>
         <tr><td>Score</td><td>about 1 per 10 jobs</td></tr>
         <tr><td>Tailor (resume + cover letter)</td><td>about 2 per job (1 with lenient strictness)</td></tr>
+        <tr><td>Recruiter screen</td><td>2 per job (1 after a Redo); none when set to "only when I press it"</td></tr>
         <tr><td>Apply (browser engine)</td><td>a few per application, only for questions it hasn't seen</td></tr>
       </tbody>
     </table>

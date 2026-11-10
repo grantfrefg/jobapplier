@@ -33,7 +33,7 @@ console = Console()
 # Stage definitions
 # ---------------------------------------------------------------------------
 
-STAGE_ORDER = ("discover", "enrich", "score", "tailor", "cover", "pdf")
+STAGE_ORDER = ("discover", "enrich", "score", "tailor", "cover", "pdf", "screen")
 
 STAGE_META: dict[str, dict] = {
     "discover": {"desc": "Job discovery (JobSpy + Workday + smart extract)"},
@@ -42,6 +42,7 @@ STAGE_META: dict[str, dict] = {
     "tailor":   {"desc": "Resume tailoring (LLM + validation)"},
     "cover":    {"desc": "Cover letter generation"},
     "pdf":      {"desc": "PDF conversion (tailored resumes + cover letters)"},
+    "screen":   {"desc": "Recruiter screen (simulated): how an employer's AI screener might rate each resume"},
 }
 
 # Upstream dependency: a stage only finishes when its upstream is done AND
@@ -53,6 +54,7 @@ _UPSTREAM: dict[str, str | None] = {
     "tailor":   "score",
     "cover":    "tailor",
     "pdf":      "cover",
+    "screen":   "pdf",
 }
 
 
@@ -182,6 +184,18 @@ def _run_pdf() -> dict:
         return {"status": f"error: {e}"}
 
 
+def _run_screen() -> dict:
+    """Stage: recruiter screen of each job's resume (only reports; never changes the documents)."""
+    from applypilot.scoring import screen
+    if not screen.enabled():
+        return {"status": "skipped: the recruiter screen is set to run only when you press it"}
+    try:
+        return {"status": "ok", "screened": screen.run_pending()}
+    except Exception as e:
+        log.error("Recruiter screen failed: %s", e)
+        return {"status": f"error: {e}"}
+
+
 # Map stage names to their runner functions
 _STAGE_RUNNERS: dict[str, callable] = {
     "discover": _run_discover,
@@ -190,6 +204,7 @@ _STAGE_RUNNERS: dict[str, callable] = {
     "tailor":   _run_tailor,
     "cover":    _run_cover,
     "pdf":      _run_pdf,
+    "screen":   _run_screen,
 }
 
 
@@ -267,6 +282,12 @@ _PENDING_SQL: dict[str, str] = {
         "SELECT COUNT(*) FROM jobs WHERE tailored_resume_path IS NOT NULL "
         "AND tailored_resume_path LIKE '%.txt'"
     ),
+    # New documents with no screen yet (a changed resume is picked up when the step runs)
+    "screen": (
+        "SELECT COUNT(*) FROM jobs WHERE (tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL) "
+        "AND applied_at IS NULL AND duplicate_of IS NULL AND full_description IS NOT NULL "
+        "AND screen_report IS NULL"
+    ),
 }
 
 # How long to sleep between polling loops in streaming mode (seconds)
@@ -278,6 +299,10 @@ def _count_pending(stage: str, min_score: int = 7) -> int:
     sql = _PENDING_SQL.get(stage)
     if sql is None:
         return 0
+    if stage == "screen":
+        from applypilot.scoring import screen
+        if not screen.enabled() or screen.budget_spent:
+            return 0
     conn = get_connection()
     if "?" in sql:
         return conn.execute(sql, (min_score,)).fetchone()[0]

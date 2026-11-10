@@ -14,9 +14,12 @@ estimate, not a prediction.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+import os
 from datetime import datetime, timezone
 
+from applypilot.budget import BudgetExhausted
 from applypilot.llm import get_client
 
 log = logging.getLogger(__name__)
@@ -90,16 +93,83 @@ def screen(resume_text: str, job: dict) -> dict:
             "noticed": _strings(data.get("noticed"), 3)}
 
 
-def run(job: dict, base_resume: str, job_resume: str, own: bool = False) -> dict:
-    """Screen the base resume and the one this job uses (two requests). The stored report."""
+def run(job: dict, base_resume: str, job_resume: str, own: bool = False, base_result: dict | None = None) -> dict:
+    """Screen the base resume and the one this job uses (two requests; one when `base_result`, the base
+    resume's earlier screen for this job, is passed in). The stored report."""
     if not (job.get("full_description") or job.get("description")):
         raise ValueError("This job has no ad text to screen against: get the ad again first")
     if not job_resume.strip():
         raise ValueError("No text could be read from this job's resume")
     report = {"when": datetime.now(timezone.utc).isoformat(timespec="seconds"),
               "model": getattr(get_client(), "model", "") or "", "own": own,
-              "resume_hash": fingerprint(job_resume), "base": None,
+              "resume_hash": fingerprint(job_resume), "base_hash": fingerprint(base_resume), "base": None,
               "tailored": screen(job_resume, job)}
     if base_resume.strip():
-        report["base"] = screen(base_resume, job)
+        report["base"] = base_result or screen(base_resume, job)
     return report
+
+
+# -- after tailoring (pipeline step "screen", Run again -> Recruiter screen) ---------------------
+
+def enabled() -> bool:
+    """RECRUITER_SCREEN: "auto" (the default: after tailoring) or "manual" (only when you press it)."""
+    return os.environ.get("RECRUITER_SCREEN", "auto").strip().lower() != "manual"
+
+
+budget_spent = False  # set when the day's AI budget ran out, so the step stops asking for more
+
+
+def run_pending(conn=None, urls: list[str] | None = None, force: bool = False) -> int:
+    """Screen every job with documents whose screen is missing or out of date (its resume, or your base
+    resume, changed since). `force` screens them all again. Returns how many were screened.
+
+    A job's base-resume screen is reused while your resume is unchanged, so a Redo costs one request.
+    A screen that fails is recorded (and not retried until its resume changes, or you press it).
+    """
+    global budget_spent
+    from applypilot import config
+    from applypilot.database import HAS_RESUME, get_connection
+    from applypilot.own_docs import documents
+    conn = conn or get_connection()
+    where = (f"{HAS_RESUME} AND applied_at IS NULL AND duplicate_of IS NULL "
+             "AND (full_description IS NOT NULL OR description IS NOT NULL)")
+    params: list = []
+    if urls:
+        where += f" AND url IN ({', '.join('?' * len(urls))})"
+        params = list(urls)
+    rows = conn.execute(f"SELECT * FROM jobs WHERE {where} ORDER BY fit_score DESC", params).fetchall()
+    base = config.RESUME_PATH.read_text(encoding="utf-8") if config.RESUME_PATH.exists() else ""
+    base_hash = fingerprint(base)
+    done = 0
+    for row in rows:
+        job = dict(row)
+        doc = documents(job)["resume"]
+        text, own = doc["text"], doc["own"]
+        if not text.strip():
+            continue
+        try:
+            old = json.loads(job.get("screen_report") or "null") or {}
+        except ValueError:
+            old = {}
+        same_resume = old.get("resume_hash") == fingerprint(text)
+        same_base = old.get("base_hash", base_hash) == base_hash  # screens from before base_hash count as current
+        if not force and same_resume and same_base:
+            continue
+        reuse = old.get("base") if not force and old.get("base") and old.get("base_hash") == base_hash else None
+        try:
+            report = run(job, base, text, own=own, base_result=reuse)
+        except BudgetExhausted as e:
+            budget_spent = True
+            log.warning("Recruiter screen stopped: %s", e)
+            break
+        except Exception as e:  # recorded, so a step running again doesn't retry it in a loop
+            report = {"error": str(e)[:300], "resume_hash": fingerprint(text), "base_hash": base_hash}
+            log.warning("Recruiter screen failed for %s: %s", (job.get("title") or "")[:50], e)
+        conn.execute("UPDATE jobs SET screen_report = ? WHERE url = ?", (json.dumps(report), job["url"]))
+        conn.commit()
+        if report.get("tailored"):
+            done += 1
+            b, t = report.get("base"), report["tailored"]
+            log.info("Screen %s%s/10 (%s)  %s", f"{b['score']} -> " if b else "", t["score"], t["verdict"],
+                     (job.get("title") or "")[:50])
+    return done

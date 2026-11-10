@@ -130,3 +130,104 @@ def test_screen_through_the_api_and_the_job_list(client, tmp_path, monkeypatch):
     assert r.status_code == 502 and "quota" in r.json()["detail"]
     assert json.loads(conn.execute("SELECT screen_report FROM jobs").fetchone()[0])["tailored"]["score"] == 8
     assert client.post("/api/jobs/screen", json={"url": "nope"}).status_code == 404
+
+
+# -- after tailoring: the "screen" step ------------------------------------------------
+
+def _seed_screenable(tmp_path, monkeypatch, n=2):
+    from applypilot import config, database
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "jobs.db")
+    monkeypatch.setattr(config, "RESUME_PATH", tmp_path / "resume.txt")
+    config.RESUME_PATH.write_text(BASE, encoding="utf-8")
+    conn = database.init_db(tmp_path / "jobs.db")
+    for i in range(1, n + 1):
+        path = tmp_path / f"job{i}.txt"
+        path.write_text(TAILORED + f"\n- job {i}", encoding="utf-8")
+        conn.execute("INSERT INTO jobs (url, title, site, fit_score, full_description, tailored_resume_path) "
+                     "VALUES (?, ?, 'x', 8, ?, ?)", (f"u{i}", f"BA {i}", JOB["full_description"], str(path)))
+    conn.commit()
+    return conn
+
+
+def test_the_step_screens_new_resumes_and_reuses_the_base_screen(tmp_path, monkeypatch):
+    from applypilot import database
+    conn = _seed_screenable(tmp_path, monkeypatch)
+    ai = FakeAI([_reply(8, ()), _reply(5), _reply(7, ()), _reply(4)])
+    monkeypatch.setattr(screen, "get_client", lambda: ai)
+    assert screen.run_pending(conn) == 2 and len(ai.seen) == 4
+
+    # Nothing changed: nothing screened, no AI requests
+    assert screen.run_pending(conn) == 0 and len(ai.seen) == 4
+
+    # A Redo rewrote job 1: one request (its base screen is reused)
+    (tmp_path / "job1.txt").write_text(TAILORED + "\n- rewritten", encoding="utf-8")
+    ai.replies = [_reply(9, ())]
+    assert screen.run_pending(conn) == 1 and len(ai.seen) == 5
+    report = json.loads(conn.execute("SELECT screen_report FROM jobs WHERE url = 'u1'").fetchone()[0])
+    assert report["tailored"]["score"] == 9 and report["base"]["score"] == 5
+
+    # Your base resume changed: both screens of every job again
+    (tmp_path / "resume.txt").write_text(BASE + "\n- Ran UAT.", encoding="utf-8")
+    ai.replies = [_reply(8, ()), _reply(6), _reply(7, ()), _reply(5)]
+    assert screen.run_pending(conn) == 2 and len(ai.seen) == 9
+
+    # Run again: forced, for the named job only
+    ai.replies = [_reply(8, ()), _reply(6)]
+    assert screen.run_pending(conn, urls=["u2"], force=True) == 1 and len(ai.seen) == 11
+    database.close_connection(tmp_path / "jobs.db")
+
+
+def test_a_failed_screen_is_recorded_and_the_budget_stops_the_step(tmp_path, monkeypatch):
+    from applypilot import database
+    from applypilot.budget import BudgetExhausted
+    conn = _seed_screenable(tmp_path, monkeypatch)
+    monkeypatch.setattr(screen, "get_client", lambda: FakeAI([{"score": "?"}, {"score": "?"}]))
+    assert screen.run_pending(conn) == 0
+    rows = [json.loads(r[0]) for r in conn.execute("SELECT screen_report FROM jobs")]
+    assert all("error" in r for r in rows)
+    # Not retried in a loop: same resume, so nothing to do
+    assert screen.run_pending(conn) == 0
+
+    class Spent:
+        model = "x"
+
+        def chat_json(self, *a, **k):
+            raise BudgetExhausted("today's requests are used up")
+    conn.execute("UPDATE jobs SET screen_report = NULL")
+    conn.commit()
+    monkeypatch.setattr(screen, "get_client", lambda: Spent())
+    monkeypatch.setattr(screen, "budget_spent", False)
+    assert screen.run_pending(conn) == 0 and screen.budget_spent is True
+    assert conn.execute("SELECT COUNT(*) FROM jobs WHERE screen_report IS NULL").fetchone()[0] == 2
+    database.close_connection(tmp_path / "jobs.db")
+
+
+def test_the_pipeline_step_follows_the_setting(tmp_path, monkeypatch):
+    from applypilot import database, pipeline
+    _seed_screenable(tmp_path, monkeypatch)
+    monkeypatch.setattr(screen, "budget_spent", False)
+    assert pipeline.STAGE_ORDER[-1] == "screen" and pipeline._UPSTREAM["screen"] == "pdf"
+    monkeypatch.setenv("RECRUITER_SCREEN", "manual")
+    assert pipeline._count_pending("screen") == 0
+    assert pipeline._run_screen()["status"].startswith("skipped")
+    monkeypatch.setenv("RECRUITER_SCREEN", "auto")
+    assert pipeline._count_pending("screen") == 2
+    monkeypatch.setattr(screen, "get_client", lambda: FakeAI([_reply(8, ()), _reply(5), _reply(7, ()), _reply(4)]))
+    assert pipeline._run_screen() == {"status": "ok", "screened": 2}
+    assert pipeline._count_pending("screen") == 0
+    database.close_connection(tmp_path / "jobs.db")
+
+
+def test_run_again_has_a_screen_step():
+    from applypilot import rerun
+    assert "screen" in rerun.STEPS and "screen" in rerun._SCORED_STEPS
+
+
+def test_every_entry_point_knows_the_screen_step():
+    from applypilot import cli, pipeline
+    assert tuple(cli.VALID_STAGES) == pipeline.STAGE_ORDER
+    try:
+        from applypilot.ui import server
+    except ImportError:  # no fastapi
+        return
+    assert tuple(server.VALID_STAGES) == pipeline.STAGE_ORDER

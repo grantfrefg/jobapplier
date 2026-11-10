@@ -42,11 +42,11 @@ UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 ENV_KEYS = ("EXECUTION_ENGINE", "LLM_PROVIDER", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE",
-            "TAILOR_STYLE", "RESUME_LAYOUT", "RESUME_ACCENT", "RESUME_TAGLINE", "RESUME_TECH_LINE",
+            "TAILOR_STYLE", "RECRUITER_SCREEN", "RESUME_LAYOUT", "RESUME_ACCENT", "RESUME_TAGLINE", "RESUME_TECH_LINE",
             "SHOW_WORK_RIGHTS", "RESUME_PAGES", "REED_API_KEY")
 NUMBER_KEYS = {"GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE"}
 SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CAPSOLVER_API_KEY", "REED_API_KEY"}
-VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
+VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf", "screen")
 GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
 
 
@@ -602,6 +602,8 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
                 updates["AGENT_ENGINE_CONFIRMED"] = "1"
             if key == "TAILOR_STYLE" and value not in ("", "full", "light"):
                 raise HTTPException(400, "TAILOR_STYLE must be full or light")
+            if key == "RECRUITER_SCREEN" and value not in ("", "auto", "manual"):
+                raise HTTPException(400, "RECRUITER_SCREEN must be auto or manual")
             from applypilot.scoring import look
             allowed = {"RESUME_LAYOUT": tuple(look.LAYOUTS), "RESUME_ACCENT": tuple(look.ACCENTS),
                        "RESUME_TAGLINE": ("on", "off"), "RESUME_TECH_LINE": ("on", "off"),

@@ -26,7 +26,7 @@ console = Console()
 log = logging.getLogger(__name__)
 
 # Valid pipeline stages (in execution order)
-VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
+VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf", "screen")
 
 
 # ---------------------------------------------------------------------------
@@ -320,13 +320,16 @@ def redo(
         console.print(f"Rewriting documents for {marked} job(s)...")
     result = run_tailoring(limit=0, validation_mode=validation, redo_only=True)
     batch_convert()
+    from applypilot.scoring import screen
+    if screen.enabled():  # the rewritten resumes' recruiter screens are out of date
+        screen.run_pending()
     console.print(f"Done: {result['approved']} rewritten. Jobs whose new version didn't pass keep their old documents.")
 
 
 @app.command()
 def rerun(
     step: str = typer.Argument(..., help="discover (failed searches), enrich, score, tailor, cover, review, "
-                                          "pdf or ats."),
+                                          "pdf, ats or screen."),
     url: Optional[list[str]] = typer.Option(None, "--url", help="Only this job (repeat for more)."),
     min_score: Optional[int] = typer.Option(None, "--min-score",
                                             help="With no --url: only jobs scoring at least this (steps after score)."),
