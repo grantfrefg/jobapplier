@@ -423,22 +423,69 @@ function buildLookThumbs() {
   box.replaceChildren(...Object.entries(THUMB_NAMES).map(([value, name]) => {
     const frame = el("iframe", { title: name + " layout", loading: "lazy", tabindex: "-1",
       src: `/api/resume-preview?layout=${value}&accent=${accent}&t=${Date.now()}` });
+    frame.addEventListener("load", () => lookMargins(frame));
     const button = el("button", { type: "button", class: "look-thumb", role: "radio",
-      "aria-checked": String(value === current), onclick: () => {
-        $("#look-layout").value = value; $("#look-layout").dispatchEvent(new Event("change"));
-      } }, el("div", { class: "frame" }, frame), el("span", {}, name));
+      "aria-checked": String(value === current), title: "See " + name + " full size",
+      onclick: () => showLookFull(value) },
+      el("div", { class: "frame" }, frame), el("span", {}, name + (value === current ? " (in use)" : "")));
     return button;
   }));
   scaleLookThumbs();
 }
+// Every preview is the real page (794px = A4 at 96dpi) scaled to its box, so it looks like the PDF
 function scaleLookThumbs() {
-  for (const f of document.querySelectorAll(".look-thumb iframe")) {
-    f.style.transform = `scale(${f.parentElement.clientWidth / 794})`;
+  for (const f of document.querySelectorAll(".look-thumb iframe, .look-page iframe, .look-full iframe")) {
+    if (f.parentElement.clientWidth) f.style.transform = `scale(${f.parentElement.clientWidth / 794})`;
   }
 }
+// The page's real length (a two-page resume): its box grows to fit, so nothing is cut off
+// The PDF's margins come from its @page rule, which a browser page ignores: apply them (the last rule wins)
+function lookMargins(f) {
+  try {
+    const doc = f.contentDocument;
+    let margin = "";
+    for (const sheet of doc.styleSheets) for (const rule of sheet.cssRules)
+      if (rule.type === CSSRule.PAGE_RULE && rule.style.margin) margin = rule.style.margin;
+    if (margin) doc.body.style.padding = margin;
+  } catch (e) { /* not loaded yet */ }
+}
+function fitLookPages(f) {
+  lookMargins(f);
+  try {
+    const h = Math.max(1123, f.contentDocument.documentElement.scrollHeight);
+    f.style.height = h + "px"; f.parentElement.style.aspectRatio = `794 / ${h}`;
+  } catch (e) { /* not loaded yet */ }
+  scaleLookThumbs();
+}
 // Also when the Setup tab is first shown (a hidden tab has no width to scale to)
-if (window.ResizeObserver) new ResizeObserver(scaleLookThumbs).observe($("#look-thumbs"));
-else window.addEventListener("resize", scaleLookThumbs);
+if (window.ResizeObserver) {
+  const watch = new ResizeObserver(scaleLookThumbs);
+  watch.observe($("#look-thumbs")); watch.observe($("#look-page"));
+} else window.addEventListener("resize", scaleLookThumbs);
+$("#look-preview").addEventListener("load", () => fitLookPages($("#look-preview")));
+// Full size: the layout in use (the preview), or a thumbnail's layout with "Use this layout"
+function showLookFull(layout) {
+  const current = $("#look-layout").value, picked = typeof layout === "string" ? layout : current;
+  const src = picked === current && typeof layout !== "string" ? $("#look-preview").src
+    : `/api/resume-preview?layout=${picked}&accent=${$("#look-accent").value}&t=${Date.now()}`;
+  const frame = el("iframe", { title: "Resume preview, full size", tabindex: "-1", src });
+  const close = () => { dialog.close(); dialog.remove(); };
+  const use = picked === current ? el("span", { class: "muted" }, "In use")
+    : el("button", { class: "btn", type: "button", onclick: () => {
+        $("#look-layout").value = picked; $("#look-layout").dispatchEvent(new Event("change")); close();
+      } }, "Use this layout");
+  const dialog = el("dialog", { class: "look-full" },
+    el("div", { class: "bar" }, el("b", {}, THUMB_NAMES[picked] || picked),
+      el("div", { class: "row", style: "margin:0;gap:8px;align-items:center" }, use,
+        el("button", { class: "btn secondary", type: "button", onclick: close }, "Close"))),
+    el("span", { class: "frame" }, frame));
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) close(); });  // click outside the page
+  dialog.addEventListener("close", () => dialog.remove());
+  frame.addEventListener("load", () => fitLookPages(frame));
+  document.body.append(dialog); dialog.showModal(); scaleLookThumbs();
+}
+$("#look-page").addEventListener("click", showLookFull);
+$("#look-enlarge").addEventListener("click", showLookFull);
 function refreshLookPreview() {
   $("#look-preview").src = "/api/resume-preview?t=" + Date.now(); lookNote(); buildLookThumbs();
 }

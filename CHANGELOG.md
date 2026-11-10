@@ -8,6 +8,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+### Changed
+- **Resume look previews you can actually read.** Clicking a layout thumbnail now opens that layout full size, with **Use this layout** (it used to switch layout straight away, from a thumbnail too small to read). The preview under the settings shows the real A4 page scaled to fit, with the PDF's margins, instead of the text squeezed into the narrow column; click it, or **View full size**, to see it at full size.
+
 ## [0.16.0] - 2026-11-09
 
 ### Added

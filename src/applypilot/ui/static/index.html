@@ -208,8 +208,10 @@
           <option value="never">Never show</option></select></label>
       <p class="sub" style="margin-top:6px">Leaving work rights off only changes the resume. Application forms
         still ask, and they're answered truthfully from your profile.</p>
-      <iframe id="look-preview" title="Resume preview" style="width:100%;height:420px;border:1px solid var(--border);
-        border-radius:8px;background:#fff"></iframe>
+      <button type="button" class="look-page" id="look-page" title="See it full size">
+        <span class="frame"><iframe id="look-preview" title="Resume preview" tabindex="-1"></iframe></span></button>
+      <div class="row" style="margin-top:8px"><button class="btn secondary" type="button" id="look-enlarge">View full
+        size</button><span class="muted">Your newest tailored resume, or a sample until there is one.</span></div>
     </div>
 
     <div class="card">

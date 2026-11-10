@@ -114,3 +114,16 @@
   .look-thumb iframe { width: 794px; height: 1123px; border: 0; transform-origin: 0 0; position: absolute;
                        top: 0; left: 0; pointer-events: none; }
   .look-thumb span { display: block; font-size: 12px; margin-top: 4px; }
+  /* The preview: a real A4 page (794px wide, as in the PDF) scaled down to fit, not text reflowed to the column */
+  .look-page { display: block; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: 8px;
+               background: #fff; cursor: zoom-in; overflow: hidden; }
+  .look-page .frame, .look-full .frame { display: block; position: relative; overflow: hidden; width: 100%;
+                                         aspect-ratio: 210 / 297; }
+  .look-page iframe, .look-full iframe { width: 794px; height: 1123px; border: 0; transform-origin: 0 0;
+                                         position: absolute; top: 0; left: 0; pointer-events: none; }
+  .look-full { width: min(860px, 96vw); max-height: 94vh; padding: 0; border: 0; border-radius: 8px;
+               background: #fff; overflow: auto; }
+  .look-full::backdrop { background: rgba(0, 0, 0, .6); }
+  .look-full .bar { position: sticky; top: 0; z-index: 1; display: flex; gap: 8px; align-items: center;
+                    justify-content: space-between; padding: 8px 12px; background: var(--panel);
+                    border-bottom: 1px solid var(--border); color: var(--text); }
