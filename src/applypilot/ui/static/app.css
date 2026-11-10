@@ -96,6 +96,12 @@
   details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 14px; }
   fieldset > p.why { margin: 2px 0 6px; font-size: 13px; color: var(--muted); }
   fieldset.key { border-color: var(--accent); }
+  .industry-pick { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px;
+                   padding: 10px 12px; margin: 6px 0 12px; display: grid; gap: 6px; }
+  .industry-pick > b { font-size: 15px; }
+  .industry-pick .industry-note { margin: 0; font-size: 13px; color: var(--muted); }
+  .industry-pick.missing { border-left-color: var(--warn); background: var(--warn-bg); }
+  .industry-pick.missing .industry-note { color: var(--warn); font-weight: 600; }
   .fields small.help { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
   .guide { max-width: 860px; line-height: 1.55; font-size: 14px; }
   .guide h3 { font-size: 16px; margin: 28px 0 6px; padding-top: 4px; scroll-margin-top: 12px; }
