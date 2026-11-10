@@ -413,6 +413,7 @@ async function loadProfile() {
   templateSkills = new Set(template_skills);
   $("#skills-confirmed").checked = skills_confirmed;
   const form = $("#profile-form");
+  form.after($("#skills-confirmed").closest("label"));  // it moves into the skills (below); keep it on a reload
   form.replaceChildren();
   const industry = (profile.experience || {}).industry || "";
   for (const [section, fields] of Object.entries(profile)) {
@@ -421,12 +422,20 @@ async function loadProfile() {
     if (section === "skills_boundary") box.append(...skillBoxes(industry, fields, options, numbers));
     else for (const [key, value] of Object.entries(fields)) box.append(profileField(section + "." + key, value, options, numbers));
     form.append(el("fieldset", { class: PROFILE_KEY_SECTIONS.has(section) ? "key" : "" },
-      el("legend", {}, human(section) + (section === "skills_boundary" ? " (improves tailored resumes)" : "")),
+      el("legend", {}, section === "skills_boundary" ? "Your industry and skills (the most important part for tailoring)"
+                                                     : human(section)),
       PROFILE_SECTIONS[section] ? el("p", { class: "why" }, PROFILE_SECTIONS[section]) : "", box));
   }
   // Your industry moves to the top of the skills (from Experience); choosing one shows its skill boxes,
   // and skills already typed move with their box or stay in theirs
   const ind = industryBlock(form), skills = document.getElementById("profile-skills_boundary");
+  if (skills) {
+    // Industry and skills first: they matter most (tailoring may only name skills from here), and the
+    // "My skills list is accurate" tick sits with them
+    const fieldset = skills.closest("fieldset");
+    form.prepend(fieldset);
+    fieldset.append($("#skills-confirmed").closest("label"));
+  }
   if (ind && skills) {
     skills.before(ind.block);
     ind.pick.addEventListener("change", () => {
@@ -437,7 +446,7 @@ async function loadProfile() {
 }
 $("#save-profile").addEventListener("click", () => guarded(async () => {
   const out = {};
-  for (const input of $$("#profile-form input, #profile-form select")) {
+  for (const input of $$("#profile-form [data-path]")) {
     const [section, key] = input.dataset.path.split(".");
     out[section] ??= {};
     out[section][key] = input.dataset.list
