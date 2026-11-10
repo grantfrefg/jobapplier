@@ -8,9 +8,12 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-11-10
+
 ### Changed
 - **The recruiter screen runs after tailoring**, as the last step of Find jobs (`screen`), so every job on the Apply tab shows where it stands. It costs 2 AI requests per job, or 1 after a Redo (a job's base-resume screen is reused while your resume is unchanged). To save requests, set **Recruiter screen** on Find jobs to "only when I press it". It's also in **Run again**.
 - **A tidier Apply tab.** The checks (ATS, Reads human, recruiter screen) have their own **Checks** column, each document is one line with its edit and replace links beside it, and the buttons wrap instead of stretching the row.
+- **A smaller download (about 10 MB less).** The desktop app no longer bundles Pillow and pypdfium2. They came with the PDF reader, which needs them only to render pages as pictures, and Jobapplier never does that. A test checks resumes are still read without them.
 - **Resume look previews you can actually read.** Clicking a layout thumbnail now opens that layout full size, with **Use this layout** (it used to switch layout straight away, from a thumbnail too small to read). The preview under the settings shows the real A4 page scaled to fit, with the PDF's margins, instead of the text squeezed into the narrow column; click it, or **View full size**, to see it at full size.
 
 ## [0.16.0] - 2026-11-09
