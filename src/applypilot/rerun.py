@@ -39,10 +39,13 @@ STEPS: dict[str, tuple[str, str, str]] = {
             "(tailored_resume_path IS NOT NULL OR cover_letter_path IS NOT NULL)"),
     "ats": ("Run the ATS check again", "no AI",
             "(tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL)"),
+    "screen": ("Run the recruiter screen again", "2 requests per job",
+               "(tailored_resume_path IS NOT NULL OR own_resume_path IS NOT NULL) "
+               "AND (full_description IS NOT NULL OR description IS NOT NULL)"),
 }
 # Steps that come after scoring only run on jobs at or above the minimum score
 # when no job is named
-_SCORED_STEPS = {"tailor", "cover", "review", "pdf", "ats"}
+_SCORED_STEPS = {"tailor", "cover", "review", "pdf", "ats", "screen"}
 
 
 def targets(conn, step: str, urls: list[str] | None = None, min_score: int | None = None) -> list[dict]:
@@ -81,7 +84,7 @@ def run(step: str, urls: list[str] | None = None, min_score: int | None = None,
         return 0
     log.info("%s: %d job(s) (%s)", STEPS[step][0], len(jobs), STEPS[step][1])
     {"enrich": _enrich, "score": _score, "tailor": _tailor, "cover": _cover,
-     "review": _review, "pdf": _pdf, "ats": _ats}[step](conn, jobs, validation)
+     "review": _review, "pdf": _pdf, "ats": _ats, "screen": _screen}[step](conn, jobs, validation)
     return len(jobs)
 
 
@@ -236,3 +239,8 @@ def _ats(conn, jobs: list[dict], validation: str) -> None:
         conn.commit()
         row = conn.execute("SELECT ats_score FROM jobs WHERE url = ?", (job["url"],)).fetchone()
         log.info("ATS %s  %s", row[0] if row and row[0] is not None else "–", job["title"][:50])
+
+
+def _screen(conn, jobs: list[dict], validation: str) -> None:
+    from applypilot.scoring import screen
+    screen.run_pending(conn, urls=[j["url"] for j in jobs], force=True)

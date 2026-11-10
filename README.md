@@ -66,7 +66,7 @@ The web UI has three tabs, plus a **Guide** tab: a step-by-step user guide insid
 - Paste your resume as plain text, and optionally upload the PDF.
 - Choose your country, city and job titles, plus any title words to skip (e.g. *intern, graduate*).
 - Fill in your profile: contact details, work rights, security clearance, notice period, relocation, salary and the other answers used on application forms. Questions with a fixed set of answers are drop-downs. Replace the example values ("Your City", "Company A"...): the profile won't save while any are left.
-- Check the **Skills boundary** list: remove the example skills you don't use, add ones you do that your resume doesn't name, and tick **My skills list is accurate**. Resumes only ever mention skills from your resume or this list.
+- At the top of **Your profile**, choose **Your industry** (it sets the skill boxes), then check the skills: remove the example skills you don't use, add ones you do that your resume doesn't name, and tick **My skills list is accurate**. Resumes only ever mention skills from your resume or this list.
 - **Log in to sites** (under Browser) opens the app's browser as a normal window so you can sign in to Google, LinkedIn and SEEK. Google blocks sign-in in the automated window; close this one when you're done and the app stays logged in.
 - **Saved answers** lists the screening answers the app has remembered (yours win over the AI's); delete any you don't want reused.
 - **Daily request limit** (under the Gemini key) sets the free-tier limit and how many requests to keep for applying. The header shows how many are left today.
@@ -111,7 +111,7 @@ Everything is stored on your computer in `~/.applypilot/`.
 | **Tailor + cover letter** | For each good match (score ≥ 7), rewrites your resume and writes a short, specific cover letter in one request, in Australian English, using the ad's own words for skills you have. Code checks every title, skill, tool, number, employer and qualification against your real resume (fixing or rejecting what doesn't match), then an AI fact-check reads it | Usually 2 per job |
 | **PDF** | A4, one-column, ATS-friendly resume (location and work rights in the header, title, employer and dates on one line) and a plain business-letter cover letter | None |
 | **ATS check** | Scores each tailored resume for parsing (including reading the PDF back), Australian knockout facts (work rights, location), the ad's keywords (another form of a term counts half) and spelling | None |
-| **Recruiter screen** | Optional, per job: rates your base resume and the tailored one as an employer's AI screener might, from the ad and the resume alone (advance / maybe / reject, and the must-haves not shown). Only a report: it never changes your documents | 2 per job, when you press it |
+| **Recruiter screen** | After tailoring, rates your base resume and the tailored one as an employer's AI screener might, from the ad and the resume alone (advance / maybe / reject, and the must-haves not shown). Only a report: it never changes your documents. Can be set to run only when you press it | 2 per job (1 after a Redo) |
 | **Apply** | Fills the form in a visible browser and waits for you to submit. Known fields and saved answers need no AI; Greenhouse, Lever and SEEK forms get site-specific handling. Or, if you choose, Claude Code or Codex fill in whole applications by themselves; you still submit | 0–1 per form page |
 
 **AI provider:** Google Gemini by default (free); Setup can switch every step to your own paid OpenAI or Anthropic (Claude) API key instead, with no daily limit in the app. Free-tier limits are per **request per day**: `gemini-3.5-flash-lite` allows about 500. A typical day of about 200 jobs found, about 20 good matches and about 10 applications uses roughly 80–100. Every request is counted (by US Pacific day, when Google resets the quota): finding and preparing jobs stops cleanly when only the apply reserve (50 by default) is left, and picks up where it left off the next day. [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) lists what's been done to cut usage.
@@ -147,7 +147,7 @@ The web UI covers everything, but every step is also a command:
 applypilot ui                      # web UI (http://localhost:8000)
 applypilot init                    # setup wizard in the terminal
 applypilot doctor                  # check what's installed and configured
-applypilot run [stages...]         # discover enrich score tailor cover pdf (default: all)
+applypilot run [stages...]         # discover enrich score tailor cover pdf screen (default: all)
 applypilot run --min-score 8       # only tailor jobs scoring 8+
 applypilot run --validation lenient    # fewer AI requests (skips the AI fact-check)
 applypilot apply --url URL         # fill one application
@@ -176,7 +176,7 @@ With the free engine, `applypilot apply` stops before each Submit and waits in t
 | Find jobs only finds Jora jobs | The log shows `JobSpy crawl failed: No module named 'curl_cffi'`: run `pip install curl_cffi`, then run Find jobs again. LinkedIn sometimes blocks searches for a few hours ("LinkedIn: blocked: too many requests" in the log): the app skips it for the rest of that run; run Find jobs again later |
 | "This browser or app may not be secure" (Google sign-in) | Use Setup → **Log in to sites**, sign in there and close the window |
 | A job's resume doesn't change after **Redo** | Its new version failed the fact checks, so the old one was kept. The reasons are in `~/.applypilot/tailored_resumes/<job>_REPORT.json` (`validator` and `judge`) |
-| A resume lists a skill you don't have, or drops one you do | Update **Skills boundary** in your profile, tick **My skills list is accurate**, then **Redo** |
+| A resume lists a skill you don't have, or drops one you do | Update **Your industry and skills** at the top of your profile, tick **My skills list is accurate**, then **Redo** |
 | A job shows "No documents" (`FAILED_JUDGE` in the log) | Hover the status on **Apply → All jobs** for the reason. Press **Try again**, or see "Getting more jobs tailored" under **Find jobs → What the log means**; or give the job your own resume |
 | "Claude Code CLI" / "Codex CLI" isn't ticked in Setup | Install it from a terminal (Setup shows the command), then reopen the app. It's looked for in npm's, Homebrew's and the installer's usual folders |
 | Codex applications fail with `codex_not_signed_in` | Run `codex login` once in a terminal (or set `OPENAI_API_KEY`) |
