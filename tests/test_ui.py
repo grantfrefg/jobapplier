@@ -706,3 +706,26 @@ def test_job_type_in_the_list_uses_the_boards_type(client, tmp_path):
     conn.execute("UPDATE jobs SET board_job_type = 'fulltime,contract' WHERE url = ?", (url,))
     conn.commit()
     assert client.get("/api/jobs?view=ready").json()[0]["kind"] == "Contract"
+
+
+def test_setup_asks_for_the_industry_and_knows_the_old_example_skills(client):
+    profile = client.get("/api/profile").json()
+    # The pre-0.13.1 engineer's examples: a box holding only these is dropped when the industry changes
+    assert {"python", "react", "docker"} <= set(profile["template_skills"])
+    assert "Marketing and communications" in profile["skill_layouts"]
+    assert client.get("/api/status").json()["industry"] == ""
+    from applypilot import profile_options as po
+    body = json.loads(json.dumps(profile["profile"]))
+    for path in po.placeholder_fields(body):  # clear the template's example values
+        section, key = path.split(".", 1)
+        body[section][key] = [] if isinstance(body[section][key], list) else ""
+    body["skills_confirmed"] = False
+    body["personal"] = {**body["personal"], "full_name": "Jo Smith", "email": "jo@example.com",
+                        "phone": "0412 000 000"}
+    body["experience"] = {**body["experience"], "industry": "Marketing and communications"}
+    body["skills_boundary"] = {"platforms_and_tools": ["HubSpot", "Canva"]}
+    r = client.post("/api/profile", json=body)
+    assert r.status_code == 200, r.text
+    assert client.get("/api/status").json()["industry"] == "Marketing and communications"
+    # Boxes removed in the form are gone after saving (the profile is written as sent)
+    assert r.json()["profile"]["skills_boundary"] == {"platforms_and_tools": ["HubSpot", "Canva"]}

@@ -95,6 +95,8 @@ async function refreshStatus() {
     ["Resume text", c.resume_txt],
     ["Resume PDF", c.resume_pdf],
     ["Profile", c.profile],
+    [status.industry ? "Industry: " + status.industry
+       : "Industry: choose yours in Your profile (it sets your skill boxes)", c.profile && !!status.industry],
     [status.example_skills && status.example_skills.length
        ? "Skills list: remove the examples you don't use (" + status.example_skills.join(", ") +
          "), then tick 'My skills list is accurate'" : "Skills list",
@@ -316,8 +318,6 @@ const PROFILE_FIELDS = {
   "experience.current_job_title": "Your real current title. Resume headlines use this, never the job's title.",
   "experience.target_role": "The kind of role you want, e.g. Performance Marketing Manager or Senior Data " +
     "Engineer. Guides scoring.",
-  "experience.industry": "Your field. It sets the skill boxes below and how tailored resumes group your skills, " +
-    "and tells the scorer what field you're in.",
   "experience.field": "Only if your industry isn't listed (choose Other): your field in a few words, e.g. " +
     "Business analysis, Nursing, Law. Left empty, the AI works it out from your resume.",
   "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
@@ -325,17 +325,54 @@ const PROFILE_FIELDS = {
 const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
 
 let skillLayouts = {};  // industry -> [[profile key, examples], ...] (applypilot/industries.py)
+let templateSkills = new Set();  // the profile template's example skills (now or before), lower case
 
-// The skill boxes for an industry: its own boxes, plus any other saved box that holds skills, so
-// switching industry never loses what you typed. No industry: the boxes as saved.
+// The skill boxes for an industry: its own boxes, plus any other saved box that holds skills of yours
+// (marked "from another field"), so switching industry never loses what you typed. A box from another
+// field holding only the template's example skills (Python, React... before 0.13.1) is dropped: they
+// were never yours. No industry: the boxes as saved.
 function skillFields(industry, values) {
   const layout = skillLayouts[industry];
   if (!layout) return Object.entries(values).map(([key, value]) => [key, value, ""]);
   const out = layout.map(([key, examples]) => [key, values[key] || [], examples]);
   for (const [key, value] of Object.entries(values)) {
-    if (!layout.some(([k]) => k === key) && value.length) out.push([key, value, ""]);
+    if (layout.some(([k]) => k === key) || !value.length) continue;
+    if (value.every((v) => templateSkills.has(v.toLowerCase()))) continue;
+    out.push([key, value, "", true]);
   }
   return out;
+}
+function skillBoxes(industry, values, options, numbers) {
+  return skillFields(industry, values).map(([key, value, examples, other]) => {
+    const box = profileField("skills_boundary." + key, value, options, numbers, examples);
+    if (other) {
+      const label = box.querySelector("label");
+      label.append(" ", el("span", { class: "muted" }, "(from another field) "),
+        el("a", { href: "#", title: "Remove this box and its skills (when you save the profile)",
+                  onclick: (e) => { e.preventDefault(); box.remove(); } }, "remove"));
+    }
+    return box;
+  });
+}
+
+// Your industry, at the top of the skills: it sets the boxes, so it's asked for where you'll see that
+function industryBlock(form) {
+  const pick = form.querySelector('[data-path="experience.industry"]');
+  if (!pick) return null;
+  const pickRow = pick.closest("div"), fieldRow = form.querySelector('[data-path="experience.field"]')?.closest("div");
+  const note = el("p", { class: "industry-note" });
+  const block = el("div", { class: "industry-pick" }, el("b", {}, "Your industry"), note, pickRow, fieldRow || "");
+  const show = () => {
+    const none = !pick.value;
+    block.classList.toggle("missing", none);
+    note.textContent = none
+      ? "Choose your industry first: the skill boxes below change to match it, with examples for your field."
+      : "Sets the skill boxes below (with examples for your field), how tailored resumes group your skills, " +
+        "and the field the scorer is told. Change it and the boxes change.";
+    if (fieldRow) fieldRow.style.display = !pick.value || pick.value === "Other" ? "" : "none";
+  };
+  show();
+  return { block, pick, show };
 }
 
 function profileField(path, value, options, numbers, examples = "") {
@@ -370,8 +407,10 @@ function currentSkills() {
 }
 
 async function loadProfile() {
-  const { profile, options = {}, numbers = [], skills_confirmed = false, skill_layouts = {} } = await api("/api/profile");
+  const { profile, options = {}, numbers = [], skills_confirmed = false, skill_layouts = {},
+          template_skills = [] } = await api("/api/profile");
   skillLayouts = skill_layouts;
+  templateSkills = new Set(template_skills);
   $("#skills-confirmed").checked = skills_confirmed;
   const form = $("#profile-form");
   form.replaceChildren();
@@ -379,21 +418,22 @@ async function loadProfile() {
   for (const [section, fields] of Object.entries(profile)) {
     if (typeof fields !== "object" || Array.isArray(fields)) continue;
     const box = el("div", { class: "fields", id: "profile-" + section });
-    const entries = section === "skills_boundary" ? skillFields(industry, fields)
-      : Object.entries(fields).map(([key, value]) => [key, value, ""]);
-    for (const [key, value, examples] of entries) box.append(profileField(section + "." + key, value, options, numbers, examples));
+    if (section === "skills_boundary") box.append(...skillBoxes(industry, fields, options, numbers));
+    else for (const [key, value] of Object.entries(fields)) box.append(profileField(section + "." + key, value, options, numbers));
     form.append(el("fieldset", { class: PROFILE_KEY_SECTIONS.has(section) ? "key" : "" },
       el("legend", {}, human(section) + (section === "skills_boundary" ? " (improves tailored resumes)" : "")),
       PROFILE_SECTIONS[section] ? el("p", { class: "why" }, PROFILE_SECTIONS[section]) : "", box));
   }
-  // Choosing an industry shows its skill boxes; skills already typed move with their box or stay in theirs
-  const pick = form.querySelector('[data-path="experience.industry"]');
-  if (pick) pick.addEventListener("change", () => {
-    const box = document.getElementById("profile-skills_boundary");
-    if (!box) return;
-    box.replaceChildren(...skillFields(pick.value, currentSkills()).map(
-      ([key, value, examples]) => profileField("skills_boundary." + key, value, options, numbers, examples)));
-  });
+  // Your industry moves to the top of the skills (from Experience); choosing one shows its skill boxes,
+  // and skills already typed move with their box or stay in theirs
+  const ind = industryBlock(form), skills = document.getElementById("profile-skills_boundary");
+  if (ind && skills) {
+    skills.before(ind.block);
+    ind.pick.addEventListener("change", () => {
+      ind.show();
+      skills.replaceChildren(...skillBoxes(ind.pick.value, currentSkills(), options, numbers));
+    });
+  }
 }
 $("#save-profile").addEventListener("click", () => guarded(async () => {
   const out = {};

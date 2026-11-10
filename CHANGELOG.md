@@ -11,6 +11,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ## [0.16.1] - 2026-11-10
 
 ### Changed
+- **Your industry is asked for where it matters.** It sets the skill boxes, but that wasn't obvious: it sat among the Experience fields. It's now at the top of the skills list, highlighted until you choose one, and Setup's checklist asks for it. Changing it swaps the boxes straight away.
+- **Old example skills go when you change industry.** Profiles started before 0.13.1 still had the software engineer's example boxes (Languages, Frameworks, Cloud & DevOps: Python, React, Docker...), which stayed on screen after choosing Marketing. A box from another field that holds only those examples is now dropped; one holding skills you typed stays, marked "from another field", with a **remove** link.
 - **The recruiter screen runs after tailoring**, as the last step of Find jobs (`screen`), so every job on the Apply tab shows where it stands. It costs 2 AI requests per job, or 1 after a Redo (a job's base-resume screen is reused while your resume is unchanged). To save requests, set **Recruiter screen** on Find jobs to "only when I press it". It's also in **Run again**.
 - **A tidier Apply tab.** The checks (ATS, Reads human, recruiter screen) have their own **Checks** column, each document is one line with its edit and replace links beside it, and the buttons wrap instead of stretching the row.
 - **A smaller download (about 10 MB less).** The desktop app no longer bundles Pillow and pypdfium2. They came with the PDF reader, which needs them only to render pages as pictures, and Jobapplier never does that. A test checks resumes are still read without them.

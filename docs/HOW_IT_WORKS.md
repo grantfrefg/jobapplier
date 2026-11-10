@@ -95,6 +95,8 @@ It uses no AI requests. It's a guide, not a prediction of any one vendor's ranki
 - Edit the resume afterwards and the badge says "(old)" until the step runs again: click it to screen it now.
 - Employers' screeners vary (keyword ranking, an LLM, a person skimming), so it's an estimate, not a prediction.
 
+**Your industry sets the skill boxes.** At the top of the skills list in Setup → Your profile, **Your industry** picks the boxes you fill in (with examples for that field), how tailored resumes group your skills, and the field the scorer is told. Not listed? Choose Other and type your field. Changing it swaps the boxes; skills you typed in a box the new industry doesn't have stay, marked "from another field", and boxes holding only old template examples are dropped.
+
 **Your skills list matters.** `skills_boundary` in your profile adds skills that aren't spelled out in your resume. Skills in your resume are always kept, including short or long forms (GCP / Google Cloud Platform) and US spellings of them. The template's example values (JavaScript, Docker, AWS, CI/CD, MongoDB, Git, Linux) are ignored until you tick **My skills list is accurate** under the profile in Setup: remove the ones you don't use and add any you do (e.g. MLOps), then tick it. Hover a job's ATS badge to see any skills removed from its resume.
 
 **Redo.** To rewrite documents that already exist (after changing your resume, profile or the prompts), press **Redo** on a job, or **Redo all documents** on the Apply tab (`applypilot redo` in the terminal, `--url` for one job).
