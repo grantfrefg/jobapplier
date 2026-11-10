@@ -120,6 +120,7 @@ async function loadSettings() {
     : s.ANTHROPIC_API_KEY.set ? "anthropic" : "gemini");
   $("#model").value = s.LLM_MODEL || "";
   $("#tailor-style").value = s.TAILOR_STYLE || "full";
+  $("#recruiter-screen").value = s.RECRUITER_SCREEN || "auto";
   $("#look-layout").value = s.RESUME_LAYOUT || "modern";
   $("#look-accent").value = s.RESUME_ACCENT || "navy";
   $("#look-tagline").checked = s.RESUME_TAGLINE === "on";
@@ -548,6 +549,10 @@ $("#tailor-style").addEventListener("change", () => guarded(() =>
   post("/api/settings", { TAILOR_STYLE: $("#tailor-style").value }),
   $("#tailor-style").value === "light" ? "Light touch: resumes keep your own words (applies to the next tailoring)"
                                        : "Full rewrite (applies to the next tailoring)"));
+$("#recruiter-screen").addEventListener("change", () => guarded(() =>
+  post("/api/settings", { RECRUITER_SCREEN: $("#recruiter-screen").value }),
+  $("#recruiter-screen").value === "manual" ? "Recruiter screen: only when you press it on a job"
+                                            : "Recruiter screen: after tailoring (2 AI requests per new job)"));
 
 // ---------- setup: saved answers ----------
 async function loadAnswers() {
@@ -564,7 +569,7 @@ async function loadAnswers() {
 }
 
 // ---------- find jobs ----------
-const STAGES = ["discover", "enrich", "score", "tailor", "cover", "pdf"];
+const STAGES = ["discover", "enrich", "score", "tailor", "cover", "pdf", "screen"];
 const STAGE_HELP = {
   discover: "Search the job boards for new jobs (no AI)",
   enrich: "Get each job's full description and application link",
@@ -572,10 +577,12 @@ const STAGE_HELP = {
   tailor: "Write a tailored resume and cover letter for jobs at or above the minimum score (about 2 requests per job)",
   cover: "Cover letters for jobs tailored before letters came with the resume",
   pdf: "Make the A4 PDFs you upload (no AI)",
+  screen: "Rate each new resume as an employer's AI screener might (2 AI requests per job; skipped when " +
+          "Recruiter screen is set to only when you press it)",
 };
 $("#stage-boxes").replaceChildren(...STAGES.map((s) =>
   el("label", { class: "choice", style: "margin:0", title: STAGE_HELP[s] },
-    el("input", { type: "checkbox", value: s, checked: true }), human(s))));
+    el("input", { type: "checkbox", value: s, checked: true }), s === "screen" ? "Recruiter screen" : human(s))));
 $$("#stage-boxes input").forEach((b) => b.addEventListener("change", () => (b.dataset.was = b.checked ? "on" : "off")));
 // Choosing jobs yourself: Run doesn't tailor; "Tailor ticked jobs" does, for the ticked ones only
 const CHOSEN_STAGES = ["tailor", "cover"];
@@ -702,10 +709,11 @@ const ACCOUNT_HELP = {
   yes: "Create an account (or sign in) on the employer's site first, once per employer.",
 };
 // Your own resume / cover letter for a job, instead of the generated one
-function ownDocLinks(j) {
+function ownDocLinks(j, only) {
   const links = [];
   for (const [kind, own, label, generated] of [["resume", j.own_resume, "resume", j.generated_resume],
                                               ["cover", j.own_cover, "cover letter", j.generated_cover]]) {
+    if (only && kind !== only) continue;
     if (links.length) links.push(" · ");
     if (own) {
       links.push(el("a", { href: "#", title: generated ? "Remove your file and use the generated " + label + " again"
@@ -793,10 +801,11 @@ function humanBadge(h) {
 }
 
 // Quick edit: change a generated resume or letter yourself; the PDF is made again
-function editLinks(j) {
+function editLinks(j, only) {
   const out = [];
   for (const [kind, label, has] of [["resume", "resume", j.generated_resume && !j.own_resume],
                                     ["cover", "cover letter", j.generated_cover && !j.own_cover]]) {
+    if (only && kind !== only) continue;
     if (has) out.push(" · ", el("a", { href: "#", title: "Change the generated " + label + " in your own words; its PDF is made again",
       onclick: (e) => { e.preventDefault(); editDoc(j, kind, label); } }, "edit " + label));
   }
@@ -854,17 +863,23 @@ async function loadJobs() {
   const busy = applyState && applyState.busy;
   $("#jobs").replaceChildren(...jobs.map((j) => {
     const link = j.link;
+    // Documents: one line per file, with what you can do to it beside it; Checks: what's been checked about them
     const docs = [];
-    if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank",
-      title: j.own_resume ? "Your own file, used instead of the generated resume" : "" }, j.own_resume ? "Your resume" : "Resume"));
-    if (j.ats) docs.push(" · ", atsBadge(j.ats));
-    if (j.human) docs.push(" · ", humanBadge(j.human));
-    if (j.tailored && !j.duplicate_of && (j.screen || (!j.applied_at && j.has_description)))
-      docs.push(" · ", screenBadge(j));
-    if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank",
-      title: j.own_cover ? "Your own file, used instead of the generated cover letter" : "" }, j.own_cover ? "Your cover letter" : "Cover letter"));
-    if (!j.applied_at && !j.duplicate_of) docs.push(el("div", { class: "own-docs" }, ownDocLinks(j),
-      ...editLinks(j)));
+    const canChange = !j.applied_at && !j.duplicate_of;
+    for (const [kind, has, own, label] of [["resume", j.tailored, j.own_resume, "Resume"],
+                                           ["cover", j.has_cover, j.own_cover, "Cover letter"]]) {
+      if (!has && !(canChange && j.tailored)) continue;
+      const file = has ? el("a", { href: "/api/jobs/file?kind=" + kind + "&url=" + encodeURIComponent(j.url), target: "_blank",
+        title: own ? "Your own file, used instead of the generated " + label.toLowerCase() : "" },
+        own ? "Your " + label.toLowerCase() : label) : el("span", { class: "muted" }, "No " + label.toLowerCase());
+      const acts = canChange ? [...editLinks(j, kind), ...ownDocLinks(j, kind)].filter((x) => typeof x !== "string")
+        .map((a) => { a.textContent = a.textContent.replace(/^remove my .*/, "remove mine").replace(/ (resume|cover letter)$/, ""); return a; }) : [];
+      docs.push(el("div", { class: "doc-row" }, file, acts.length ? el("span", { class: "own-docs" }, ...acts) : ""));
+    }
+    const checks = [];
+    if (j.ats) checks.push(atsBadge(j.ats));
+    if (j.human) checks.push(humanBadge(j.human));
+    if (j.tailored && !j.duplicate_of && (j.screen || (!j.applied_at && j.has_description))) checks.push(screenBadge(j));
     const statusText = j.redo_requested ? (j.tailored ? "Rewriting documents…" : "Writing documents…")
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
@@ -919,7 +934,8 @@ async function loadJobs() {
         j.also_on ? el("div", { class: "muted" }, "Also on: " + j.also_on) : ""),
       el("td", { class: "muted", title: statusHelp, style: statusHelp ? "cursor:help" : "" }, statusText),
       el("td", {}, docs.length ? docs : el("span", { class: "muted" }, "–")),
-      el("td", { style: "white-space:nowrap" }, actions));
+      el("td", {}, checks.length ? el("div", { class: "checks" }, ...checks) : el("span", { class: "muted" }, "–")),
+      el("td", {}, el("div", { class: "job-actions" }, ...actions.filter((a) => a !== " "))));
   }));
   $("#jobs-empty").textContent = jobs.length ? "" :
     total ? "No " + $("#job-kind").selectedOptions[0].textContent.toLowerCase() + " jobs in this view (" + total +
@@ -967,6 +983,7 @@ function showFailedSearches(f) {
 const RERUN_LABEL = {
   enrich: "Get the ad again", score: "Score again", cover: "Cover letter only",
   review: "Fact-check again", pdf: "Make the PDFs again", ats: "ATS check again",
+  screen: "Recruiter screen again",
 };
 function rerunSteps(j) {
   if (j.applied_at || j.duplicate_of) return [];
@@ -976,6 +993,7 @@ function rerunSteps(j) {
   if (j.generated_resume) steps.push("review");
   if (j.generated_resume || j.generated_cover) steps.push("pdf");
   if (j.tailored) steps.push("ats");
+  if (j.tailored && j.has_description) steps.push("screen");
   return steps;
 }
 async function rerunStep(step, job) {

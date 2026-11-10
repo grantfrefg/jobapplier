@@ -111,7 +111,7 @@ Everything is stored on your computer in `~/.applypilot/`.
 | **Tailor + cover letter** | For each good match (score ≥ 7), rewrites your resume and writes a short, specific cover letter in one request, in Australian English, using the ad's own words for skills you have. Code checks every title, skill, tool, number, employer and qualification against your real resume (fixing or rejecting what doesn't match), then an AI fact-check reads it | Usually 2 per job |
 | **PDF** | A4, one-column, ATS-friendly resume (location and work rights in the header, title, employer and dates on one line) and a plain business-letter cover letter | None |
 | **ATS check** | Scores each tailored resume for parsing (including reading the PDF back), Australian knockout facts (work rights, location), the ad's keywords (another form of a term counts half) and spelling | None |
-| **Recruiter screen** | Optional, per job: rates your base resume and the tailored one as an employer's AI screener might, from the ad and the resume alone (advance / maybe / reject, and the must-haves not shown). Only a report: it never changes your documents | 2 per job, when you press it |
+| **Recruiter screen** | After tailoring, rates your base resume and the tailored one as an employer's AI screener might, from the ad and the resume alone (advance / maybe / reject, and the must-haves not shown). Only a report: it never changes your documents. Can be set to run only when you press it | 2 per job (1 after a Redo) |
 | **Apply** | Fills the form in a visible browser and waits for you to submit. Known fields and saved answers need no AI; Greenhouse, Lever and SEEK forms get site-specific handling. Or, if you choose, Claude Code or Codex fill in whole applications by themselves; you still submit | 0–1 per form page |
 
 **AI provider:** Google Gemini by default (free); Setup can switch every step to your own paid OpenAI or Anthropic (Claude) API key instead, with no daily limit in the app. Free-tier limits are per **request per day**: `gemini-3.5-flash-lite` allows about 500. A typical day of about 200 jobs found, about 20 good matches and about 10 applications uses roughly 80–100. Every request is counted (by US Pacific day, when Google resets the quota): finding and preparing jobs stops cleanly when only the apply reserve (50 by default) is left, and picks up where it left off the next day. [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) lists what's been done to cut usage.
@@ -147,7 +147,7 @@ The web UI covers everything, but every step is also a command:
 applypilot ui                      # web UI (http://localhost:8000)
 applypilot init                    # setup wizard in the terminal
 applypilot doctor                  # check what's installed and configured
-applypilot run [stages...]         # discover enrich score tailor cover pdf (default: all)
+applypilot run [stages...]         # discover enrich score tailor cover pdf screen (default: all)
 applypilot run --min-score 8       # only tailor jobs scoring 8+
 applypilot run --validation lenient    # fewer AI requests (skips the AI fact-check)
 applypilot apply --url URL         # fill one application
