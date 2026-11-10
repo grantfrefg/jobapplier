@@ -95,6 +95,8 @@ async function refreshStatus() {
     ["Resume text", c.resume_txt],
     ["Resume PDF", c.resume_pdf],
     ["Profile", c.profile],
+    [status.industry ? "Industry: " + status.industry
+       : "Industry: choose yours in Your profile (it sets your skill boxes)", c.profile && !!status.industry],
     [status.example_skills && status.example_skills.length
        ? "Skills list: remove the examples you don't use (" + status.example_skills.join(", ") +
          "), then tick 'My skills list is accurate'" : "Skills list",
@@ -120,6 +122,7 @@ async function loadSettings() {
     : s.ANTHROPIC_API_KEY.set ? "anthropic" : "gemini");
   $("#model").value = s.LLM_MODEL || "";
   $("#tailor-style").value = s.TAILOR_STYLE || "full";
+  $("#recruiter-screen").value = s.RECRUITER_SCREEN || "auto";
   $("#look-layout").value = s.RESUME_LAYOUT || "modern";
   $("#look-accent").value = s.RESUME_ACCENT || "navy";
   $("#look-tagline").checked = s.RESUME_TAGLINE === "on";
@@ -315,8 +318,6 @@ const PROFILE_FIELDS = {
   "experience.current_job_title": "Your real current title. Resume headlines use this, never the job's title.",
   "experience.target_role": "The kind of role you want, e.g. Performance Marketing Manager or Senior Data " +
     "Engineer. Guides scoring.",
-  "experience.industry": "Your field. It sets the skill boxes below and how tailored resumes group your skills, " +
-    "and tells the scorer what field you're in.",
   "experience.field": "Only if your industry isn't listed (choose Other): your field in a few words, e.g. " +
     "Business analysis, Nursing, Law. Left empty, the AI works it out from your resume.",
   "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
@@ -324,17 +325,54 @@ const PROFILE_FIELDS = {
 const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
 
 let skillLayouts = {};  // industry -> [[profile key, examples], ...] (applypilot/industries.py)
+let templateSkills = new Set();  // the profile template's example skills (now or before), lower case
 
-// The skill boxes for an industry: its own boxes, plus any other saved box that holds skills, so
-// switching industry never loses what you typed. No industry: the boxes as saved.
+// The skill boxes for an industry: its own boxes, plus any other saved box that holds skills of yours
+// (marked "from another field"), so switching industry never loses what you typed. A box from another
+// field holding only the template's example skills (Python, React... before 0.13.1) is dropped: they
+// were never yours. No industry: the boxes as saved.
 function skillFields(industry, values) {
   const layout = skillLayouts[industry];
   if (!layout) return Object.entries(values).map(([key, value]) => [key, value, ""]);
   const out = layout.map(([key, examples]) => [key, values[key] || [], examples]);
   for (const [key, value] of Object.entries(values)) {
-    if (!layout.some(([k]) => k === key) && value.length) out.push([key, value, ""]);
+    if (layout.some(([k]) => k === key) || !value.length) continue;
+    if (value.every((v) => templateSkills.has(v.toLowerCase()))) continue;
+    out.push([key, value, "", true]);
   }
   return out;
+}
+function skillBoxes(industry, values, options, numbers) {
+  return skillFields(industry, values).map(([key, value, examples, other]) => {
+    const box = profileField("skills_boundary." + key, value, options, numbers, examples);
+    if (other) {
+      const label = box.querySelector("label");
+      label.append(" ", el("span", { class: "muted" }, "(from another field) "),
+        el("a", { href: "#", title: "Remove this box and its skills (when you save the profile)",
+                  onclick: (e) => { e.preventDefault(); box.remove(); } }, "remove"));
+    }
+    return box;
+  });
+}
+
+// Your industry, at the top of the skills: it sets the boxes, so it's asked for where you'll see that
+function industryBlock(form) {
+  const pick = form.querySelector('[data-path="experience.industry"]');
+  if (!pick) return null;
+  const pickRow = pick.closest("div"), fieldRow = form.querySelector('[data-path="experience.field"]')?.closest("div");
+  const note = el("p", { class: "industry-note" });
+  const block = el("div", { class: "industry-pick" }, el("b", {}, "Your industry"), note, pickRow, fieldRow || "");
+  const show = () => {
+    const none = !pick.value;
+    block.classList.toggle("missing", none);
+    note.textContent = none
+      ? "Choose your industry first: the skill boxes below change to match it, with examples for your field."
+      : "Sets the skill boxes below (with examples for your field), how tailored resumes group your skills, " +
+        "and the field the scorer is told. Change it and the boxes change.";
+    if (fieldRow) fieldRow.style.display = !pick.value || pick.value === "Other" ? "" : "none";
+  };
+  show();
+  return { block, pick, show };
 }
 
 function profileField(path, value, options, numbers, examples = "") {
@@ -369,34 +407,46 @@ function currentSkills() {
 }
 
 async function loadProfile() {
-  const { profile, options = {}, numbers = [], skills_confirmed = false, skill_layouts = {} } = await api("/api/profile");
+  const { profile, options = {}, numbers = [], skills_confirmed = false, skill_layouts = {},
+          template_skills = [] } = await api("/api/profile");
   skillLayouts = skill_layouts;
+  templateSkills = new Set(template_skills);
   $("#skills-confirmed").checked = skills_confirmed;
   const form = $("#profile-form");
+  form.after($("#skills-confirmed").closest("label"));  // it moves into the skills (below); keep it on a reload
   form.replaceChildren();
   const industry = (profile.experience || {}).industry || "";
   for (const [section, fields] of Object.entries(profile)) {
     if (typeof fields !== "object" || Array.isArray(fields)) continue;
     const box = el("div", { class: "fields", id: "profile-" + section });
-    const entries = section === "skills_boundary" ? skillFields(industry, fields)
-      : Object.entries(fields).map(([key, value]) => [key, value, ""]);
-    for (const [key, value, examples] of entries) box.append(profileField(section + "." + key, value, options, numbers, examples));
+    if (section === "skills_boundary") box.append(...skillBoxes(industry, fields, options, numbers));
+    else for (const [key, value] of Object.entries(fields)) box.append(profileField(section + "." + key, value, options, numbers));
     form.append(el("fieldset", { class: PROFILE_KEY_SECTIONS.has(section) ? "key" : "" },
-      el("legend", {}, human(section) + (section === "skills_boundary" ? " (improves tailored resumes)" : "")),
+      el("legend", {}, section === "skills_boundary" ? "Your industry and skills (the most important part for tailoring)"
+                                                     : human(section)),
       PROFILE_SECTIONS[section] ? el("p", { class: "why" }, PROFILE_SECTIONS[section]) : "", box));
   }
-  // Choosing an industry shows its skill boxes; skills already typed move with their box or stay in theirs
-  const pick = form.querySelector('[data-path="experience.industry"]');
-  if (pick) pick.addEventListener("change", () => {
-    const box = document.getElementById("profile-skills_boundary");
-    if (!box) return;
-    box.replaceChildren(...skillFields(pick.value, currentSkills()).map(
-      ([key, value, examples]) => profileField("skills_boundary." + key, value, options, numbers, examples)));
-  });
+  // Your industry moves to the top of the skills (from Experience); choosing one shows its skill boxes,
+  // and skills already typed move with their box or stay in theirs
+  const ind = industryBlock(form), skills = document.getElementById("profile-skills_boundary");
+  if (skills) {
+    // Industry and skills first: they matter most (tailoring may only name skills from here), and the
+    // "My skills list is accurate" tick sits with them
+    const fieldset = skills.closest("fieldset");
+    form.prepend(fieldset);
+    fieldset.append($("#skills-confirmed").closest("label"));
+  }
+  if (ind && skills) {
+    skills.before(ind.block);
+    ind.pick.addEventListener("change", () => {
+      ind.show();
+      skills.replaceChildren(...skillBoxes(ind.pick.value, currentSkills(), options, numbers));
+    });
+  }
 }
 $("#save-profile").addEventListener("click", () => guarded(async () => {
   const out = {};
-  for (const input of $$("#profile-form input, #profile-form select")) {
+  for (const input of $$("#profile-form [data-path]")) {
     const [section, key] = input.dataset.path.split(".");
     out[section] ??= {};
     out[section][key] = input.dataset.list
@@ -423,22 +473,69 @@ function buildLookThumbs() {
   box.replaceChildren(...Object.entries(THUMB_NAMES).map(([value, name]) => {
     const frame = el("iframe", { title: name + " layout", loading: "lazy", tabindex: "-1",
       src: `/api/resume-preview?layout=${value}&accent=${accent}&t=${Date.now()}` });
+    frame.addEventListener("load", () => lookMargins(frame));
     const button = el("button", { type: "button", class: "look-thumb", role: "radio",
-      "aria-checked": String(value === current), onclick: () => {
-        $("#look-layout").value = value; $("#look-layout").dispatchEvent(new Event("change"));
-      } }, el("div", { class: "frame" }, frame), el("span", {}, name));
+      "aria-checked": String(value === current), title: "See " + name + " full size",
+      onclick: () => showLookFull(value) },
+      el("div", { class: "frame" }, frame), el("span", {}, name + (value === current ? " (in use)" : "")));
     return button;
   }));
   scaleLookThumbs();
 }
+// Every preview is the real page (794px = A4 at 96dpi) scaled to its box, so it looks like the PDF
 function scaleLookThumbs() {
-  for (const f of document.querySelectorAll(".look-thumb iframe")) {
-    f.style.transform = `scale(${f.parentElement.clientWidth / 794})`;
+  for (const f of document.querySelectorAll(".look-thumb iframe, .look-page iframe, .look-full iframe")) {
+    if (f.parentElement.clientWidth) f.style.transform = `scale(${f.parentElement.clientWidth / 794})`;
   }
 }
+// The page's real length (a two-page resume): its box grows to fit, so nothing is cut off
+// The PDF's margins come from its @page rule, which a browser page ignores: apply them (the last rule wins)
+function lookMargins(f) {
+  try {
+    const doc = f.contentDocument;
+    let margin = "";
+    for (const sheet of doc.styleSheets) for (const rule of sheet.cssRules)
+      if (rule.type === CSSRule.PAGE_RULE && rule.style.margin) margin = rule.style.margin;
+    if (margin) doc.body.style.padding = margin;
+  } catch (e) { /* not loaded yet */ }
+}
+function fitLookPages(f) {
+  lookMargins(f);
+  try {
+    const h = Math.max(1123, f.contentDocument.documentElement.scrollHeight);
+    f.style.height = h + "px"; f.parentElement.style.aspectRatio = `794 / ${h}`;
+  } catch (e) { /* not loaded yet */ }
+  scaleLookThumbs();
+}
 // Also when the Setup tab is first shown (a hidden tab has no width to scale to)
-if (window.ResizeObserver) new ResizeObserver(scaleLookThumbs).observe($("#look-thumbs"));
-else window.addEventListener("resize", scaleLookThumbs);
+if (window.ResizeObserver) {
+  const watch = new ResizeObserver(scaleLookThumbs);
+  watch.observe($("#look-thumbs")); watch.observe($("#look-page"));
+} else window.addEventListener("resize", scaleLookThumbs);
+$("#look-preview").addEventListener("load", () => fitLookPages($("#look-preview")));
+// Full size: the layout in use (the preview), or a thumbnail's layout with "Use this layout"
+function showLookFull(layout) {
+  const current = $("#look-layout").value, picked = typeof layout === "string" ? layout : current;
+  const src = picked === current && typeof layout !== "string" ? $("#look-preview").src
+    : `/api/resume-preview?layout=${picked}&accent=${$("#look-accent").value}&t=${Date.now()}`;
+  const frame = el("iframe", { title: "Resume preview, full size", tabindex: "-1", src });
+  const close = () => { dialog.close(); dialog.remove(); };
+  const use = picked === current ? el("span", { class: "muted" }, "In use")
+    : el("button", { class: "btn", type: "button", onclick: () => {
+        $("#look-layout").value = picked; $("#look-layout").dispatchEvent(new Event("change")); close();
+      } }, "Use this layout");
+  const dialog = el("dialog", { class: "look-full" },
+    el("div", { class: "bar" }, el("b", {}, THUMB_NAMES[picked] || picked),
+      el("div", { class: "row", style: "margin:0;gap:8px;align-items:center" }, use,
+        el("button", { class: "btn secondary", type: "button", onclick: close }, "Close"))),
+    el("span", { class: "frame" }, frame));
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) close(); });  // click outside the page
+  dialog.addEventListener("close", () => dialog.remove());
+  frame.addEventListener("load", () => fitLookPages(frame));
+  document.body.append(dialog); dialog.showModal(); scaleLookThumbs();
+}
+$("#look-page").addEventListener("click", showLookFull);
+$("#look-enlarge").addEventListener("click", showLookFull);
 function refreshLookPreview() {
   $("#look-preview").src = "/api/resume-preview?t=" + Date.now(); lookNote(); buildLookThumbs();
 }
@@ -501,6 +598,10 @@ $("#tailor-style").addEventListener("change", () => guarded(() =>
   post("/api/settings", { TAILOR_STYLE: $("#tailor-style").value }),
   $("#tailor-style").value === "light" ? "Light touch: resumes keep your own words (applies to the next tailoring)"
                                        : "Full rewrite (applies to the next tailoring)"));
+$("#recruiter-screen").addEventListener("change", () => guarded(() =>
+  post("/api/settings", { RECRUITER_SCREEN: $("#recruiter-screen").value }),
+  $("#recruiter-screen").value === "manual" ? "Recruiter screen: only when you press it on a job"
+                                            : "Recruiter screen: after tailoring (2 AI requests per new job)"));
 
 // ---------- setup: saved answers ----------
 async function loadAnswers() {
@@ -517,7 +618,7 @@ async function loadAnswers() {
 }
 
 // ---------- find jobs ----------
-const STAGES = ["discover", "enrich", "score", "tailor", "cover", "pdf"];
+const STAGES = ["discover", "enrich", "score", "tailor", "cover", "pdf", "screen"];
 const STAGE_HELP = {
   discover: "Search the job boards for new jobs (no AI)",
   enrich: "Get each job's full description and application link",
@@ -525,10 +626,12 @@ const STAGE_HELP = {
   tailor: "Write a tailored resume and cover letter for jobs at or above the minimum score (about 2 requests per job)",
   cover: "Cover letters for jobs tailored before letters came with the resume",
   pdf: "Make the A4 PDFs you upload (no AI)",
+  screen: "Rate each new resume as an employer's AI screener might (2 AI requests per job; skipped when " +
+          "Recruiter screen is set to only when you press it)",
 };
 $("#stage-boxes").replaceChildren(...STAGES.map((s) =>
   el("label", { class: "choice", style: "margin:0", title: STAGE_HELP[s] },
-    el("input", { type: "checkbox", value: s, checked: true }), human(s))));
+    el("input", { type: "checkbox", value: s, checked: true }), s === "screen" ? "Recruiter screen" : human(s))));
 $$("#stage-boxes input").forEach((b) => b.addEventListener("change", () => (b.dataset.was = b.checked ? "on" : "off")));
 // Choosing jobs yourself: Run doesn't tailor; "Tailor ticked jobs" does, for the ticked ones only
 const CHOSEN_STAGES = ["tailor", "cover"];
@@ -655,10 +758,11 @@ const ACCOUNT_HELP = {
   yes: "Create an account (or sign in) on the employer's site first, once per employer.",
 };
 // Your own resume / cover letter for a job, instead of the generated one
-function ownDocLinks(j) {
+function ownDocLinks(j, only) {
   const links = [];
   for (const [kind, own, label, generated] of [["resume", j.own_resume, "resume", j.generated_resume],
                                               ["cover", j.own_cover, "cover letter", j.generated_cover]]) {
+    if (only && kind !== only) continue;
     if (links.length) links.push(" · ");
     if (own) {
       links.push(el("a", { href: "#", title: generated ? "Remove your file and use the generated " + label + " again"
@@ -746,10 +850,11 @@ function humanBadge(h) {
 }
 
 // Quick edit: change a generated resume or letter yourself; the PDF is made again
-function editLinks(j) {
+function editLinks(j, only) {
   const out = [];
   for (const [kind, label, has] of [["resume", "resume", j.generated_resume && !j.own_resume],
                                     ["cover", "cover letter", j.generated_cover && !j.own_cover]]) {
+    if (only && kind !== only) continue;
     if (has) out.push(" · ", el("a", { href: "#", title: "Change the generated " + label + " in your own words; its PDF is made again",
       onclick: (e) => { e.preventDefault(); editDoc(j, kind, label); } }, "edit " + label));
   }
@@ -807,17 +912,23 @@ async function loadJobs() {
   const busy = applyState && applyState.busy;
   $("#jobs").replaceChildren(...jobs.map((j) => {
     const link = j.link;
+    // Documents: one line per file, with what you can do to it beside it; Checks: what's been checked about them
     const docs = [];
-    if (j.tailored) docs.push(el("a", { href: "/api/jobs/file?kind=resume&url=" + encodeURIComponent(j.url), target: "_blank",
-      title: j.own_resume ? "Your own file, used instead of the generated resume" : "" }, j.own_resume ? "Your resume" : "Resume"));
-    if (j.ats) docs.push(" · ", atsBadge(j.ats));
-    if (j.human) docs.push(" · ", humanBadge(j.human));
-    if (j.tailored && !j.duplicate_of && (j.screen || (!j.applied_at && j.has_description)))
-      docs.push(" · ", screenBadge(j));
-    if (j.has_cover) docs.push(" · ", el("a", { href: "/api/jobs/file?kind=cover&url=" + encodeURIComponent(j.url), target: "_blank",
-      title: j.own_cover ? "Your own file, used instead of the generated cover letter" : "" }, j.own_cover ? "Your cover letter" : "Cover letter"));
-    if (!j.applied_at && !j.duplicate_of) docs.push(el("div", { class: "own-docs" }, ownDocLinks(j),
-      ...editLinks(j)));
+    const canChange = !j.applied_at && !j.duplicate_of;
+    for (const [kind, has, own, label] of [["resume", j.tailored, j.own_resume, "Resume"],
+                                           ["cover", j.has_cover, j.own_cover, "Cover letter"]]) {
+      if (!has && !(canChange && j.tailored)) continue;
+      const file = has ? el("a", { href: "/api/jobs/file?kind=" + kind + "&url=" + encodeURIComponent(j.url), target: "_blank",
+        title: own ? "Your own file, used instead of the generated " + label.toLowerCase() : "" },
+        own ? "Your " + label.toLowerCase() : label) : el("span", { class: "muted" }, "No " + label.toLowerCase());
+      const acts = canChange ? [...editLinks(j, kind), ...ownDocLinks(j, kind)].filter((x) => typeof x !== "string")
+        .map((a) => { a.textContent = a.textContent.replace(/^remove my .*/, "remove mine").replace(/ (resume|cover letter)$/, ""); return a; }) : [];
+      docs.push(el("div", { class: "doc-row" }, file, acts.length ? el("span", { class: "own-docs" }, ...acts) : ""));
+    }
+    const checks = [];
+    if (j.ats) checks.push(atsBadge(j.ats));
+    if (j.human) checks.push(humanBadge(j.human));
+    if (j.tailored && !j.duplicate_of && (j.screen || (!j.applied_at && j.has_description))) checks.push(screenBadge(j));
     const statusText = j.redo_requested ? (j.tailored ? "Rewriting documents…" : "Writing documents…")
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
@@ -872,7 +983,8 @@ async function loadJobs() {
         j.also_on ? el("div", { class: "muted" }, "Also on: " + j.also_on) : ""),
       el("td", { class: "muted", title: statusHelp, style: statusHelp ? "cursor:help" : "" }, statusText),
       el("td", {}, docs.length ? docs : el("span", { class: "muted" }, "–")),
-      el("td", { style: "white-space:nowrap" }, actions));
+      el("td", {}, checks.length ? el("div", { class: "checks" }, ...checks) : el("span", { class: "muted" }, "–")),
+      el("td", {}, el("div", { class: "job-actions" }, ...actions.filter((a) => a !== " "))));
   }));
   $("#jobs-empty").textContent = jobs.length ? "" :
     total ? "No " + $("#job-kind").selectedOptions[0].textContent.toLowerCase() + " jobs in this view (" + total +
@@ -920,6 +1032,7 @@ function showFailedSearches(f) {
 const RERUN_LABEL = {
   enrich: "Get the ad again", score: "Score again", cover: "Cover letter only",
   review: "Fact-check again", pdf: "Make the PDFs again", ats: "ATS check again",
+  screen: "Recruiter screen again",
 };
 function rerunSteps(j) {
   if (j.applied_at || j.duplicate_of) return [];
@@ -929,6 +1042,7 @@ function rerunSteps(j) {
   if (j.generated_resume) steps.push("review");
   if (j.generated_resume || j.generated_cover) steps.push("pdf");
   if (j.tailored) steps.push("ats");
+  if (j.tailored && j.has_description) steps.push("screen");
   return steps;
 }
 async function rerunStep(step, job) {

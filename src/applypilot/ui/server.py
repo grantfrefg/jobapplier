@@ -42,11 +42,11 @@ UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 ENV_KEYS = ("EXECUTION_ENGINE", "LLM_PROVIDER", "GEMINI_API_KEY", "LLM_MODEL", "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY", "CODEX_MODEL", "CAPSOLVER_API_KEY", "GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE",
-            "TAILOR_STYLE", "RESUME_LAYOUT", "RESUME_ACCENT", "RESUME_TAGLINE", "RESUME_TECH_LINE",
+            "TAILOR_STYLE", "RECRUITER_SCREEN", "RESUME_LAYOUT", "RESUME_ACCENT", "RESUME_TAGLINE", "RESUME_TECH_LINE",
             "SHOW_WORK_RIGHTS", "RESUME_PAGES", "REED_API_KEY")
 NUMBER_KEYS = {"GEMINI_DAILY_LIMIT", "GEMINI_APPLY_RESERVE"}
 SECRET_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CAPSOLVER_API_KEY", "REED_API_KEY"}
-VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf")
+VALID_STAGES = ("discover", "enrich", "score", "tailor", "cover", "pdf", "screen")
 GATE_DECISIONS = ("applied", "manual", "rescan", "declined")
 
 
@@ -324,6 +324,15 @@ def _human_check(job: dict, original: str, openings: dict[str, str]) -> dict | N
     return voice.check(resume, letter, job.get("full_description") or "", original, others)
 
 
+def _industry_chosen() -> str:
+    """The profile's industry ("" if none is chosen): it sets the skill boxes, so Setup asks for it."""
+    try:
+        from applypilot import industries
+        return industries.of(json.loads(config.PROFILE_PATH.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return ""
+
+
 def _example_skills_left() -> list[str]:
     """Example skills from the profile template that the user never replaced (and doesn't
     mention in their resume). Tailoring ignores them; Setup asks the user to fix the list."""
@@ -555,6 +564,7 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
                 "browser": bool(config.find_system_browsers()) or config.has_playwright_chromium(),
             },
             "example_skills": _example_skills_left(),
+            "industry": _industry_chosen(),
             "stats": {k: stats.get(k, 0) for k in
                       ("total", "scored", "tailored", "with_cover_letter", "applied", "ready_to_apply")},
             "budget": _budget_status(),
@@ -602,6 +612,8 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
                 updates["AGENT_ENGINE_CONFIRMED"] = "1"
             if key == "TAILOR_STYLE" and value not in ("", "full", "light"):
                 raise HTTPException(400, "TAILOR_STYLE must be full or light")
+            if key == "RECRUITER_SCREEN" and value not in ("", "auto", "manual"):
+                raise HTTPException(400, "RECRUITER_SCREEN must be auto or manual")
             from applypilot.scoring import look
             allowed = {"RESUME_LAYOUT": tuple(look.LAYOUTS), "RESUME_ACCENT": tuple(look.ACCENTS),
                        "RESUME_TAGLINE": ("on", "off"), "RESUME_TECH_LINE": ("on", "off"),
@@ -733,9 +745,13 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
                    for path, values in shown.items()}
         confirmed = bool(profile.pop("skills_confirmed", False))
         from applypilot import industries
+        from applypilot.scoring.facts import _template_skills
         return {"exists": saved is not None, "profile": profile, "template": template,
                 "options": options, "numbers": sorted(po.NUMBERS), "skills_confirmed": confirmed,
-                "skill_layouts": industries.skill_layouts()}
+                "skill_layouts": industries.skill_layouts(),
+                # Example skills from the profile template (now or before): a box holding only these
+                # isn't yours, so Setup drops it when you change industry
+                "template_skills": sorted(_template_skills())}
 
     @app.post("/api/profile")
     def save_profile(body: dict) -> dict:

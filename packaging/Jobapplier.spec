@@ -36,7 +36,9 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    excludes=["tkinter", "matplotlib", "IPython", "pytest"],
+    # PIL and pypdfium2 come with pdfplumber, which needs them only to render pages as images (we never
+    # do): about 28 MB unpacked. tests/test_bundle.py checks the app still works without them.
+    excludes=["tkinter", "matplotlib", "IPython", "pytest", "PIL", "pypdfium2", "pypdfium2_raw"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
@@ -61,7 +63,7 @@ if sys.platform == "darwin":
         name="Jobapplier.app",
         bundle_identifier="com.applypilot.desktop",
         info_plist={
-            "CFBundleShortVersionString": "0.16.0",
+            "CFBundleShortVersionString": "0.16.1",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
             # No window of its own (the UI is a browser tab): run as a background
