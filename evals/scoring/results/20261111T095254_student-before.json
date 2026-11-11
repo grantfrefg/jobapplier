@@ -1,0 +1,534 @@
+{
+  "meta": {
+    "when": "2026-11-11T09:52:54+00:00",
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite",
+    "prompt": "69a10efeba0d",
+    "commit": "7d2d94d",
+    "repeats": 3,
+    "batch_size": 10,
+    "seed": 0,
+    "requests": 6,
+    "failed_requests": 0,
+    "seconds": 25.2,
+    "labels_reviewed": false,
+    "stopped": ""
+  },
+  "summary": {
+    "jobs": 18,
+    "scored": 18,
+    "missing": 0,
+    "mae": 1.17,
+    "bias": 0.17,
+    "within_1": 0.78,
+    "exact": 0.33,
+    "spearman": 0.83,
+    "dealbreaker_recall": 0.78,
+    "dealbreakers_missed": [
+      "student_marketing_uk/permanent-fulltime-now",
+      "student_marketing_uk/part-time-25h"
+    ],
+    "false_dealbreakers": [
+      "student_data_au/grad-program-open"
+    ],
+    "unstable": 7,
+    "mean_spread": 1.39
+  },
+  "by_candidate": {
+    "student_data_au": {
+      "jobs": 10,
+      "scored": 10,
+      "missing": 0,
+      "mae": 1.1,
+      "bias": -0.3,
+      "within_1": 0.9,
+      "exact": 0.3,
+      "spearman": 0.89,
+      "dealbreaker_recall": 1.0,
+      "dealbreakers_missed": [],
+      "false_dealbreakers": [
+        "student_data_au/grad-program-open"
+      ],
+      "unstable": 5,
+      "mean_spread": 1.4
+    },
+    "student_marketing_uk": {
+      "jobs": 8,
+      "scored": 8,
+      "missing": 0,
+      "mae": 1.25,
+      "bias": 0.75,
+      "within_1": 0.62,
+      "exact": 0.38,
+      "spearman": 0.88,
+      "dealbreaker_recall": 0.5,
+      "dealbreakers_missed": [
+        "student_marketing_uk/permanent-fulltime-now",
+        "student_marketing_uk/part-time-25h"
+      ],
+      "false_dealbreakers": [],
+      "unstable": 2,
+      "mean_spread": 1.38
+    }
+  },
+  "misses": [
+    {
+      "case": "student_data_au/grad-program-open",
+      "label": 8,
+      "ai": 3,
+      "off_by": 5
+    },
+    {
+      "case": "student_marketing_uk/part-time-25h",
+      "label": 3,
+      "ai": 7,
+      "off_by": 4
+    },
+    {
+      "case": "student_marketing_uk/christmas-temp",
+      "label": 8,
+      "ai": 6,
+      "off_by": 2
+    },
+    {
+      "case": "student_marketing_uk/permanent-fulltime-now",
+      "label": 2,
+      "ai": 4,
+      "off_by": 2
+    }
+  ],
+  "records": [
+    {
+      "candidate": "student_data_au",
+      "job": "part-time-analyst",
+      "title": "Data Analyst (Part-time, 20 hours/week)",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Same work (SQL, Power BI dashboards, retail data), part-time within the hours limit, local.",
+      "scores": [
+        10,
+        10,
+        10
+      ],
+      "reasoning": [
+        "The candidate has exactly the right background with 2 years of experience, SQL, and Power BI. The role is part-time (20 hours/week) and tailored for a postgraduate student, making it a perfect fit.",
+        "Perfect fit: Part-time data analyst role (20 hours/week) tailored for a postgraduate student, requiring SQL and Power BI which the candidate has.",
+        "This is an ideal part-time data analyst role for a postgraduate student with 2 years of experience, offering flexible hours matching the candidate's profile."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 10
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "summer-internship",
+      "title": "Summer Data Analytics Intern (Dec 2026 - Feb 2027)",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Full-time but entirely in the summer break (unlimited hours), takes international students, strong skill fit.",
+      "scores": [
+        9,
+        9,
+        8
+      ],
+      "reasoning": [
+        "The candidate is a current Master of Data Science student with valid work rights and the exact SQL and Python stack required for this summer internship.",
+        "Strong fit: Summer internship specifically open to current international students with valid work rights, matching her data science studies and tech stack.",
+        "The candidate matches the student criteria and technical stack well, though the internship is full-time over summer rather than part-time."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 9
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "grad-program-citizens",
+      "title": "2028 Graduate Program - Data and Analytics",
+      "label": 2,
+      "dealbreaker": "work_rights",
+      "why": "Requires citizenship or PR; a student and later 485 holder doesn't qualify.",
+      "scores": [
+        2,
+        2,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker: work rights require citizenship or permanent residency, but the candidate is on a student visa. Score is 3 or lower due to the explicit eligibility restriction.",
+        "Dealbreaker: Work rights requirement explicitly restricts applicants to Australian or New Zealand citizens or permanent residents.",
+        "Dealbreaker: The role requires Australian or New Zealand citizenship or permanent residency, but the candidate is on a student visa."
+      ],
+      "missing": [
+        "Australian or New Zealand citizen or permanent resident",
+        "Australian citizenship, Australian permanent residency",
+        "Australian or New Zealand citizenship or permanent residency"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "grad-program-open",
+      "title": "Graduate Data Analyst (February 2028 start)",
+      "label": 8,
+      "dealbreaker": null,
+      "why": "Starts after the course ends, accepts 485 holders, and the skills match; graduate level suits 2 years' experience.",
+      "scores": [
+        6,
+        3,
+        3
+      ],
+      "reasoning": [
+        "The candidate has the required technical skills and visa eligibility for the 485 pathway, but the role is full-time and permanent, whereas the candidate is seeking part-time or internship work while studying.",
+        "Dealbreaker: Full-time permanent graduate role starting in 2028, conflicting with the candidate's requirement for part-time work or internships while studying.",
+        "Dealbreaker: The candidate wants contract or part-time work, not the full-time permanent position advertised here."
+      ],
+      "missing": [
+        "full-time permanent availability",
+        "full-time permanent availability",
+        "Full-time availability"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "fulltime-now",
+      "title": "Data Analyst",
+      "label": 4,
+      "dealbreaker": "work_type",
+      "why": "Good skill fit, but full-time during semester breaks the 48-hours-a-fortnight limit; no part-time option.",
+      "scores": [
+        5,
+        3,
+        3
+      ],
+      "reasoning": [
+        "She has the required 2 years of experience, SQL, and Power BI skills, but the role requires full-time (38 hours/week) onsite work, whereas she is studying and looking for part-time work.",
+        "Dealbreaker: Role is full-time permanent, whereas the candidate is seeking part-time or internship work while studying.",
+        "Dealbreaker: The role requires full-time 38 hours a week onsite, which conflicts with the candidate's requirement for part-time work while studying."
+      ],
+      "missing": [
+        "full-time availability",
+        "full-time permanent availability",
+        "Full-time availability"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "research-assistant",
+      "title": "Research Assistant (Data), casual, 15 hours/week",
+      "label": 8,
+      "dealbreaker": null,
+      "why": "Casual hours within the limit, Python data cleaning and analysis, on campus; health domain is new but minor.",
+      "scores": [
+        9,
+        9,
+        10
+      ],
+      "reasoning": [
+        "A great fit for a casual, part-time research assistant role matching her current student status and Python data analysis skills. Local to Kensington.",
+        "Great fit: Casual research assistant role at her university for 15 hours a week, perfectly matching her postgraduate student status and Python skills.",
+        "The candidate is a current postgraduate student at the same university looking for casual part-time work matching their data analysis skills and student status."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 9
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "contract-fulltime",
+      "title": "Data Analyst (6 month contract)",
+      "label": 4,
+      "dealbreaker": "work_type",
+      "why": "Skills fit and it's a contract, but full-time from now runs through semester, over the hours limit.",
+      "scores": [
+        5,
+        3,
+        3
+      ],
+      "reasoning": [
+        "The candidate has the necessary SQL and Power BI experience for the role, but it is a 5-day-a-week full-time contract, conflicting with her desire for part-time work while studying.",
+        "Dealbreaker: Role is a full-time contract (5 days a week) while candidate explicitly wants part-time work or internships while studying.",
+        "Dealbreaker: The role requires full-time 5 days a week, whereas the candidate is seeking part-time or internship work while studying."
+      ],
+      "missing": [
+        "full-time availability",
+        "full-time availability",
+        "5 days a week full-time"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "aps-data",
+      "title": "Data Analyst APS5",
+      "label": 1,
+      "dealbreaker": "work_rights",
+      "why": "Citizenship required.",
+      "scores": [
+        2,
+        2,
+        2
+      ],
+      "reasoning": [
+        "Dealbreaker: requires Australian citizenship and a security clearance, which a non-citizen student cannot obtain. Score is 2.",
+        "Dealbreaker: Requires Australian citizenship and the ability to obtain a Baseline security clearance, neither of which the candidate holds.",
+        "Dealbreaker: The posting requires Australian citizenship and a security clearance, which the candidate does not have and cannot obtain."
+      ],
+      "missing": [
+        "Australian citizenship, Baseline security clearance",
+        "Australian citizenship, Baseline security clearance",
+        "Australian citizenship, Baseline security clearance"
+      ],
+      "ai": 2
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "melbourne-part-time",
+      "title": "Part-time Data Analyst (3 days a week)",
+      "label": 2,
+      "dealbreaker": "location",
+      "why": "Hours would fit, but onsite in Melbourne and the candidate won't relocate.",
+      "scores": [
+        1,
+        3,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker: the role is onsite in Melbourne, while the candidate is based in Sydney and unwilling to relocate.",
+        "Dealbreaker: Onsite in Melbourne, and the candidate is based in Sydney and not willing to relocate.",
+        "Dealbreaker: The role is onsite in Melbourne, but the candidate is based in Sydney and will not relocate."
+      ],
+      "missing": [
+        "Melbourne location",
+        "Melbourne location",
+        "Melbourne location"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "student_data_au",
+      "job": "casual-retail",
+      "title": "Retail Sales Assistant (casual)",
+      "label": 3,
+      "dealbreaker": null,
+      "why": "Fits the hours and is local, but a different field from the data analyst roles she's targeting.",
+      "scores": [
+        2,
+        4,
+        3
+      ],
+      "reasoning": [
+        "This is a retail sales assistant role rather than a data analyst position, making it a different field from her target role.",
+        "Different field: Retail sales assistant is outside the target data analyst career path, despite matching the casual/part-time preference.",
+        "Dealbreaker: This is a retail sales assistant job rather than a data analyst role, which is far off the candidate's target field despite their casual barista work."
+      ],
+      "missing": [
+        "data analysis focus",
+        "",
+        "Data analysis experience"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "part-time-assistant",
+      "title": "Marketing Assistant (part-time, 16 hours a week)",
+      "label": 9,
+      "dealbreaker": null,
+      "why": "Same work (social, Mailchimp, events), 16 hours fits the 20-hour term-time limit, London.",
+      "scores": [
+        9,
+        10,
+        9
+      ],
+      "reasoning": [
+        "Strong match for a part-time student role, requiring exact skills the candidate holds such as social media and Mailchimp newsletters.",
+        "Exceptional fit for a part-time marketing student role in London, perfectly matching the candidate's experience with Mailchimp, social media, and event promotion.",
+        "Near-perfect fit for a part-time student role in London, requiring social media, event promotion, and Mailchimp newsletters, all matching the candidate's exact experience."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 9
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "christmas-temp",
+      "title": "Temporary Marketing Assistant (Christmas, full-time)",
+      "label": 8,
+      "dealbreaker": null,
+      "why": "Full-time but only during the Christmas vacation, when students may work full-time; relevant tasks.",
+      "scores": [
+        4,
+        8,
+        6
+      ],
+      "reasoning": [
+        "Dealbreaker for work type: the candidate wants part-time/contract work while studying, but this is a temporary full-time role.",
+        "Great fit for a student looking for temporary work during winter break with matching tasks like social media and email, though it is full-time for a brief period.",
+        "The candidate has relevant social media and email experience and is a student on break. However, the role is full-time temporary rather than part-time, conflicting slightly with their preference for contract/part-time work while studying."
+      ],
+      "missing": [
+        "full-time",
+        "",
+        ""
+      ],
+      "ai": 6
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "grad-scheme-open",
+      "title": "Graduate Marketing Scheme (September 2027)",
+      "label": 8,
+      "dealbreaker": null,
+      "why": "Starts after the course ends, accepts Graduate visa holders, and fits a marketing graduate.",
+      "scores": [
+        4,
+        8,
+        8
+      ],
+      "reasoning": [
+        "Dealbreaker for work type: the candidate is seeking part-time work while studying, but this graduate scheme is full-time.",
+        "Strong fit for a graduate marketing scheme starting in 2027 that welcomes international graduates, aligning well with the candidate's expected graduation and career goals.",
+        "A strong fit for their future graduate scheme goal, welcoming international graduates. The start date (September 2027) aligns with their graduation, though it is full-time."
+      ],
+      "missing": [
+        "full-time",
+        "brand",
+        ""
+      ],
+      "ai": 8
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "grad-scheme-settled",
+      "title": "Marketing Graduate Programme 2027",
+      "label": 2,
+      "dealbreaker": "work_rights",
+      "why": "Needs British citizenship or settled status and 5 years' residence.",
+      "scores": [
+        3,
+        3,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker: Security vetting requirements specify British citizenship or settled status and 5 years UK residence, which the candidate does not meet.",
+        "Security clearance dealbreaker: the role requires British citizenship or settled status and 5 years UK residency for security vetting, which the candidate does not meet.",
+        "Dealbreaker: Security clearance and citizenship requirements (British citizen or settled status, 5 years UK residence) exclude the candidate who is on a student visa."
+      ],
+      "missing": [
+        "British citizen, settled status, 5 years UK residence",
+        "British citizen or settled status, 5 years UK residency",
+        "British citizen, settled status, 5 years UK residence"
+      ],
+      "ai": 3
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "permanent-fulltime-now",
+      "title": "Marketing Executive",
+      "label": 2,
+      "dealbreaker": "work_rights",
+      "why": "A student can't fill a permanent full-time vacancy, and it starts now, during the course.",
+      "scores": [
+        4,
+        4,
+        4
+      ],
+      "reasoning": [
+        "Dealbreaker for work type: the candidate wants part-time work while studying, but this is a permanent full-time position.",
+        "Work type dealbreaker: the candidate wants part-time/contract study-friendly work, whereas this is a permanent, full-time Marketing Executive role requiring 37.5 hours per week.",
+        "The candidate matches the experience level and skills, but the role is permanent and full-time (37.5 hours), which contradicts their stated preference for part-time/contract work while studying."
+      ],
+      "missing": [
+        "full-time availability",
+        "trade marketing, full-time availability",
+        "trade marketing"
+      ],
+      "ai": 4
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "part-time-social",
+      "title": "Social Media Coordinator (part-time, 20 hours)",
+      "label": 8,
+      "dealbreaker": null,
+      "why": "Strong fit (content, influencers, Meta reports) and exactly the 20-hour term-time limit.",
+      "scores": [
+        9,
+        10,
+        9
+      ],
+      "reasoning": [
+        "Exceptional fit. The part-time role matches the candidate's exact experience in social media, TikTok/Instagram, and influencer collaborations.",
+        "Outstanding match for a part-time social media role requiring Instagram, TikTok, influencer work, and Meta Business Suite experience.",
+        "An excellent match for the candidate's current skills and part-time availability. It specifically asks for Instagram/TikTok content, influencer work, and Meta Business Suite experience, all of which are on their resume."
+      ],
+      "missing": [
+        "",
+        "",
+        ""
+      ],
+      "ai": 9
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "part-time-25h",
+      "title": "Marketing Assistant (part-time, 25 hours a week)",
+      "label": 3,
+      "dealbreaker": "work_rights",
+      "why": "Good fit for the work, but 25 hours a week all year exceeds the 20-hour term-time limit.",
+      "scores": [
+        7,
+        7,
+        7
+      ],
+      "reasoning": [
+        "Solid fit for discipline and part-time study schedule in London, though missing a couple of minor local marketing tasks like leaflets.",
+        "Good fit for a part-time marketing assistant role in London, though slightly longer hours (25 hours) and includes offline tasks like leaflets not shown on the resume.",
+        "Good fit for a part-time marketing assistant role involving social media and emails in London. The candidate lacks demonstrated experience in local partnerships, but it is a minor gap."
+      ],
+      "missing": [
+        "leaflets, local partnerships",
+        "leaflets, local partnerships",
+        "local partnerships"
+      ],
+      "ai": 7
+    },
+    {
+      "candidate": "student_marketing_uk",
+      "job": "manchester-part-time",
+      "title": "Part-time Content Assistant",
+      "label": 2,
+      "dealbreaker": "location",
+      "why": "Hours fit, but onsite in Manchester and the candidate won't relocate.",
+      "scores": [
+        2,
+        2,
+        3
+      ],
+      "reasoning": [
+        "Dealbreaker for location: the role is onsite in Manchester while the candidate is based in London and unwilling to relocate.",
+        "Location dealbreaker: the role is onsite in Manchester, whereas the candidate is based in London and not willing to relocate.",
+        "Dealbreaker: The location is Manchester onsite, but the candidate is based in Stratford, London and is unwilling to relocate."
+      ],
+      "missing": [
+        "Manchester location",
+        "blog writing",
+        ""
+      ],
+      "ai": 2
+    }
+  ]
+}
