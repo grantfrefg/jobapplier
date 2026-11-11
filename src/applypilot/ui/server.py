@@ -1078,6 +1078,18 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
                 break
         return pdf.build_html(pdf.parse_resume(text), layout=layout or None, accent=accent or None)
 
+    @app.post("/api/jobs/flag-checked")
+    def flag_checked(body: dict) -> dict:
+        """You've read a flagged job's documents (the fact-check's note is true, or you fixed it)."""
+        url = str(body.get("url") or "")
+        conn = get_connection()
+        cur = conn.execute("UPDATE jobs SET tailor_status = 'approved', tailor_issues = NULL "
+                           "WHERE url = ? AND tailor_status IN ('flagged', 'review_failed')", (url,))
+        conn.commit()
+        if not cur.rowcount:
+            raise HTTPException(404, "That job has no warning to clear")
+        return {"ok": True}
+
     @app.post("/api/jobs/screen")
     def screen_job(body: dict) -> dict:
         """Recruiter screen (simulated): the base resume and this job's resume, two AI requests.

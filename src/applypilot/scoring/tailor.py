@@ -52,6 +52,22 @@ _FAILURE = {
 }
 
 
+# Drafts that failed only the checks (not unreadable replies or errors): used with a critical note
+FLAGGABLE = ("failed_judge", "failed_validation")
+# Statuses whose documents are used: checked, or kept with a critical note
+USABLE = frozenset({"approved", "approved_with_judge_warning", "flagged"})
+
+
+def flag_note(report: dict) -> str:
+    """The critical note on a kept draft: what the checks found, for you to fix before applying."""
+    if report.get("status") != "flagged":
+        return ""
+    what = ("The fact-check found something your resume doesn't support" if report.get("flagged_from") ==
+            "failed_judge" else "It breaks a resume rule")
+    reason = failure_reason({**report, "status": report.get("flagged_from")})
+    return f"{what}: {reason}" if reason else what
+
+
 def failure_reason(report: dict) -> str:
     """Why a tailoring attempt wasn't used, in a sentence or two."""
     if report.get("status") == "failed_judge":
@@ -848,7 +864,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
     t0 = time.time()
     completed = 0
     results: list[dict] = []
-    stats: dict[str, int] = {"approved": 0, "failed_validation": 0, "failed_judge": 0, "error": 0}
+    stats: dict[str, int] = {"approved": 0, "flagged": 0, "failed_validation": 0, "failed_judge": 0, "error": 0}
 
     for job in jobs:
         completed += 1
@@ -862,9 +878,13 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             safe_site = re.sub(r"[^\w\s-]", "", job.get("company") or job["site"])[:20].strip().replace(" ", "_")
             prefix = f"{safe_site}_{safe_title}"
 
-            # Save tailored resume text. A draft that failed the checks is kept
-            # aside, so it never overwrites the documents a Redo is replacing.
-            passed = report["status"] in ("approved", "approved_with_judge_warning")
+            # A draft that failed the checks is still used, with a critical note (status "flagged"),
+            # when the job has no documents yet: you read what was found and fix it, rather than
+            # getting nothing. A Redo that fails keeps the documents it was replacing (the draft is
+            # set aside), so a checked resume is never swapped for a flagged one.
+            if (report["status"] in FLAGGABLE and tailored.strip() and not job.get("tailored_resume_path")):
+                report["flagged_from"], report["status"] = report["status"], "flagged"
+            passed = report["status"] in USABLE
             txt_path = TAILORED_DIR / (f"{prefix}.txt" if passed else f"{prefix}_REJECTED.txt")
             txt_path.write_text(tailored, encoding="utf-8")
 
@@ -893,7 +913,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             # "approved_with_judge_warning" is also a success — resume was generated.
             pdf_path = None
             cl_path = None
-            if report["status"] in ("approved", "approved_with_judge_warning"):
+            if report["status"] in USABLE:
                 try:
                     from applypilot.scoring.pdf import convert_to_pdf
                     pdf_path = str(convert_to_pdf(txt_path))
@@ -926,6 +946,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
                 "requests": report["requests"],
                 "cover_letter_path": cl_path,
                 "reason": failure_reason(report),
+                "flag": flag_note(report),
             }
         except BudgetExhausted as e:
             # Not this job's fault: leave it (and the rest) untouched for the next run
@@ -953,27 +974,31 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
             rate * 60,
             result["title"][:40],
         )
-        if result["status"] not in ("approved", "approved_with_judge_warning"):
+        if result["status"] == "flagged":
+            log.info("    Kept, with a critical note: %s", result["flag"])
+        elif result["status"] not in USABLE:
             tries = (job.get("tailor_attempts") or 0) + 1
             log.info("    %s", explain_failure(result["status"], result.get("reason", ""), tries,
                                                kept_old=bool(job.get("tailored_resume_path"))))
 
     # Persist to DB: increment attempt counter for ALL, save path only for approved
     now = datetime.now(timezone.utc).isoformat()
-    _success_statuses = {"approved", "approved_with_judge_warning"}
+    _success_statuses = USABLE
     for r in results:
         if r["url"] in redo_urls:
             finish_redo(conn, r["url"])
         if r["status"] in _success_statuses:
+            flagged = r["status"] == "flagged"
             conn.execute(
                 "UPDATE jobs SET tailored_resume_path=?, tailored_at=?, "
                 "tailor_attempts=COALESCE(tailor_attempts,0)+1, "
                 # your own resume's ATS check stays while you're using it
                 "ats_score=CASE WHEN own_resume_path IS NULL THEN ? ELSE ats_score END, "
                 "ats_report=CASE WHEN own_resume_path IS NULL THEN ? ELSE ats_report END, "
-                "tailor_status='approved', tailor_issues=NULL WHERE url=?",
+                "tailor_status=?, tailor_issues=? WHERE url=?",
                 (r["path"], now, (r.get("ats") or {}).get("score"),
-                 json.dumps(r["ats"]) if r.get("ats") else None, r["url"]),
+                 json.dumps(r["ats"]) if r.get("ats") else None,
+                 "flagged" if flagged else "approved", r.get("flag") if flagged else None, r["url"]),
             )
             if r.get("cover_letter_path"):
                 conn.execute(
@@ -992,10 +1017,11 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
     elapsed = time.time() - t0
     cover_letters = sum(1 for r in results if r.get("cover_letter_path"))
     log.info(
-        "Tailoring done in %.1fs: %d approved, %d failed_validation, %d failed_judge, %d errors, "
-        "%d cover letters, %d LLM requests",
+        "Tailoring done in %.1fs: %d approved, %d kept with a critical note, %d failed_validation, "
+        "%d failed_judge, %d errors, %d cover letters, %d LLM requests",
         elapsed,
         stats.get("approved", 0),
+        stats.get("flagged", 0),
         stats.get("failed_validation", 0),
         stats.get("failed_judge", 0),
         stats.get("error", 0),
@@ -1009,6 +1035,7 @@ def run_tailoring(min_score: int = 7, limit: int = 20,
 
     return {
         "approved": stats.get("approved", 0),
+        "flagged": stats.get("flagged", 0),
         "failed": stats.get("failed_validation", 0) + stats.get("failed_judge", 0),
         "errors": stats.get("error", 0),
         "cover_letters": cover_letters,
