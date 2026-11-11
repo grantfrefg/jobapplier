@@ -13,8 +13,6 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 ### Changed
 - **A draft that doesn't pass the checks is kept, with a critical note, instead of thrown away.** When the fact-check or a resume rule rejected every draft, the job used to get no documents. Now the last draft becomes its resume and cover letter, flagged: the Apply tab shows **⚠ Check before applying** with what was found (an invented skill, a claim your resume doesn't support), the status says to check it first, and **Apply** asks you to confirm. Fix it with **edit resume** or **Redo**, then **Fact-check again**, or press **I've checked it** if what's flagged is true. A Redo that doesn't pass still keeps the documents it was replacing.
 
-## [0.16.2] - 2026-11-11
-
 ### Added
 - **The recruiter screen says when tailoring may have made a resume worse.** A tailored resume screening 2 or more points below your base resume gets a ⚠ on its badge ("Screen 8 → 6 ⚠"), with a suggestion to compare the two or Redo with Tailoring style = light touch. Hover also lists **Lost in tailoring**: must-haves your base resume showed that the tailored one doesn't. A 1-point drop is a screen's normal variation and isn't flagged.
 
