@@ -390,19 +390,24 @@
         <dt>"5/20 [APPROVED] attempts=1 requests=2"</dt>
         <dd>Job 5 of 20 got a tailored resume and cover letter. <i>Attempts</i> is how many drafts were written;
           <i>requests</i> is how many AI requests that took (each draft is written, then fact-checked).</dd>
-        <dt>[FAILED_JUDGE]</dt>
-        <dd>The fact-check compared every draft with your real resume and found something invented or stretched
-          (a duty, a skill, a more senior title). Those drafts are never used. Common when a job asks for more than
-          your resume shows. The line after it says what was wrong.</dd>
-        <dt>[FAILED_VALIDATION]</dt>
-        <dd>Every draft broke a fixed rule (for example a missing section, or a skill or employer that isn't in your
-          resume).</dd>
+        <dt>[FLAGGED] "Kept, with a critical note: …"</dt>
+        <dd>No draft passed the checks: the fact-check found something invented or stretched (a duty, a skill, a
+          more senior title), or a draft broke a fixed rule (a missing section, a skill or employer that isn't in
+          your resume). The last draft is kept so you can fix it, not lost. On the Apply tab it shows
+          <span class="badge bad">⚠ Check before applying</span> with what was found; Apply asks you to confirm.
+          Fix it with <b>edit resume</b> / <b>edit cover letter</b> or <b>Redo</b>, then <b>Fact-check again</b>
+          (Run again), or press <b>I've checked it</b> if what's flagged is actually true. Common when a job asks
+          for more than your resume shows.</dd>
+        <dt>[FAILED_JUDGE] / [FAILED_VALIDATION]</dt>
+        <dd>The same, for a job you pressed <b>Redo</b> on: its new drafts didn't pass, so it keeps the documents
+          that did (a flagged draft never replaces checked ones). The line after it says what was wrong.</dd>
         <dt>[ERROR]</dt>
         <dd>A request failed (network, or the AI's reply couldn't be read).</dd>
         <dt>After a failure</dt>
-        <dd>That job gets no documents and isn't offered on the Apply tab. It's tried again on the next run, up to
-          5 times. <b>Apply → All jobs</b> shows the reason; <b>Try again</b> there retries it now. The rejected
-          draft is kept as <code>…_REJECTED.txt</code> in the <code>tailored_resumes</code> folder.</dd>
+        <dd>A job with no documents yet keeps its last draft, flagged (above). Only when the AI's replies couldn't
+          be read, or a request failed, does it get no documents; then it's tried again on the next run, up to 5
+          times, and <b>Try again</b> on <b>Apply → All jobs</b> retries it now. A Redo's drafts that didn't pass
+          are kept as <code>…_REJECTED.txt</code> in the <code>tailored_resumes</code> folder.</dd>
         <dt>Getting more jobs tailored</dt>
         <dd>A few rejections are normal: they're jobs that ask for more than your resume shows. If many jobs
           fail, in order of what to try first:<br>
