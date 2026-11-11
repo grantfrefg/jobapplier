@@ -8,6 +8,11 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-11-11
+
+### Fixed
+- **LinkedIn Easy Apply kept asking "Discard application?" and nothing got filled in.** Before filling a form, the browser engine opens each searchable drop-down (City, for example) to read its options, then closed the menu with Escape. In a pop-up form like Easy Apply, Escape closes the whole application, so LinkedIn asked whether to discard it, the engine's next click dismissed that question, and the question box blocked the typing. Menus are now closed by moving focus away, as clicking elsewhere would; Escape is only a fallback outside pop-ups.
+
 ## [0.16.1] - 2026-11-10
 
 ### Changed

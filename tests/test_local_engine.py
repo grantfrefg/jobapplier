@@ -595,3 +595,48 @@ def test_engine_browser_keeps_the_sandbox_outside_linux(monkeypatch, tmp_path, p
     monkeypatch.delenv("CHROME_PATH", raising=False)
     assert le.launch_browser(P()) == "ctx"
     assert seen["chromium_sandbox"] is sandbox
+
+
+# A LinkedIn Easy Apply-style pop-up: Escape closes it ("Discard application?"), as on LinkedIn.
+EASY_APPLY_MODAL = """
+<div role="dialog" aria-modal="true" id="modal">
+  <h2>Apply to Acme</h2>
+  <label for="city">City</label>
+  <input id="city" role="combobox" aria-autocomplete="list" autocomplete="off">
+  <ul id="menu" role="listbox" style="display:none">
+    <li role="option">Sydney, New South Wales, Australia</li>
+    <li role="option">Sydney Olympic Park, New South Wales, Australia</li>
+  </ul>
+  <label for="phone">Mobile phone number</label><input id="phone" type="tel">
+  <button>Next</button>
+</div>
+<div role="alertdialog" id="discard" style="display:none">Discard application?
+  <button>Discard</button><button>Save</button></div>
+<script>
+  const city = document.getElementById('city'), menu = document.getElementById('menu');
+  city.addEventListener('focus', () => menu.style.display = 'block');
+  city.addEventListener('blur', () => setTimeout(() => menu.style.display = 'none', 50));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.getElementById('discard').style.display = 'block';
+  });
+</script>
+"""
+
+
+def test_reading_a_drop_down_in_a_pop_up_never_closes_the_application():
+    """Reading a searchable drop-down's options used to press Escape to close its menu. In LinkedIn
+    Easy Apply that closes the whole pop-up ("Discard application?"), and nothing got filled."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content(EASY_APPLY_MODAL)
+        fields, _, frame_by_id = le._scan(page)
+        le._collect_combobox_options(fields, frame_by_id)
+        city = next(f for f in fields if f["label"] == "City")
+        assert city["options"][0].startswith("Sydney, New South Wales")
+        assert page.evaluate("getComputedStyle(document.getElementById('discard')).display") == "none"
+        page.wait_for_timeout(100)
+        assert page.evaluate("getComputedStyle(document.getElementById('menu')).display") == "none"
+        browser.close()
