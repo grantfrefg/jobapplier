@@ -818,13 +818,23 @@ function screenBadge(j) {
     "only the ad and the resume. Real screeners vary: treat it as an estimate.", ""];
   if (b) lines.push("Your base resume: " + b.score + "/10 (" + SCREEN_VERDICT[b.verdict] + ")");
   lines.push((s.own ? "Your own resume for this job: " : "Tailored resume: ") + t.score + "/10 (" + SCREEN_VERDICT[t.verdict] + ")");
-  if (t.not_shown.length) lines.push("", "Not shown in the resume:", ...t.not_shown.map((x) => "- " + x),
+  const lost = s.lost || [];
+  if (s.dropped) lines.push("", "⚠ The tailored resume screens " + (b.score - t.score) + " points lower than your " +
+    "base resume: tailoring may have dropped something. Compare the two, or Redo with Tailoring style = light " +
+    "touch (it keeps your own bullets).");
+  else if (b && t.score < b.score) lines.push("", "1 point lower than your base resume: within a screen's normal " +
+    "variation.");
+  if (lost.length) lines.push("", "Lost in tailoring (your base resume showed these, this one doesn't):",
+    ...lost.map((x) => "- " + x));
+  const other = t.not_shown.filter((x) => !lost.includes(x));
+  if (other.length) lines.push("", "Not shown in the resume:", ...other.map((x) => "- " + x),
     "Only add one if it's true: tailoring won't invent it.");
   if (t.noticed.length) lines.push("", "A recruiter would notice:", ...t.noticed.map((x) => "- " + x));
   if (s.stale) lines.push("", "The resume changed since this screen: click to screen it again.");
   else lines.push("", "Click to screen it again (two AI requests).");
-  const label = "Screen " + (b ? b.score + " → " : "") + t.score + (s.stale ? " (old)" : "");
-  return el("span", { class: "badge " + (t.verdict === "advance" && !s.stale ? "ok" : "warn"), title: lines.join("\n"),
+  const label = "Screen " + (b ? b.score + " → " : "") + t.score + (s.dropped ? " ⚠" : "") + (s.stale ? " (old)" : "");
+  return el("span", { class: "badge " + (t.verdict === "advance" && !s.stale && !s.dropped ? "ok" : "warn"),
+    title: lines.join("\n"),
     style: "cursor:pointer", onclick: () => runScreen(j) }, label);
 }
 async function runScreen(j) {

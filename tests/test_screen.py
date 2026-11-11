@@ -231,3 +231,35 @@ def test_every_entry_point_knows_the_screen_step():
     except ImportError:  # no fastapi
         return
     assert tuple(server.VALID_STAGES) == pipeline.STAGE_ORDER
+
+
+def _report(base_score, base_missing, tailored_score, tailored_missing):
+    return {"base": {"score": base_score, "not_shown": base_missing},
+            "tailored": {"score": tailored_score, "not_shown": tailored_missing}}
+
+
+def test_what_tailoring_lost_and_when_a_drop_is_flagged():
+    r = _report(8, ["Salesforce Administrator certification"], 6,
+                ["Salesforce Administrator Certification.", "BPMN", "UAT experience"])
+    assert screen.lost_in_tailoring(r) == ["BPMN", "UAT experience"]  # the certification was missing before too
+    assert screen.dropped(r) is True
+    assert screen.dropped(_report(8, [], 7, [])) is False  # 1 point: a screen's normal variation
+    assert screen.dropped(_report(5, [], 8, [])) is False
+    # Same term in other words counts as the same ("Salesforce" inside "Salesforce projects")
+    assert screen.lost_in_tailoring(_report(7, ["Salesforce projects"], 7, ["Salesforce"])) == []
+    assert screen.lost_in_tailoring({"tailored": {"score": 6, "not_shown": ["x"]}, "base": None}) == []
+    assert screen.dropped({"tailored": {"score": 3, "not_shown": []}, "base": None}) is False
+
+
+def test_the_job_list_carries_the_drop_and_what_was_lost(client, tmp_path):  # noqa: F811
+    from applypilot import database
+    url = "https://example.com/job/1"
+    _seed_job(tmp_path, url)
+    report = {**_report(8, [], 6, ["BPMN"]), "resume_hash": "x"}
+    report["base"].update(verdict="advance", noticed=[])
+    report["tailored"].update(verdict="maybe", noticed=[])
+    conn = database.get_connection()
+    conn.execute("UPDATE jobs SET screen_report = ? WHERE url = ?", (json.dumps(report), url))
+    conn.commit()
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert job["screen"]["dropped"] is True and job["screen"]["lost"] == ["BPMN"]
