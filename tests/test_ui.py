@@ -729,3 +729,18 @@ def test_setup_asks_for_the_industry_and_knows_the_old_example_skills(client):
     assert client.get("/api/status").json()["industry"] == "Marketing and communications"
     # Boxes removed in the form are gone after saving (the profile is written as sent)
     assert r.json()["profile"]["skills_boundary"] == {"platforms_and_tools": ["HubSpot", "Canva"]}
+
+
+def test_a_flagged_job_shows_its_note_and_can_be_cleared(client, tmp_path):
+    url = "https://example.com/job/1"
+    _seed_job(tmp_path, url)
+    conn = database.get_connection()
+    conn.execute("UPDATE jobs SET tailor_status = 'flagged', tailor_issues = ? WHERE url = ?",
+                 ("The fact-check found something your resume doesn't support: invented Tableau", url))
+    conn.commit()
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert job["tailored"] and job["tailor_status"] == "flagged" and "Tableau" in job["tailor_issues"]
+    assert client.post("/api/jobs/flag-checked", json={"url": url}).json() == {"ok": True}
+    [job] = client.get("/api/jobs?view=ready").json()
+    assert job["tailor_status"] == "approved" and job["tailor_issues"] is None
+    assert client.post("/api/jobs/flag-checked", json={"url": url}).status_code == 404
