@@ -289,9 +289,10 @@ def _screen_summary(raw: str | None, job: dict, current_text: str | None = None)
         return None
     if current_text is None:
         current_text = _resume_text(job)
-    from applypilot.scoring.screen import fingerprint
+    from applypilot.scoring.screen import dropped, fingerprint, lost_in_tailoring
     stale = bool(current_text) and fingerprint(current_text) != report.get("resume_hash")
-    return {k: report.get(k) for k in ("base", "tailored", "when", "own")} | {"stale": stale}
+    return {k: report.get(k) for k in ("base", "tailored", "when", "own")} | {
+        "stale": stale, "dropped": dropped(report), "lost": lost_in_tailoring(report)}
 
 
 def _letter_openings() -> dict[str, str]:
