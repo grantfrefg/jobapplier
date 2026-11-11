@@ -848,6 +848,27 @@ async function runScreen(j) {
   });
 }
 
+// Kept with a critical note: the checks found something in these documents (an invented skill, a
+// claim the resume doesn't support, a broken rule). They're used, so you can fix them, not lost.
+function isFlagged(j) {
+  return j.generated_resume && !j.own_resume && ["flagged", "review_failed"].includes(j.tailor_status);
+}
+function flagHelp(j) {
+  return ["Check before applying. The fact-check found:", "", j.tailor_issues || "(no details)", "",
+    "The documents are kept so you can fix them: \"edit resume\" / \"edit cover letter\" to change what's wrong, " +
+    "or Redo for a new draft. Then \"Fact-check again\" (Run again), or \"I've checked it\" if it's actually true."
+  ].join("\n");
+}
+function flagBadge(j) {
+  const badge = el("span", { class: "badge bad", title: flagHelp(j), style: "cursor:help" }, "⚠ Check before applying");
+  if (j.applied_at) return badge;
+  return el("span", { class: "flag" }, badge, el("a", { href: "#", class: "flag-ok",
+    title: "You've read the documents and what's flagged is true (or you've fixed it): clear the warning",
+    onclick: (e) => { e.preventDefault(); guarded(async () => {
+      await post("/api/jobs/flag-checked", { url: j.url }); loadJobs();
+    }, "Warning cleared"); } }, "I've checked it"));
+}
+
 // "Reads human": patterns that make documents read as AI-written (scoring/voice.py, no AI)
 function humanBadge(h) {
   const lines = ["Reads human: a check for what makes a resume or letter sound AI-written (no AI used)."];
@@ -937,20 +958,24 @@ async function loadJobs() {
     }
     const checks = [];
     if (j.ats) checks.push(atsBadge(j.ats));
+    if (isFlagged(j)) checks.unshift(flagBadge(j));
     if (j.human) checks.push(humanBadge(j.human));
     if (j.tailored && !j.duplicate_of && (j.screen || (!j.applied_at && j.has_description))) checks.push(screenBadge(j));
     const statusText = j.redo_requested ? (j.tailored ? "Rewriting documents…" : "Writing documents…")
       : j.duplicate_of ? "Same role as the " + (j.duplicate_site || "other") + " listing"
       : j.applied_at ? "Applied" : j.apply_status === "manual" ? "Saved for later"
       : j.apply_status === "failed" ? "Failed: " + (j.apply_error || "") : j.apply_status || (j.tailored ?
-        (j.tailor_status === "review_failed" && j.generated_resume ? "Ready, but the fact-check flagged it" : "Ready")
+        (isFlagged(j) ? "Ready, but check it first: the fact-check found a problem" : "Ready")
       : TAILOR_FAILED[j.tailor_status] ? "No documents: " + TAILOR_FAILED[j.tailor_status] : "Not tailored yet");
     const statusHelp = !j.tailored && TAILOR_FAILED[j.tailor_status] ? tailorHelp(j)
-      : j.tailor_status === "review_failed" ? "Fact-check run again found: " + (j.tailor_issues || "") +
-        "\nThe documents are kept. Read them, then Redo the job or apply as they are." : "";
+      : isFlagged(j) ? flagHelp(j) : "";
     const actions = [];
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
-      actions.push(el("button", { class: "btn", disabled: busy, onclick: () => startApply(j.url) }, "Apply"));
+      actions.push(el("button", { class: "btn", disabled: busy, onclick: () => {
+        if (isFlagged(j) && !confirm("The fact-check found a problem with this job's documents:\n\n" +
+            (j.tailor_issues || "(no details)") + "\n\nApply anyway? Fix it first with \"edit resume\" if it's wrong.")) return;
+        startApply(j.url);
+      } }, "Apply"));
     }
     if (j.tailored && !j.applied_at && !j.duplicate_of) {
       actions.push(" ", el("button", { class: "btn secondary", disabled: busy && applyState.job && applyState.job.url === j.url,
