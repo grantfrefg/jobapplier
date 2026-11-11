@@ -623,13 +623,14 @@ EASY_APPLY_MODAL = """
 """
 
 
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
 def test_reading_a_drop_down_in_a_pop_up_never_closes_the_application():
     """Reading a searchable drop-down's options used to press Escape to close its menu. In LinkedIn
     Easy Apply that closes the whole pop-up ("Discard application?"), and nothing got filled."""
     pytest.importorskip("playwright")
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(headless=False)  # CI installs Chromium without the headless shell
         page = browser.new_page()
         page.set_content(EASY_APPLY_MODAL)
         fields, _, frame_by_id = le._scan(page)
