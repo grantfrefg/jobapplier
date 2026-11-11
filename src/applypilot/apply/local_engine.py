@@ -775,6 +775,25 @@ def _chosen_text(loc) -> str | None:
     return text or ""
 
 
+_IN_POPUP_JS = "el => !!el.closest('[role=dialog], [aria-modal=true], dialog')"
+
+
+def _close_menu(frame, loc) -> None:
+    """Close a drop-down's open menu, like clicking elsewhere would: move focus off it.
+
+    Never Escape inside a pop-up: in LinkedIn Easy Apply (and other modal forms) Escape closes the
+    whole application ("Discard application?"). Outside one, Escape is the fallback when the menu
+    stays open; it never submits.
+    """
+    try:
+        loc.evaluate("el => el.blur()")
+        frame.page.wait_for_timeout(150)
+        if _visible_options(frame) and not loc.evaluate(_IN_POPUP_JS):
+            frame.page.keyboard.press("Escape")
+    except Exception:
+        pass
+
+
 def _collect_combobox_options(fields: list[dict], frame_by_id: dict) -> None:
     """Open each empty searchable drop-down once to read its options."""
     for f in fields:
@@ -787,7 +806,7 @@ def _collect_combobox_options(fields: list[dict], frame_by_id: dict) -> None:
             _click(frame.locator(f'[data-ap-id="{f["id"]}"]'), 2000)
             frame.page.wait_for_timeout(300)
             texts = _visible_options(frame)
-            frame.page.keyboard.press("Escape")  # closes the menu; never submits
+            _close_menu(frame, frame.locator(f'[data-ap-id="{f["id"]}"]'))
         except Exception:
             continue
         if texts:

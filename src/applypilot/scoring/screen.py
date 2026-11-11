@@ -69,6 +69,34 @@ def _strings(value, limit: int) -> list[str]:
     return [v[:200] for v in out if v][:limit]
 
 
+DROP_WARNING = 2  # a fall this big is more than one screen's noise: tailoring may have cut something
+
+
+def _term(text: str) -> str:
+    return " ".join("".join(c if c.isalnum() else " " for c in str(text).lower()).split())
+
+
+def lost_in_tailoring(report: dict) -> list[str]:
+    """Must-haves the base resume showed that the tailored one doesn't: listed as not shown for the
+    tailored resume, but not for the base one (the same term, or one containing the other)."""
+    base, tailored = (report or {}).get("base"), (report or {}).get("tailored")
+    if not base or not tailored:
+        return []
+    before = [_term(x) for x in base.get("not_shown") or []]
+    lost = []
+    for item in tailored.get("not_shown") or []:
+        t = _term(item)
+        if t and not any(b and (b == t or b in t or t in b) for b in before):
+            lost.append(item)
+    return lost
+
+
+def dropped(report: dict) -> bool:
+    """The tailored resume screened at least DROP_WARNING points below the base one."""
+    base, tailored = (report or {}).get("base"), (report or {}).get("tailored")
+    return bool(base and tailored) and base["score"] - tailored["score"] >= DROP_WARNING
+
+
 def fingerprint(text: str) -> str:
     """A short hash of the resume screened, so a later edit shows the screen is out of date."""
     return hashlib.sha256((text or "").strip().encode("utf-8")).hexdigest()[:12]
