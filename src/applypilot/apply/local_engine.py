@@ -665,9 +665,17 @@ def parse_json_response(text: str) -> dict:
     return data
 
 
+def _work_rights(profile: dict | None) -> list[str]:
+    """Exact work-rights answers for a student visa (hours limit, course end); [] otherwise."""
+    if not profile:
+        return []
+    from applypilot import market, student
+    return student.form_lines(profile, market.current(profile))
+
+
 def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
                        safe_resume: str, has_cover_pdf: bool, has_cover_text: bool,
-                       ats: str | None, stories: str = "") -> str:
+                       ats: str | None, stories: str = "", work_rights: list[str] | None = None) -> str:
     sections = [
         f"JOB: {job.get('title', '')} @ {job.get('company') or job.get('site', '')} ({job.get('location', '')})",
         f"FOUND ON: {_BOARD_NAMES.get(str(job.get('site') or '').lower(), job.get('site') or 'a job board')}",
@@ -683,6 +691,8 @@ def _build_user_prompt(job: dict, fields: list[dict], safe_profile: dict,
     description = (job.get("full_description") or "").strip()
     if description:  # for "Why this role?" and selection criteria answers specific to this job
         sections.append("JOB DESCRIPTION (excerpt):\n" + description[:_MAX_AD_CHARS])
+    if work_rights:  # student visas: the hours limit and what changes when the course ends
+        sections.append("WORK RIGHTS (answer work-rights questions exactly from this):\n" + "\n".join(work_rights))
     sections.append("APPLICANT PROFILE:\n" + json.dumps(safe_profile, indent=1))
     sections.append("RESUME:\n" + safe_resume[:_MAX_RESUME_CHARS])
     if stories and any(f.get("type") in ("textarea", "text") for f in fields):  # "Tell us about a time..."
@@ -970,7 +980,7 @@ def _fill_page(page, job: dict, ctx: dict, lf) -> tuple[list[dict], dict, list[s
         job, remaining, ctx["safe_profile"], ctx["safe_resume"],
         has_cover_pdf="{{COVER_LETTER_PDF}}" in ctx["file_values"],
         has_cover_text=bool(ctx["local_values"].get("{{COVER_LETTER_TEXT}}")),
-        ats=ats, stories=ctx.get("safe_stories", ""),
+        ats=ats, stories=ctx.get("safe_stories", ""), work_rights=_work_rights(ctx.get("profile")),
     )
     result = _call_ai(prompt, ctx["api_key"], ctx["model"])
     done = _run_actions(result["actions"], frame_by_id, ctx, lf)

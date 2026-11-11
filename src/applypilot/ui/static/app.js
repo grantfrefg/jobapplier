@@ -306,6 +306,14 @@ const PROFILE_FIELDS = {
   "personal.address": "Only typed into forms that ask for it; never on your resume.",
   "personal.city": "With the state, goes on your resume and decides which jobs count as local.",
   "work_authorization.work_permit_type": "Shown on your resume, e.g. \"Australian Citizen\" or \"Permanent Resident\".",
+  "work_authorization.course_end": "Student visa only: the month your course ends, as MM/YYYY (e.g. 11/2026). " +
+    "Before then, jobs are scored for your hours limit; from about 4 months before, graduate roles starting " +
+    "after it count as a fit too.",
+  "work_authorization.study_level": "Student visa only. Sets the hours you can work during study (Australia: " +
+    "48 a fortnight, none for a research Master's or PhD; UK: 20 a week at degree level, 10 below).",
+  "work_authorization.post_study_visa": "Student visa only: the visa you'll be on after the course (Temporary " +
+    "Graduate visa 485 in Australia, Graduate visa in the UK). It gives full work rights, so full-time and " +
+    "graduate roles starting after your course fit.",
   "work_authorization.security_clearance": "Jobs needing a clearance you don't hold score low. " +
     "\"Willing to obtain\" is answered yes only for citizens.",
   "availability.earliest_start_date": "e.g. Immediately, or a date (DD/MM/YYYY).",
@@ -426,6 +434,14 @@ async function loadProfile() {
                                                      : human(section)),
       PROFILE_SECTIONS[section] ? el("p", { class: "why" }, PROFILE_SECTIONS[section]) : "", box));
   }
+  // Course end, study level and the visa after it only matter on a student visa: shown just then
+  const permit = form.querySelector('[data-path="work_authorization.work_permit_type"]');
+  const studentRows = ["course_end", "study_level", "post_study_visa"]
+    .map((k) => form.querySelector(`[data-path="work_authorization.${k}"]`)?.closest("div")).filter(Boolean);
+  const showStudent = () => studentRows.forEach((r) => {
+    r.style.display = permit && /student/i.test(permit.value) ? "" : "none";
+  });
+  if (permit) { permit.addEventListener("change", showStudent); showStudent(); }
   // Your industry moves to the top of the skills (from Experience); choosing one shows its skill boxes,
   // and skills already typed move with their box or stay in theirs
   const ind = industryBlock(form), skills = document.getElementById("profile-skills_boundary");

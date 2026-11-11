@@ -8,6 +8,14 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-11
+
+### Added
+- **Student visas, in Australia and the UK.** Choose **Student visa** as your work permit type and Setup asks when your course ends, its level and the visa you'll be on after it (Temporary Graduate visa 485, or the UK Graduate visa).
+  - **Scoring** follows what you can work now. Australia: 48 hours a fortnight in session, unlimited in breaks, so part-time, casual, internships and vacation programs fit and a full-time role during study scores 4 at most. UK: 20 hours a week in term time and no permanent full-time vacancy, so a permanent full-time role is a dealbreaker and so is a part-time one over 20 hours. Graduate programs starting after your course fit when they take temporary visa holders. After the course, the post-study visa's full work rights apply.
+  - **Application forms** answer "unrestricted work rights?" truthfully (no, while studying), give your exact hours limit, and never call you a citizen or permanent resident. Claude Code and Codex get the same answers.
+  - **Measured:** two new eval candidates (an international data science student in Sydney and a marketing student in London, labels still to review): average distance from the labels 1.17 → 0.56, dealbreakers caught 78% → 100%, unstable jobs 7 → 1.
+
 ## [0.17.0] - 2026-11-11
 
 ### Changed

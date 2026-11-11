@@ -1,0 +1,138 @@
+# A made-up international student in London: final year of a BSc Business and Marketing, course ends
+# June 2027, then a Graduate visa. Part-time social media work for a student union and a summer
+# marketing internship at home in Malaysia. UK Student visa: 20 hours a week in term time, full-time
+# in official vacations, and a student can't fill a permanent full-time vacancy (0.18.0). The jobs
+# test that: part-time within 20 hours and vacation work fit; permanent full-time now is a
+# work-rights dealbreaker; graduate schemes after the course fit only if they take Graduate visa
+# holders.
+#
+# The course end is set in the future so the candidate stays "studying" whenever the eval runs (until
+# June 2027): move it on if you run this later.
+#
+# Labels are a first draft written with the dataset. Review every score and change any you
+# disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
+id: student_marketing_uk
+country: uk
+labels_reviewed: false
+local_areas: ["London"]
+
+profile:
+  personal: {full_name: Mei Lin Tan, city: Stratford, province_state: England, country: United Kingdom}
+  work_authorization:
+    legally_authorized_to_work: "Yes"
+    require_sponsorship: "No"
+    work_permit_type: Student visa
+    course_end: "06/2027"
+    study_level: Degree level
+    post_study_visa: Graduate visa
+  availability: {available_for_full_time: "No", available_for_contract: "Yes", willing_to_relocate: "No"}
+  compensation: {salary_currency: GBP, salary_range_min: "", salary_expectation: ""}
+  experience:
+    years_of_experience_total: "1"
+    current_job_title: Social Media Assistant
+    target_role: Marketing Assistant (part-time while studying, graduate scheme after)
+    industry: Marketing and communications
+    field: ""
+
+resume: |
+  MEI LIN TAN
+  Stratford, London | meilin.tan@example.com
+
+  SUMMARY
+  Final-year marketing student with a year of part-time social media and content work.
+
+  EXPERIENCE
+  Social Media Assistant (part-time), Eastbridge Students' Union, London | Oct 2025 - Present
+  - Plan and post Instagram and TikTok content for 40 student societies; grew followers 35% in a year.
+  - Write the weekly events email (6,000 subscribers) in Mailchimp; average open rate 41%.
+
+  Marketing Intern, Lumen Skincare, Kuala Lumpur | Jun 2025 - Aug 2025
+  - Ran a micro-influencer campaign with 12 creators; tracked sales with discount codes.
+  - Built monthly social reports in Google Sheets and Looker Studio.
+
+  EDUCATION
+  BSc Business and Marketing, Eastbridge University, London | Sep 2024 - Jun 2027 (expected)
+
+  SKILLS
+  Marketing: social media, content planning, email marketing, influencer campaigns
+  Tools: Canva, Mailchimp, Meta Business Suite, Google Analytics 4, Looker Studio
+
+jobs:
+  - id: part-time-assistant
+    title: Marketing Assistant (part-time, 16 hours a week)
+    company: Riverside Books
+    location: London (Hybrid)
+    description: |
+      Part-time marketing assistant, 16 hours a week on flexible days, great for a student.
+      £14.50 an hour. Social media posts, the monthly newsletter in Mailchimp, and event promotion.
+    label: {score: 9, dealbreaker: null,
+            why: "Same work (social, Mailchimp, events), 16 hours fits the 20-hour term-time limit, London."}
+
+  - id: christmas-temp
+    title: Temporary Marketing Assistant (Christmas, full-time)
+    company: Holloway Toys
+    location: London
+    description: |
+      Full-time temporary role from 14 December 2026 to 3 January 2027 supporting our Christmas campaign:
+      scheduling social posts, updating product pages, customer emails. Suits a student on winter break.
+    label: {score: 8, dealbreaker: null,
+            why: "Full-time but only during the Christmas vacation, when students may work full-time; relevant tasks."}
+
+  - id: grad-scheme-open
+    title: Graduate Marketing Scheme (September 2027)
+    company: Thames Media Group
+    location: London
+    description: |
+      Two-year graduate marketing scheme starting September 2027, full-time. We welcome applications from
+      international graduates eligible for the Graduate visa. Rotations across social, CRM and brand.
+    label: {score: 8, dealbreaker: null,
+            why: "Starts after the course ends, accepts Graduate visa holders, and fits a marketing graduate."}
+
+  - id: grad-scheme-settled
+    title: Marketing Graduate Programme 2027
+    company: Albion Civil Service Agency
+    location: London
+    description: |
+      Graduate programme starting September 2027. You must be a British citizen or have settled status,
+      and have lived in the UK for the past 5 years, to meet security vetting requirements.
+    label: {score: 2, dealbreaker: work_rights,
+            why: "Needs British citizenship or settled status and 5 years' residence."}
+
+  - id: permanent-fulltime-now
+    title: Marketing Executive
+    company: Fenwick Foods
+    location: London
+    description: |
+      Permanent, full-time Marketing Executive (37.5 hours), starting as soon as possible. Social media,
+      email campaigns, trade marketing. 1-2 years' experience. £30,000.
+    label: {score: 2, dealbreaker: work_rights,
+            why: "A student can't fill a permanent full-time vacancy, and it starts now, during the course."}
+
+  - id: part-time-social
+    title: Social Media Coordinator (part-time, 20 hours)
+    company: Brick Lane Coffee Co
+    location: London (Hybrid)
+    description: |
+      Part-time social media coordinator, 20 hours a week. Create Instagram and TikTok content, run
+      influencer collaborations, report on performance in Meta Business Suite.
+    label: {score: 8, dealbreaker: null,
+            why: "Strong fit (content, influencers, Meta reports) and exactly the 20-hour term-time limit."}
+
+  - id: part-time-25h
+    title: Marketing Assistant (part-time, 25 hours a week)
+    company: Camden Fitness
+    location: London
+    description: |
+      Part-time marketing assistant, 25 hours a week Monday to Friday, all year round. Social media,
+      leaflets, local partnerships, and member emails.
+    label: {score: 3, dealbreaker: work_rights,
+            why: "Good fit for the work, but 25 hours a week all year exceeds the 20-hour term-time limit."}
+
+  - id: manchester-part-time
+    title: Part-time Content Assistant
+    company: Northern Quarter Studio
+    location: Manchester (onsite)
+    description: |
+      Part-time content assistant, 15 hours a week onsite in Manchester. Social posts and blog writing.
+    label: {score: 2, dealbreaker: location,
+            why: "Hours fit, but onsite in Manchester and the candidate won't relocate."}

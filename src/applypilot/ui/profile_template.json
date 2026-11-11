@@ -19,7 +19,10 @@
     "legally_authorized_to_work": "Yes",
     "require_sponsorship": "No",
     "work_permit_type": "",
-    "security_clearance": ""
+    "security_clearance": "",
+    "course_end": "",
+    "study_level": "",
+    "post_study_visa": ""
   },
   "availability": {
     "earliest_start_date": "Immediately",
