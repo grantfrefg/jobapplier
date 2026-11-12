@@ -8,6 +8,8 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-12
+
 ### Fixed
 - Smart extract: one site failing (such as "Timeout 30000ms exceeded" on Hays) no longer ends the
   whole step. That site is logged and saved for a retry, and the other sites carry on.
