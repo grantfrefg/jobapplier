@@ -1169,6 +1169,25 @@ def _newest_tab(page):
     return tabs[-1] if tabs else page
 
 
+def _bot_check(page, wait_seconds: float = 12) -> bool:
+    """A bot-check page (Cloudflare's "Just a moment" / "Verify you are human") still showing after
+    waiting for it to pass by itself."""
+    from applypilot.apply.sites import _settle
+    try:
+        return bool(_settle(page, wait_seconds)["challenge"])
+    except Exception:
+        return False
+
+
+def _bot_check_note(page) -> str:
+    from applypilot.apply.sites import classify
+    site = classify(page.url)["name"]
+    return (f"{site} is showing a security check (\"verify you are human\"). Tick it in the browser window, "
+            "wait for the page to load, then choose 'Fill this page again'. These checks are built to stop "
+            "browsers that software controls, so it may keep coming back: if it does, choose 'Not yet: save "
+            "for later', open the job in your own browser, apply there, and press Mark applied on the Apply tab.")
+
+
 def _leave_listing(page, lf) -> list[str] | None:
     """On a job-board listing, open its Apply link (navigation, not submission).
 
@@ -1176,8 +1195,8 @@ def _leave_listing(page, lf) -> list[str] | None:
     a note asking the user to start the application themselves.
     """
     for _ in range(_MAX_LISTING_HOPS):
-        if not _is_job_listing(page.url) or _form_open_over_page(page):
-            return None
+        if not _is_job_listing(page.url) or _form_open_over_page(page) or _bot_check(page, 0):
+            return None  # (a bot check is handed to you by the caller)
         _, controls, _ = _scan(page)
         href = _find_apply_link(controls)
         if not href:
@@ -1439,6 +1458,15 @@ def run_job(job: dict, worker_id: int = 0, dry_run: bool = False,
                         page.wait_for_load_state("domcontentloaded", timeout=15000)
                     except Exception:
                         pass
+                if _bot_check(page):
+                    # Cloudflare's "verify you are human" page: never scanned, filled, clicked or
+                    # reloaded by the app (that only brings it back); you take it from here.
+                    lf.write(f"  bot check (e.g. Cloudflare) @ {page.url}: handed to you\n")
+                    decision = gate(page, [_bot_check_note(page)], dry_run)
+                    if decision == "rescan":
+                        continue
+                    status = {"applied": "applied", "declined": "failed:user_declined"}.get(decision, "manual")
+                    break
                 listing_note = _leave_listing(page, lf)
                 auth = None if listing_note else _auth_page(page)
                 if auth:
