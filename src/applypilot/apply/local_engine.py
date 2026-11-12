@@ -839,7 +839,7 @@ def _apply_action(action: dict, frame_by_id: dict, local_values: dict[str, str],
         path = file_values.get(str(action.get("value", "")).strip())
         if not path:
             return None
-        loc.set_input_files(path)
+        loc.set_input_files(path, timeout=15000)
         return f"upload {fid} <- {Path(path).name}"
 
     if kind in ("check", "uncheck"):
