@@ -82,8 +82,8 @@ EMPTY_LABELS = {
     "experience.industry": "Not set",
     "work_authorization.work_permit_type": "Not set",
     "work_authorization.security_clearance": "None",
-    "work_authorization.study_level": "Not a student / not set",
-    "work_authorization.post_study_visa": "Not a student / not set",
+    "work_authorization.study_level": "Not set",
+    "work_authorization.post_study_visa": "Not set",
 }
 
 # Whole numbers (shown as number boxes)

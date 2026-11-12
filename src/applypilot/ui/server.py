@@ -542,8 +542,10 @@ def create_app(extra_hosts: list[str] | None = None) -> FastAPI:
         stats = get_stats()
         provider = config.get_llm_provider()
         engine = config.get_execution_engine()
+        from applypilot import __version__
         return {
             "app": "applypilot",
+            "version": __version__,  # the desktop launcher replaces a running copy of another version
             "desktop": desktop,
             "engine": engine,
             "local_model": config.get_local_engine_model(),

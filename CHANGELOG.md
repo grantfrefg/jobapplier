@@ -16,6 +16,10 @@ Entries up to 0.3.0 are from the original ApplyPilot.
   - **Application forms** answer "unrestricted work rights?" truthfully (no, while studying), give your exact hours limit, and never call you a citizen or permanent resident. Claude Code and Codex get the same answers.
   - **Measured:** two new eval candidates (an international data science student in Sydney and a marketing student in London, labels still to review): average distance from the labels 1.17 → 0.56, dealbreakers caught 78% → 100%, unstable jobs 7 → 1.
 
+### Fixed
+- **A page with no styling and nothing working after an update (seen on a Mac).** If the old version was still running when you opened the new one (an open tab keeps it alive), the new app reopened the old server, which then served the new page without its scripts and styles. The app now checks the running copy's version and, if it's different, asks it to quit and starts the new one.
+- **Tidier student visa fields** in Setup: shorter help, clearer names ("Course ends (MM/YYYY)", "Course level", "Visa after your course").
+
 ## [0.17.0] - 2026-11-11
 
 ### Changed
