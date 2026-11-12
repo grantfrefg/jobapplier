@@ -1,6 +1,6 @@
 [project]
 name = "applypilot"
-version = "0.18.0"
+version = "0.18.1"
 description = "AI-powered end-to-end job application pipeline"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -21,6 +21,7 @@ dependencies = [
     "typer>=0.9.0",
     "rich>=13.0",
     "httpx>=0.24",
+    "certifi",  # trusted HTTPS certificates; the Mac app's Python has none (Workday requests)
     "beautifulsoup4>=4.12",
     "playwright>=1.40",
     "python-dotenv>=1.0",

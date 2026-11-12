@@ -97,3 +97,28 @@ def test_corrupt_plan_file_is_ignored(site, tmp_path):
     (tmp_path / "site_plans").mkdir()
     (tmp_path / "site_plans" / "jora.json").write_text("{not json")
     assert se.load_site_plan("Jora") is None
+
+
+@pytest.mark.parametrize("workers", [1, 2])
+def test_one_site_failing_does_not_stop_the_others(tmp_path, monkeypatch, workers):
+    """A page that times out used to end smart extract for every site after it."""
+    from applypilot import database
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "jobs.db")
+    conn = database.init_db(tmp_path / "jobs.db")
+    monkeypatch.setattr(se, "init_db", lambda: conn)
+
+    def run_one(name, url):
+        if name == "Hays":
+            raise TimeoutError("Timeout 30000ms exceeded.\nCall log: ...")
+        return {"name": name, "status": "PASS", "strategy": "json_ld", "total": 1, "titles": 1,
+                "jobs": [{"title": "Analyst", "url": f"https://{name}.test/1", "location": "Sydney"}]}
+
+    stored = []
+    monkeypatch.setattr(se, "_run_one_site", run_one)
+    monkeypatch.setattr(se, "_store_jobs_filtered",
+                        lambda conn, jobs, site, strategy, a, r: stored.append(site) or (len(jobs), 0))
+    targets = [{"name": n, "url": f"https://{n}.test/", "query": "analyst"} for n in ("Jora", "Hays", "Randstad")]
+    out = se._run_all(targets, [], [], workers=workers)
+    assert sorted(stored) == ["Jora", "Randstad"]
+    assert out["total_new"] == 2
+    assert out["failed"] == [{"name": "Hays", "url": "https://Hays.test/", "query": "analyst"}]
