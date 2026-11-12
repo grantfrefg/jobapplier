@@ -242,6 +242,12 @@ def load_blocked_sso() -> list[str]:
     return cfg.get("blocked_sso", [])
 
 
+def load_job_url_templates() -> dict[str, str]:
+    """Site name -> job link template, for sites whose results carry an id but no link (sites.yaml)."""
+    return {s["name"]: s["job_url"] for s in load_sites_config().get("sites", [])
+            if isinstance(s, dict) and s.get("name") and s.get("job_url")}
+
+
 def load_base_urls() -> dict[str, str | None]:
     """Load site base URLs for URL resolution from sites.yaml."""
     cfg = load_sites_config()

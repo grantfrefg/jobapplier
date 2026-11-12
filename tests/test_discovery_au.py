@@ -227,3 +227,32 @@ def test_failed_searches_are_recorded_and_retried_alone(monkeypatch):
 
     calls.clear()
     assert js.run_discovery(retry_failed=True)["queries"] == 0 and calls == []  # nothing left to retry
+
+
+def test_workforce_australia_jobs_get_a_link_and_readable_fields(tmp_path, monkeypatch):
+    """Its API results have an id but no link, and objects for location and salary: they used to be
+    dropped (no link) and stored as "{'code': ...}"."""
+    from applypilot import config, database
+    from applypilot.discovery import smartextract as se
+    item = {"result": {"title": "Marketing Specialist", "employerName": "Acme Pty Ltd", "vacancyId": 2354646055,
+                       "location": {"code": "21WSNE", "label": "NSW - Sydney - Western Sydney & Nepean"},
+                       "salary": {"code": "SLL4", "label": "$80,001 - $100,000"}}}
+    plan = {"strategy": "api_response", "extraction": {
+        "url_pattern": "/api/v1/global/vacancies/", "items_path": "results", "title": "result.title",
+        "company": "result.employerName", "location": "result.location", "salary": "result.salary"}}
+    intel = {"api_responses": [{"url": "https://x/api/v1/global/vacancies/?q=1", "_raw_data": {"results": [item]}}]}
+    [job] = se.execute_api_response(intel, plan)
+    assert job["location"] == "NSW - Sydney - Western Sydney & Nepean" and job["salary"] == "$80,001 - $100,000"
+    assert job["url"] is None
+
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "jobs.db")
+    conn = database.init_db(tmp_path / "jobs.db")
+    assert "Workforce Australia" in config.load_job_url_templates()
+    new, _ = se._store_jobs_filtered(conn, [job], "Workforce Australia", "api_response", ["Sydney"], [])
+    assert new == 1
+    url, location = conn.execute("SELECT url, location FROM jobs").fetchone()
+    assert url == "https://www.workforceaustralia.gov.au/individuals/jobs/details/2354646055"
+    assert location.startswith("NSW - Sydney")
+    # No id to fill the template with: still skipped, never a broken link
+    assert se._url_from_template("https://x/{result.vacancyId}", {"result": {}}) is None
+    database.close_connection(tmp_path / "jobs.db")

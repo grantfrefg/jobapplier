@@ -73,6 +73,8 @@ sites:
   - name: "Workforce Australia"
     url: "https://www.workforceaustralia.gov.au/individuals/jobs/search?searchText={query_encoded}&locationName={city_encoded}"
     type: search
+    # Its results have an id but no link: build it ({result.vacancyId} is read from each result)
+    job_url: "https://www.workforceaustralia.gov.au/individuals/jobs/details/{result.vacancyId}"
 
   # Recruitment agencies: much of Australia's contract, temp and casual work goes through them.
   # Randstad searches nationally (location_accept keeps your area); others in the

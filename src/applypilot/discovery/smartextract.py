@@ -75,6 +75,24 @@ def load_sites() -> list[dict]:
     return data.get("sites", [])
 
 
+def _url_from_template(template: str | None, item) -> str | None:
+    """A job's link from its site's job_url template (sites.yaml), filled from the API result:
+    "https://example.com/jobs/{result.id}". None when a placeholder can't be filled."""
+    if not template or not isinstance(item, dict):
+        return None
+    missing = False
+
+    def fill(m):
+        nonlocal missing
+        value = resolve_json_path(item, m.group(1))
+        if not value or not str(value).replace("-", "").isalnum():
+            missing = True
+            return ""
+        return str(value)
+    url = re.sub(r"\{([^{}]+)\}", fill, template)
+    return None if missing else url
+
+
 def _store_jobs_filtered(
     conn: sqlite3.Connection,
     jobs: list[dict],
@@ -90,8 +108,9 @@ def _store_jobs_filtered(
     filtered = 0
 
     base = config.load_base_urls().get(site)
+    template = config.load_job_url_templates().get(site)
     for job in jobs:
-        url = job.get("url")
+        url = job.get("url") or _url_from_template(template, job.get("_item"))
         if not url:
             continue
         if base and not url.startswith(("http://", "https://")):
@@ -709,11 +728,11 @@ def resolve_json_path(data, path: str):
                 current = current[part]
         if isinstance(current, (str, int, float)):
             return str(current) if not isinstance(current, str) else current
-        elif isinstance(current, dict):
-            return current.get("name", current.get("text", str(current)[:100]))
+        elif isinstance(current, dict):  # e.g. {"code": "71SOEA", "label": "VIC - Melbourne - South East"}
+            return current.get("name", current.get("label", current.get("text", str(current)[:100])))
         elif isinstance(current, list):
             if current and isinstance(current[0], dict):
-                return ", ".join(str(item.get("name", item.get("text", ""))) for item in current[:3])
+                return ", ".join(str(item.get("name", item.get("label", item.get("text", "")))) for item in current[:3])
             return ", ".join(str(x) for x in current[:3])
         return str(current) if current else None
     except (KeyError, IndexError, TypeError):
@@ -772,6 +791,7 @@ def execute_api_response(intel: dict, plan: dict) -> list[dict]:
                 job[field] = None
                 continue
             job[field] = resolve_json_path(item, path)
+        job["_item"] = item  # for a site's job_url template when the plan has no link (sites.yaml)
         jobs.append(job)
     return jobs
 
