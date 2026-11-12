@@ -14,7 +14,9 @@ LLM_MODEL overrides the model when it names one of the chosen provider's models.
 import logging
 import os
 import re
+import threading
 import time
+from collections import deque
 
 import httpx
 
@@ -65,6 +67,68 @@ _TIMEOUT = 120  # seconds
 # Base wait on first 429/503 (doubles each retry, caps at 60s).
 # Gemini free tier is 15 RPM = 4s minimum between requests; 10s gives headroom.
 _RATE_LIMIT_BASE_WAIT = 10
+
+
+class _Pacer:
+    """Keeps requests under a per-minute cap, waiting before sending instead of after a 429.
+
+    Tailoring one job is a burst of requests (draft, fact-check, retries, letter, recruiter
+    screen) that went over Gemini's free per-minute limit and spent its time in 429 back-offs.
+    GEMINI_RPM sets the cap (default 12, under the free tier's 15); 0 turns pacing off. When Gemini
+    still refuses (some models allow fewer), the cap drops to what it allowed in the last minute, for
+    the rest of the run, so a 429 happens once rather than over and over.
+    """
+
+    def __init__(self) -> None:
+        self._sent: deque[float] = deque()
+        self._lock = threading.Lock()
+        self._learned: int | None = None  # the cap Gemini turned out to allow
+
+    @staticmethod
+    def limit() -> int:
+        try:
+            return max(0, int(os.environ.get("GEMINI_RPM", "12")))
+        except ValueError:
+            return 12
+
+    def refused(self, now=time.monotonic) -> None:
+        """Gemini answered 429 although we stayed under the cap: pace to what it allowed."""
+        if not self.limit():
+            return
+        with self._lock:
+            t = now()
+            recent = sum(1 for s in self._sent if t - s < 60)
+            learned = max(2, recent - 1)
+            if self._learned is None or learned < self._learned:
+                self._learned = learned
+                log.info("Gemini allowed about %d requests in the last minute: pacing to %d a minute for "
+                         "the rest of this run.", recent, learned)
+
+    def wait(self, now=time.monotonic, sleep=time.sleep) -> float:
+        """Wait (if needed) for a slot, then take it. Returns the seconds waited."""
+        cap = self.limit()
+        if cap and self._learned:
+            cap = min(cap, self._learned)
+        if not cap:
+            return 0.0
+        with self._lock:
+            t = now()
+            while self._sent and t - self._sent[0] >= 60:
+                self._sent.popleft()
+            waited = 0.0
+            if len(self._sent) >= cap:
+                waited = 60 - (t - self._sent[0]) + 0.1
+                log.info("Pacing Gemini requests: waiting %.0fs (keeping under %d a minute; GEMINI_RPM "
+                         "changes it).", waited, cap)
+                sleep(waited)
+                t = now()
+                while self._sent and t - self._sent[0] >= 60:
+                    self._sent.popleft()
+            self._sent.append(t)
+            return waited
+
+
+_gemini_pacer = _Pacer()
 
 
 _RATE_LIMIT_TIPS = {
@@ -271,6 +335,8 @@ class LLMClient:
 
         # Pipeline work stops cleanly when the day's Gemini budget is spent
         budget.check(self.model if self._is_gemini else None, budget.PIPELINE)
+        if self._is_gemini:
+            _gemini_pacer.wait()
         text = self._chat_with_retries(messages, temperature, max_tokens, json_mode)
         if self._is_gemini:
             budget.record(self.model)
@@ -312,6 +378,8 @@ class LLMClient:
                 no_credit = resp.status_code == 429 and no_credit_message(self.provider_name, resp.text)
                 if no_credit:  # stops the run cleanly, like a used-up budget
                     raise budget.BudgetExhausted(no_credit) from exc
+                if resp.status_code == 429 and self._is_gemini:
+                    _gemini_pacer.refused()
                 if resp.status_code in (429, 503) and attempt < _MAX_RETRIES - 1:
                     # The provider's own reset time if it sent one (Retry-After; OpenAI's x-ratelimit-reset-*)
                     hinted = [_duration_seconds(resp.headers.get(h)) for h in

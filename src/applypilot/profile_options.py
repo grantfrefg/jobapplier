@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from applypilot import industries
+from applypilot import industries, student
 
 YES_NO = ["Yes", "No"]
 
@@ -27,6 +27,8 @@ OPTIONS: dict[str, list[str]] = {
         "Student visa", "Working holiday visa",
     ],
     "work_authorization.security_clearance": ["", "Baseline", "NV1", "NV2", "PV"],
+    "work_authorization.study_level": student.STUDY_LEVELS["au"],
+    "work_authorization.post_study_visa": student.POST_STUDY["au"],
     "availability.available_for_full_time": YES_NO,
     "availability.available_for_contract": YES_NO,
     "availability.willing_to_relocate": YES_NO,
@@ -56,6 +58,8 @@ UK_OPTIONS: dict[str, list[str]] = {
         "Other visa with full right to work",
     ],
     "work_authorization.security_clearance": ["", "BPSS", "CTC", "SC", "DV"],
+    "work_authorization.study_level": student.STUDY_LEVELS["uk"],
+    "work_authorization.post_study_visa": student.POST_STUDY["uk"],
     "compensation.salary_currency": ["GBP", "EUR", "USD", "AUD"],
     "eeo_voluntary.veteran_status": ["Prefer not to say", "No", "Yes (UK Armed Forces)"],
 }
@@ -78,6 +82,8 @@ EMPTY_LABELS = {
     "experience.industry": "Not set",
     "work_authorization.work_permit_type": "Not set",
     "work_authorization.security_clearance": "None",
+    "work_authorization.study_level": "Not set",
+    "work_authorization.post_study_visa": "Not set",
 }
 
 # Whole numbers (shown as number boxes)

@@ -641,3 +641,27 @@ def test_reading_a_drop_down_in_a_pop_up_never_closes_the_application():
         page.wait_for_timeout(100)
         assert page.evaluate("getComputedStyle(document.getElementById('menu')).display") == "none"
         browser.close()
+
+
+CHALLENGE_HTML = """<html><head><title>Just a moment...</title></head><body>
+<h1>Verify you are human by completing the action below.</h1><input type="checkbox" id="cf">
+<p>au.indeed.com needs to review the security of your connection before proceeding.</p></body></html>"""
+
+
+@pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="headed browser needs a display (use xvfb-run)")
+def test_a_bot_check_is_handed_to_you_untouched():
+    """Cloudflare's check isn't scanned, filled, clicked or navigated through: that only brings it back."""
+    pytest.importorskip("playwright")
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        page = browser.new_page()
+        page.set_content(CHALLENGE_HTML)
+        assert le._bot_check(page, wait_seconds=0) is True
+        note = le._bot_check_note(page)
+        assert "security check" in note and "Mark applied" in note and "your own browser" in note
+        assert le._leave_listing(page, open(os.devnull, "w")) is None  # no navigation from the check
+        assert page.evaluate("document.getElementById('cf').checked") is False
+        page.set_content("<html><head><title>Apply</title></head><body><input name=email></body></html>")
+        assert le._bot_check(page, wait_seconds=0) is False
+        browser.close()

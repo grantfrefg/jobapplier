@@ -1,0 +1,163 @@
+# A made-up international student in Sydney: Master of Data Science (coursework) at a Sydney
+# university, course ends November 2027, then a Temporary Graduate visa (485). Two years as a data
+# analyst in Bengaluru before the degree, plus a casual cafe job now. Student visa: 48 hours a
+# fortnight in session, unlimited in breaks (0.18.0). The jobs test what fits a student's work
+# rights: part-time, internships and vacation programs fit; full-time now mostly doesn't; graduate
+# programs for after the course fit only if they take temporary visa holders.
+#
+# The course end is set well in the future so the candidate stays "studying" whenever the eval runs
+# (until November 2027): move it on if you run this later.
+#
+# Labels are a first draft written with the dataset. Review every score and change any you
+# disagree with, then set labels_reviewed to true: the eval is only as good as its labels.
+id: student_data_au
+country: australia
+labels_reviewed: false
+local_areas: ["Sydney NSW"]
+
+profile:
+  personal: {full_name: Priya Raman, city: Kensington, province_state: NSW, country: Australia}
+  work_authorization:
+    legally_authorized_to_work: "Yes"
+    require_sponsorship: "No"
+    work_permit_type: Student visa
+    course_end: "11/2027"
+    study_level: Bachelor's or coursework Master's
+    post_study_visa: Temporary Graduate visa (subclass 485)
+  availability: {available_for_full_time: "No", available_for_contract: "Yes", willing_to_relocate: "No"}
+  compensation: {salary_currency: AUD, salary_range_min: "", salary_expectation: ""}
+  experience:
+    years_of_experience_total: "2"
+    current_job_title: Data Analyst
+    target_role: Data Analyst (part-time or internship while studying)
+    industry: Software and IT
+    field: ""
+
+resume: |
+  PRIYA RAMAN
+  Kensington, NSW | priya.raman@example.com
+
+  SUMMARY
+  Data analyst with 2 years' experience in e-commerce analytics, now studying a Master of Data Science in Sydney.
+
+  EXPERIENCE
+  Data Analyst, Kirana Commerce, Bengaluru | Jul 2023 - Jun 2025
+  - Built weekly sales and returns dashboards in Power BI for 12 category managers.
+  - Wrote SQL (PostgreSQL) to clean and join order data; cut the monthly reporting run from 2 days to 3 hours.
+  - Ran A/B test analysis in Python (pandas, SciPy) for checkout changes; one lifted conversion 4%.
+
+  Barista (casual), Corner Bean Cafe, Kensington | Mar 2026 - Present
+  - Weekend shifts; trained two new staff on the till and stock counts.
+
+  EDUCATION
+  Master of Data Science (coursework), Harbour City University, Sydney | Feb 2026 - Nov 2027 (expected)
+  Bachelor of Technology (Computer Science), Coimbatore Institute of Engineering, 2023
+
+  SKILLS
+  Analysis: SQL, Python (pandas, NumPy, SciPy), A/B testing, statistics
+  Tools: Power BI, Excel, Git, Jupyter
+
+jobs:
+  - id: part-time-analyst
+    title: Data Analyst (Part-time, 20 hours/week)
+    company: Bluegum Retail
+    location: Sydney NSW (Hybrid)
+    description: |
+      Part-time Data Analyst, 20 hours a week with flexible days, ideal for a postgraduate student.
+      $45 per hour. Build Power BI dashboards and SQL reports for the merchandising team.
+      You have: 1+ years in data analysis; SQL; Power BI or Tableau; Excel.
+    label: {score: 9, dealbreaker: null,
+            why: "Same work (SQL, Power BI dashboards, retail data), part-time within the hours limit, local."}
+
+  - id: summer-internship
+    title: Summer Data Analytics Intern (Dec 2026 - Feb 2027)
+    company: Lantern Insurance
+    location: Sydney NSW
+    description: |
+      12-week paid summer internship, full-time from 1 December 2026 to 20 February 2027.
+      Open to current university students, including international students with valid work rights.
+      Work on claims analytics with SQL and Python. Studying a degree in data science, statistics or similar.
+    label: {score: 9, dealbreaker: null,
+            why: "Full-time but entirely in the summer break (unlimited hours), takes international students, strong skill fit."}
+
+  - id: grad-program-citizens
+    title: 2028 Graduate Program - Data and Analytics
+    company: Southern Cross Bank
+    location: Sydney NSW
+    description: |
+      Our 2028 Graduate Program starts in February 2028. Rotations across data, analytics and risk.
+      Eligibility: you must be an Australian or New Zealand citizen or an Australian permanent resident
+      at the time of application. Recent graduates in data science, IT or statistics.
+    label: {score: 2, dealbreaker: work_rights,
+            why: "Requires citizenship or PR; a student and later 485 holder doesn't qualify."}
+
+  - id: grad-program-open
+    title: Graduate Data Analyst (February 2028 start)
+    company: Wattle Telecom
+    location: Sydney NSW (Hybrid)
+    description: |
+      Graduate Data Analyst role starting February 2028, full-time, permanent. Open to graduates
+      completing their degree in 2027, including international graduates holding (or applying for) a
+      Temporary Graduate visa (subclass 485). SQL and Python; dashboards in Power BI or Tableau.
+    label: {score: 8, dealbreaker: null,
+            why: "Starts after the course ends, accepts 485 holders, and the skills match; graduate level suits 2 years' experience."}
+
+  - id: fulltime-now
+    title: Data Analyst
+    company: Ironbark Logistics
+    location: Sydney NSW
+    description: |
+      Full-time, permanent Data Analyst, starting as soon as possible. 38 hours a week, onsite Monday
+      to Friday. SQL, Power BI, 2+ years in data analysis. $95,000 + super.
+    label: {score: 4, dealbreaker: work_type,
+            why: "Good skill fit, but full-time during semester breaks the 48-hours-a-fortnight limit; no part-time option."}
+
+  - id: research-assistant
+    title: Research Assistant (Data), casual, 15 hours/week
+    company: Harbour City University
+    location: Kensington NSW
+    description: |
+      Casual research assistant for a public health project, about 15 hours a week during semester.
+      Clean and analyse survey data in Python or R; produce summary tables and charts.
+      Suits a current postgraduate student. $52 per hour.
+    label: {score: 8, dealbreaker: null,
+            why: "Casual hours within the limit, Python data cleaning and analysis, on campus; health domain is new but minor."}
+
+  - id: contract-fulltime
+    title: Data Analyst (6 month contract)
+    company: Quarry Point Consulting
+    location: Sydney NSW
+    description: |
+      6-month full-time contract starting immediately, 5 days a week onsite at a client in the CBD.
+      SQL, Power BI, stakeholder reporting. $650 per day.
+    label: {score: 4, dealbreaker: work_type,
+            why: "Skills fit and it's a contract, but full-time from now runs through semester, over the hours limit."}
+
+  - id: aps-data
+    title: Data Analyst APS5
+    company: Australian Department of Civic Data
+    location: Sydney NSW
+    description: |
+      Ongoing APS5 data analyst. To be eligible you must be an Australian citizen and able to obtain a
+      Baseline security clearance. SQL, Python, Power BI.
+    label: {score: 1, dealbreaker: work_rights,
+            why: "Citizenship required."}
+
+  - id: melbourne-part-time
+    title: Part-time Data Analyst (3 days a week)
+    company: Yarra Health
+    location: Melbourne VIC (onsite)
+    description: |
+      Part-time data analyst, 3 days a week onsite in Melbourne. SQL and Power BI reporting for clinics.
+    label: {score: 2, dealbreaker: location,
+            why: "Hours would fit, but onsite in Melbourne and the candidate won't relocate."}
+
+  - id: casual-retail
+    title: Retail Sales Assistant (casual)
+    company: Coastline Outfitters
+    location: Bondi Junction NSW
+    description: |
+      Casual sales assistant, weekend and evening shifts, 10-20 hours a week. Customer service, stock
+      replenishment, point of sale. No experience needed.
+    label: {score: 3, dealbreaker: null,
+            why: "Fits the hours and is local, but a different field from the data analyst roles she's targeting."}

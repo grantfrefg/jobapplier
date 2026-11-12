@@ -74,59 +74,85 @@ def _print_budget() -> None:
 # Individual stage runners
 # ---------------------------------------------------------------------------
 
+DISCOVER_WORKDAY_WORKERS = 4  # employers searched at once
+DISCOVER_SITE_WORKERS = 2     # AI-read job sites at once (each opens a browser)
+
+
 def _run_discover(workers: int = 1) -> dict:
     """Stage: Job discovery — JobSpy, Workday, and smart-extract scrapers."""
     stats: dict = {"jobspy": None, "workday": None, "smartextract": None, "reed": None}
+    before = _job_count()
     if not config.SEARCH_CONFIG_PATH.exists():
         console.print("  [yellow]No job search saved yet: fill in What jobs to look for in Setup "
                       "(or run applypilot init), then run Discover again.[/yellow]")
         return {k: "skipped: no search saved" for k in stats}
 
-    # JobSpy
-    console.print("  [cyan]JobSpy full crawl...[/cyan]")
-    try:
+    # The sources are independent (LinkedIn/Indeed, Reed, Workday, the AI-read sites), so they run at the
+    # same time: the stage takes as long as the slowest one, not all of them added up. Workday searches
+    # several employers at once (light API calls); the AI-read sites two at once (each is a browser).
+    def jobspy():
         from applypilot.discovery.jobspy import run_discovery
         run_discovery()
-        stats["jobspy"] = "ok"
-    except Exception as e:
-        log.error("JobSpy crawl failed: %s", e)
-        console.print(f"  [red]JobSpy error:[/red] {e}")
-        stats["jobspy"] = f"error: {e}"
+        return "ok"
 
-    # Reed (UK searches with a Reed API key)
-    try:
+    def reed():
         from applypilot.discovery.reed import run_reed_discovery
         result = run_reed_discovery()
         if not result.get("skipped"):
             console.print(f"  [cyan]Reed:[/cyan] {result.get('new', 0)} new")
-        stats["reed"] = result.get("skipped") or "ok"
-    except Exception as e:
-        log.error("Reed search failed: %s", e)
-        stats["reed"] = f"error: {e}"
+        return result.get("skipped") or "ok"
 
-    # Workday corporate scraper
-    console.print("  [cyan]Workday corporate scraper...[/cyan]")
-    try:
+    def workday():
         from applypilot.discovery.workday import run_workday_discovery
-        run_workday_discovery(workers=workers)
-        stats["workday"] = "ok"
-    except Exception as e:
-        log.error("Workday scraper failed: %s", e)
-        console.print(f"  [red]Workday error:[/red] {e}")
-        stats["workday"] = f"error: {e}"
+        run_workday_discovery(workers=max(workers, DISCOVER_WORKDAY_WORKERS))
+        return "ok"
 
-    # Smart extract
-    console.print("  [cyan]Smart extract (AI-powered scraping)...[/cyan]")
-    try:
+    def smartextract():
         from applypilot.discovery.smartextract import run_smart_extract
-        run_smart_extract(workers=workers)
-        stats["smartextract"] = "ok"
-    except Exception as e:
-        log.error("Smart extract failed: %s", e)
-        console.print(f"  [red]Smart extract error:[/red] {e}")
-        stats["smartextract"] = f"error: {e}"
+        run_smart_extract(workers=max(workers, DISCOVER_SITE_WORKERS))
+        return "ok"
 
+    sources = {"jobspy": ("LinkedIn and Indeed (JobSpy)", jobspy), "reed": ("Reed", reed),
+               "workday": ("Workday employers", workday), "smartextract": ("Job sites read with AI", smartextract)}
+    console.print("  [cyan]Searching every source at once: " + ", ".join(n for n, _ in sources.values()) + "...[/cyan]")
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=len(sources)) as pool:
+        futures = {key: pool.submit(fn) for key, (_, fn) in sources.items()}
+        for key, future in futures.items():
+            name = sources[key][0]
+            try:
+                stats[key] = future.result()
+                if stats[key] == "ok":
+                    console.print(f"  [green]{name}: done[/green]")
+            except Exception as e:
+                log.error("%s failed: %s", name, e)
+                console.print(f"  [red]{name} error:[/red] {e}")
+                stats[key] = f"error: {e}"
+
+    _discover_summary(before, _job_count(), stats)
     return stats
+
+
+def _job_count() -> int:
+    try:
+        return get_connection().execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+    except Exception:
+        return 0
+
+
+def _discover_summary(before: int, after: int, stats: dict) -> None:
+    """The line people look for at the end: how many jobs, and where they are now."""
+    new = after - before
+    if new > 0:
+        console.print(f"\n  [bold green]Found {new} new job(s) this run ({after} in total).[/bold green] "
+                      "Next: Score rates them against your resume (it runs next when ticked), then they're "
+                      "listed in Find jobs → Choose jobs to tailor. To see them all now: Apply → All jobs.")
+        return
+    errors = [f"{k}: {v}" for k, v in stats.items() if str(v).startswith("error")]
+    why = (" Some sources failed: " + "; ".join(errors)[:300] + "." if errors
+           else " Every job found was already saved, or filtered out by location or excluded titles"
+                " (the lines above say which).")
+    console.print(f"\n  [bold yellow]No new jobs this run ({after} in total).[/bold yellow]{why}")
 
 
 def _run_enrich(workers: int = 1) -> dict:

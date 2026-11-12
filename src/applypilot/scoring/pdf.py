@@ -323,10 +323,12 @@ def render_pdf(html: str, output_path: str) -> None:
     """Render HTML to an A4 PDF using Playwright's headless Chromium (page size and margins from the CSS)."""
     from playwright.sync_api import sync_playwright
 
+    from applypilot.browser import wait_idle
     with sync_playwright() as p:
         browser = _launch_headless(p)
         page = browser.new_page()
-        page.set_content(html, wait_until="networkidle")
+        page.set_content(html, wait_until="load", timeout=60000)
+        wait_idle(page, 5000)  # fonts; a busy or slow machine just goes ahead
         page.pdf(path=output_path, prefer_css_page_size=True, print_background=True)
         browser.close()
 

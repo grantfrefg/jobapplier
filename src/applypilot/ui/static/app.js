@@ -134,6 +134,7 @@ async function loadSettings() {
   showProvider(); showEngine();
   $("#daily-limit").value = s.GEMINI_DAILY_LIMIT || "";
   $("#apply-reserve").value = s.GEMINI_APPLY_RESERVE || "";
+  $("#gemini-rpm").value = s.GEMINI_RPM || "";
   for (const [id, key] of [["gemini", "GEMINI_API_KEY"], ["openai", "OPENAI_API_KEY"],
                            ["anthropic", "ANTHROPIC_API_KEY"], ["capsolver", "CAPSOLVER_API_KEY"],
                            ["reed", "REED_API_KEY"]]) {
@@ -161,6 +162,7 @@ const saveSettings = (engine, confirmAgent) => guarded(async () => {
     ANTHROPIC_API_KEY: $("#anthropic").value, CODEX_MODEL: $("#codex-model").value,
     CAPSOLVER_API_KEY: $("#capsolver").value, LLM_MODEL: $("#model").value,
     GEMINI_DAILY_LIMIT: $("#daily-limit").value, GEMINI_APPLY_RESERVE: $("#apply-reserve").value,
+    GEMINI_RPM: $("#gemini-rpm").value,
   });
   await loadSettings(); await refreshStatus();
 }, "Settings saved");
@@ -306,6 +308,9 @@ const PROFILE_FIELDS = {
   "personal.address": "Only typed into forms that ask for it; never on your resume.",
   "personal.city": "With the state, goes on your resume and decides which jobs count as local.",
   "work_authorization.work_permit_type": "Shown on your resume, e.g. \"Australian Citizen\" or \"Permanent Resident\".",
+  "work_authorization.course_end": "e.g. 11/2027. Jobs are scored for your hours limit until then.",
+  "work_authorization.study_level": "Sets your hours limit while studying.",
+  "work_authorization.post_study_visa": "e.g. 485 or Graduate visa: full work rights after your course.",
   "work_authorization.security_clearance": "Jobs needing a clearance you don't hold score low. " +
     "\"Willing to obtain\" is answered yes only for citizens.",
   "availability.earliest_start_date": "e.g. Immediately, or a date (DD/MM/YYYY).",
@@ -323,6 +328,11 @@ const PROFILE_FIELDS = {
   "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
 };
 const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
+const FIELD_LABELS = {
+  "work_authorization.course_end": "Course ends (MM/YYYY)",
+  "work_authorization.study_level": "Course level",
+  "work_authorization.post_study_visa": "Visa after your course",
+};
 
 let skillLayouts = {};  // industry -> [[profile key, examples], ...] (applypilot/industries.py)
 let templateSkills = new Set();  // the profile template's example skills (now or before), lower case
@@ -380,7 +390,8 @@ function profileField(path, value, options, numbers, examples = "") {
   const isList = Array.isArray(value);
   const type = key.includes("password") ? "password" : key === "email" ? "email" : "text";
   const id = "p-" + path.replace(".", "-");
-  const label = el("label", { for: id }, human(key) + (REQUIRED.has(path) ? " *" : "") + (isList ? " (comma separated)" : ""));
+  const label = el("label", { for: id }, (FIELD_LABELS[path] || human(key)) + (REQUIRED.has(path) ? " *" : "") +
+    (isList ? " (comma separated)" : ""));
   let input;
   if (options[path]) {
     // A fixed set of answers: a drop-down, so the wording is always one the app understands
@@ -426,6 +437,14 @@ async function loadProfile() {
                                                      : human(section)),
       PROFILE_SECTIONS[section] ? el("p", { class: "why" }, PROFILE_SECTIONS[section]) : "", box));
   }
+  // Course end, study level and the visa after it only matter on a student visa: shown just then
+  const permit = form.querySelector('[data-path="work_authorization.work_permit_type"]');
+  const studentRows = ["course_end", "study_level", "post_study_visa"]
+    .map((k) => form.querySelector(`[data-path="work_authorization.${k}"]`)?.closest("div")).filter(Boolean);
+  const showStudent = () => studentRows.forEach((r) => {
+    r.style.display = permit && /student/i.test(permit.value) ? "" : "none";
+  });
+  if (permit) { permit.addEventListener("change", showStudent); showStudent(); }
   // Your industry moves to the top of the skills (from Experience); choosing one shows its skill boxes,
   // and skills already typed move with their box or stay in theirs
   const ind = industryBlock(form), skills = document.getElementById("profile-skills_boundary");
@@ -698,6 +717,15 @@ function chooseCounts() {
   $("#skip-chosen").textContent = skipped ? "Put back ticked" : "Skip ticked";
   $("#skip-chosen").disabled = !n;
 }
+// Found jobs that aren't scored yet are listed nowhere but Apply → All jobs: say so where people look
+function unscoredNote() {
+  const s = (status && status.stats) || {};
+  const waiting = (s.total || 0) - (s.scored || 0);
+  if (waiting <= 0) return "";
+  return waiting + " job(s) found, not scored yet. Scoring rates them against your resume (about 1 AI " +
+    "request per 10 jobs): tick Score and press Run, or use Run a step again → Score again. They're listed " +
+    "here once scored; to see them all now, open Apply → All jobs.";
+}
 async function loadChoose() {
   const view = $("#choose-view").value;
   try { chooseJobs = await api("/api/jobs?view=" + view); } catch (e) { return toast(e.message, true); }
@@ -720,7 +748,7 @@ async function loadChoose() {
         j.score_keywords ? el("div", { style: "margin-top:4px" }, el("b", {}, "Matches: "), j.score_keywords) : ""));
   }));
   $("#choose-empty").textContent = chooseJobs.length ? "" : view === "skipped" ? "No skipped jobs."
-    : "Nothing to choose from yet. Run the Discover, Enrich and Score steps above first.";
+    : unscoredNote() || "Nothing to choose from yet. Run the Discover, Enrich and Score steps above first.";
   chooseCounts();
 }
 $("#choose-view").addEventListener("change", loadChoose);
@@ -1024,7 +1052,10 @@ async function loadJobs() {
   $("#jobs-empty").textContent = jobs.length ? "" :
     total ? "No " + $("#job-kind").selectedOptions[0].textContent.toLowerCase() + " jobs in this view (" + total +
       " of other types). Choose \"Any job type\" to see them."
-    : $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first."
+    : $("#job-view").value === "ready" ? (status && status.stats && status.stats.total
+      ? "No tailored jobs yet: " + status.stats.total + " found, " + (status.stats.scored || 0) + " scored. Choose " +
+        "the ones to tailor in Find jobs → Choose jobs to tailor, or pick \"All jobs\" above to see every job found."
+      : "No tailored jobs yet. Run \"Find jobs\" first.")
     : $("#job-view").value === "quick" ? "None found yet. Press \"Check where to apply\" to look up where each job applies."
     : "Nothing here yet.";
 }
