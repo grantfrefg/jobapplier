@@ -22,7 +22,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-from applypilot.browser import launch_chromium
+from applypilot.browser import launch_chromium, wait_idle
 from applypilot.database import init_db
 from applypilot.llm import get_client
 
@@ -150,7 +150,7 @@ def resolve_wttj_urls(conn: sqlite3.Connection) -> int:
             "https://www.welcometothejungle.com/en/jobs?query=developer&refinementList%5Bremote%5D%5B%5D=fulltime",
             timeout=60000,
         )
-        page.wait_for_load_state("networkidle")
+        wait_idle(page)  # busy pages never go quiet
         browser.close()
 
     if not algolia_data.get("response"):

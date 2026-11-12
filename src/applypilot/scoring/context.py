@@ -116,6 +116,8 @@ def candidate_brief(profile: dict, local_areas: list[str] | None = None) -> str:
                      "permanent role is still fine. Only an ad that requires British citizenship, settled status or "
                      "long UK residency (e.g. for security clearance) is a work-rights dealbreaker; \"no "
                      "sponsorship\" is not.")
+    from applypilot import student
+    lines += student.scoring_lines(profile, market.current(profile))  # hours limit, course end, visa after
     if salary_floor(profile):
         mk = market.current(profile)
         lines.append(f"Minimum salary: {salary_floor(profile)} {comp.get('salary_currency') or mk.currency} "
@@ -127,6 +129,9 @@ def work_rights(profile: dict) -> str:
     """Short work-rights line for a resume header ("Australian Citizen", "Full working rights")."""
     auth = profile.get("work_authorization", {})
     permit = str(auth.get("work_permit_type") or "").strip()
+    from applypilot import student
+    if student.stage(profile) == "graduated" and student.post_study_visa(profile):  # 485 / Graduate visa
+        return "Right to work in the UK" if market.current(profile).key == "uk" else "Full work rights"
     if permit:
         low = permit.lower()
         if "british" in low and "irish" in low:

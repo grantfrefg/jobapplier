@@ -231,6 +231,10 @@ def _build_hard_rules(profile: dict) -> str:
     work_auth_rule = "Work auth: Answer truthfully from profile."
     if permit_type:
         work_auth_rule = f"Work auth: {permit_type}. Sponsorship needed: {sponsorship}."
+    from applypilot import student
+    rights = student.form_lines(profile, market.current(profile))
+    if rights:  # student visas: the hours limit and what changes when the course ends
+        work_auth_rule += " " + " ".join(rights)
 
     name_rule = f'Name: Legal name = {full_name}.'
     if preferred_name and preferred_name != full_name.split()[0]:

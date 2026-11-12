@@ -263,3 +263,14 @@ def test_the_job_list_carries_the_drop_and_what_was_lost(client, tmp_path):  # n
     conn.commit()
     [job] = client.get("/api/jobs?view=ready").json()
     assert job["screen"]["dropped"] is True and job["screen"]["lost"] == ["BPMN"]
+
+
+def test_discover_says_how_many_jobs_it_found_and_where_they_are(capsys):
+    from applypilot import pipeline
+    pipeline.console.width = 400
+    pipeline._discover_summary(10, 246, {"jobspy": "ok"})
+    out = capsys.readouterr().out
+    assert "Found 236 new job(s) this run (246 in total)" in out and "Apply → All jobs" in out
+    pipeline._discover_summary(246, 246, {"jobspy": "error: 429 blocked", "workday": "ok"})
+    out = capsys.readouterr().out
+    assert "No new jobs this run" in out and "jobspy: error: 429 blocked" in out

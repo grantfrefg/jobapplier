@@ -26,3 +26,16 @@ def launch_chromium(p, headless: bool = True, **options):
         except Exception as e:
             errors.append(str(e).strip().splitlines()[0][:120])
     raise RuntimeError("No browser could be started: " + " | ".join(errors))
+
+
+IDLE_WAIT_MS = 15000  # longest wait for a page to go quiet
+
+
+def wait_idle(page, timeout_ms: int | None = None) -> bool:
+    """Wait for the network to go quiet, but not for ever: busy pages (analytics, chat widgets) never do,
+    and Playwright's own wait then fails with "Timeout 30000ms exceeded". True if it went quiet."""
+    try:
+        page.wait_for_load_state("networkidle", timeout=IDLE_WAIT_MS if timeout_ms is None else timeout_ms)
+        return True
+    except Exception:
+        return False

@@ -8,6 +8,24 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-11
+
+### Added
+- **Student visas, in Australia and the UK.** Choose **Student visa** as your work permit type and Setup asks when your course ends, its level and the visa you'll be on after it (Temporary Graduate visa 485, or the UK Graduate visa).
+  - **Scoring** follows what you can work now. Australia: 48 hours a fortnight in session, unlimited in breaks, so part-time, casual, internships and vacation programs fit and a full-time role during study scores 4 at most. UK: 20 hours a week in term time and no permanent full-time vacancy, so a permanent full-time role is a dealbreaker and so is a part-time one over 20 hours. Graduate programs starting after your course fit when they take temporary visa holders. After the course, the post-study visa's full work rights apply.
+  - **Application forms** answer "unrestricted work rights?" truthfully (no, while studying), give your exact hours limit, and never call you a citizen or permanent resident. Claude Code and Codex get the same answers.
+  - **Measured:** two new eval candidates (an international data science student in Sydney and a marketing student in London, labels still to review): average distance from the labels 1.17 → 0.56, dealbreakers caught 78% → 100%, unstable jobs 7 → 1.
+
+### Fixed
+- **A page with no styling and nothing working after an update (seen on a Mac).** If the old version was still running when you opened the new one (an open tab keeps it alive), the new app reopened the old server, which then served the new page without its scripts and styles. The app now checks the running copy's version and, if it's different, asks it to quit and starts the new one.
+- **Gemini "rate limit (HTTP 429)" while tailoring.** Requests went out as fast as they were made, so a burst (a draft the fact-check kept sending back, plus the letter and the recruiter screen) went over the free tier's per-minute limit and spent its time in growing back-offs that could end in a failed job. Gemini requests are now paced to 12 a minute (Setup → AI → Request limits, or `GEMINI_RPM`; raise it on a paid account, 0 turns it off). If Gemini still refuses (some models allow fewer), the pace drops to what it allowed, for the rest of the run, so it happens once.
+- **Getting stuck in a Cloudflare "verify you are human" loop (seen on Indeed).** The browser engine treated the check as a page to work on, which only brought it back. Now, if the check doesn't pass by itself within a few seconds, the engine stops on it, touching nothing, and hands it to you: tick it and choose 'Fill this page again', or, if it keeps coming back (these checks are built to stop browsers that software controls), save the job for later, apply in your own browser and press Mark applied.
+- **"Timeout 30000ms exceeded".** A few browser steps waited for a page to go completely quiet with Playwright's default 30-second limit, and busy job sites (analytics, chat widgets) never do, so the step failed. Finding jobs and job details now wait at most 15 seconds and carry on with what's loaded; making PDFs no longer waits on the network at all; uploads on application forms have their own 15-second limit.
+- **"The search finished and no jobs were listed."** Jobs Discover finds aren't listed anywhere until Score has rated them (only Apply → All jobs showed them), so a search that found hundreds looked empty. Discover's log now ends with how many new jobs it found and what to do next (or why it found none), and Choose jobs to tailor and the Apply tab say how many jobs are found but not yet scored, how to score them, and where to see them now.
+- **Workforce Australia jobs were found but never saved.** Its results have an id but no link, so every one was dropped, and its location and salary came back as objects. Jobs now get their link (a `job_url` template in sites.yaml, for any site like it) and readable location and salary, so the location filter works on them too.
+- **Discover is faster.** LinkedIn and Indeed, Workday and the AI-read job sites now search at the same time instead of one after another, Workday searches 4 employers at once (fetching 3 job pages at a time each, and skipping jobs it already has, which often turn up for more than one search), and the AI-read sites 2 at once. Three searches in Sydney took under 5 minutes in testing.
+- **Tidier student visa fields** in Setup: shorter help, clearer names ("Course ends (MM/YYYY)", "Course level", "Visa after your course").
+
 ## [0.17.0] - 2026-11-11
 
 ### Changed

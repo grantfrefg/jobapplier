@@ -227,3 +227,55 @@ def test_failed_searches_are_recorded_and_retried_alone(monkeypatch):
 
     calls.clear()
     assert js.run_discovery(retry_failed=True)["queries"] == 0 and calls == []  # nothing left to retry
+
+
+def test_workforce_australia_jobs_get_a_link_and_readable_fields(tmp_path, monkeypatch):
+    """Its API results have an id but no link, and objects for location and salary: they used to be
+    dropped (no link) and stored as "{'code': ...}"."""
+    from applypilot import config, database
+    from applypilot.discovery import smartextract as se
+    item = {"result": {"title": "Marketing Specialist", "employerName": "Acme Pty Ltd", "vacancyId": 2354646055,
+                       "location": {"code": "21WSNE", "label": "NSW - Sydney - Western Sydney & Nepean"},
+                       "salary": {"code": "SLL4", "label": "$80,001 - $100,000"}}}
+    plan = {"strategy": "api_response", "extraction": {
+        "url_pattern": "/api/v1/global/vacancies/", "items_path": "results", "title": "result.title",
+        "company": "result.employerName", "location": "result.location", "salary": "result.salary"}}
+    intel = {"api_responses": [{"url": "https://x/api/v1/global/vacancies/?q=1", "_raw_data": {"results": [item]}}]}
+    [job] = se.execute_api_response(intel, plan)
+    assert job["location"] == "NSW - Sydney - Western Sydney & Nepean" and job["salary"] == "$80,001 - $100,000"
+    assert job["url"] is None
+
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "jobs.db")
+    conn = database.init_db(tmp_path / "jobs.db")
+    assert "Workforce Australia" in config.load_job_url_templates()
+    new, _ = se._store_jobs_filtered(conn, [job], "Workforce Australia", "api_response", ["Sydney"], [])
+    assert new == 1
+    url, location = conn.execute("SELECT url, location FROM jobs").fetchone()
+    assert url == "https://www.workforceaustralia.gov.au/individuals/jobs/details/2354646055"
+    assert location.startswith("NSW - Sydney")
+    # No id to fill the template with: still skipped, never a broken link
+    assert se._url_from_template("https://x/{result.vacancyId}", {"result": {}}) is None
+    database.close_connection(tmp_path / "jobs.db")
+
+
+def test_workday_skips_jobs_it_already_has(tmp_path, monkeypatch):
+    """The same role turns up for several searches: its details are fetched once."""
+    from applypilot import database
+    from applypilot.discovery import workday
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "jobs.db")
+    conn = database.init_db(tmp_path / "jobs.db")
+    conn.execute("INSERT INTO jobs (url, title, site) VALUES (?, 'Saved earlier', 'PayPal')",
+                 ("https://wd1.myworkdaysite.com/recruiting/paypal/jobs/job/Sydney/Analyst_R1",))
+    conn.commit()
+    monkeypatch.setattr(workday, "_seen", set())
+    jobs = [{"external_path": "/job/Sydney/Analyst_R1"}, {"external_path": "/job/Sydney/Engineer_R2"},
+            {"external_path": "/job/Sydney/Engineer_R2"}]
+    assert [j["external_path"] for j in workday._not_seen("paypal", jobs)] == ["/job/Sydney/Engineer_R2"]
+    assert workday._not_seen("paypal", [{"external_path": "/job/Sydney/Engineer_R2"}]) == []  # seen this run
+
+    fetched = []
+    monkeypatch.setattr(workday, "workday_detail", lambda emp, path: fetched.append(path) or
+                        {"jobPostingInfo": {"jobDescription": "<p>x</p>", "externalUrl": "https://x" + path}})
+    out = workday.fetch_details({"name": "PayPal"}, [{"external_path": f"/job/{i}"} for i in range(7)])
+    assert sorted(fetched) == sorted(f"/job/{i}" for i in range(7)) and all(j["apply_url"] for j in out)
+    database.close_connection(tmp_path / "jobs.db")
