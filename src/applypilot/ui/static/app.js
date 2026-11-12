@@ -306,14 +306,9 @@ const PROFILE_FIELDS = {
   "personal.address": "Only typed into forms that ask for it; never on your resume.",
   "personal.city": "With the state, goes on your resume and decides which jobs count as local.",
   "work_authorization.work_permit_type": "Shown on your resume, e.g. \"Australian Citizen\" or \"Permanent Resident\".",
-  "work_authorization.course_end": "Student visa only: the month your course ends, as MM/YYYY (e.g. 11/2026). " +
-    "Before then, jobs are scored for your hours limit; from about 4 months before, graduate roles starting " +
-    "after it count as a fit too.",
-  "work_authorization.study_level": "Student visa only. Sets the hours you can work during study (Australia: " +
-    "48 a fortnight, none for a research Master's or PhD; UK: 20 a week at degree level, 10 below).",
-  "work_authorization.post_study_visa": "Student visa only: the visa you'll be on after the course (Temporary " +
-    "Graduate visa 485 in Australia, Graduate visa in the UK). It gives full work rights, so full-time and " +
-    "graduate roles starting after your course fit.",
+  "work_authorization.course_end": "e.g. 11/2027. Jobs are scored for your hours limit until then.",
+  "work_authorization.study_level": "Sets your hours limit while studying.",
+  "work_authorization.post_study_visa": "e.g. 485 or Graduate visa: full work rights after your course.",
   "work_authorization.security_clearance": "Jobs needing a clearance you don't hold score low. " +
     "\"Willing to obtain\" is answered yes only for citizens.",
   "availability.earliest_start_date": "e.g. Immediately, or a date (DD/MM/YYYY).",
@@ -331,6 +326,11 @@ const PROFILE_FIELDS = {
   "resume_facts.real_metrics": "Numbers from your resume the writer may use, e.g. 30% cost reduction.",
 };
 const PROFILE_KEY_SECTIONS = new Set(["skills_boundary"]);
+const FIELD_LABELS = {
+  "work_authorization.course_end": "Course ends (MM/YYYY)",
+  "work_authorization.study_level": "Course level",
+  "work_authorization.post_study_visa": "Visa after your course",
+};
 
 let skillLayouts = {};  // industry -> [[profile key, examples], ...] (applypilot/industries.py)
 let templateSkills = new Set();  // the profile template's example skills (now or before), lower case
@@ -388,7 +388,8 @@ function profileField(path, value, options, numbers, examples = "") {
   const isList = Array.isArray(value);
   const type = key.includes("password") ? "password" : key === "email" ? "email" : "text";
   const id = "p-" + path.replace(".", "-");
-  const label = el("label", { for: id }, human(key) + (REQUIRED.has(path) ? " *" : "") + (isList ? " (comma separated)" : ""));
+  const label = el("label", { for: id }, (FIELD_LABELS[path] || human(key)) + (REQUIRED.has(path) ? " *" : "") +
+    (isList ? " (comma separated)" : ""));
   let input;
   if (options[path]) {
     // A fixed set of answers: a drop-down, so the wording is always one the app understands
