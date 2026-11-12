@@ -717,6 +717,15 @@ function chooseCounts() {
   $("#skip-chosen").textContent = skipped ? "Put back ticked" : "Skip ticked";
   $("#skip-chosen").disabled = !n;
 }
+// Found jobs that aren't scored yet are listed nowhere but Apply → All jobs: say so where people look
+function unscoredNote() {
+  const s = (status && status.stats) || {};
+  const waiting = (s.total || 0) - (s.scored || 0);
+  if (waiting <= 0) return "";
+  return waiting + " job(s) found, not scored yet. Scoring rates them against your resume (about 1 AI " +
+    "request per 10 jobs): tick Score and press Run, or use Run a step again → Score again. They're listed " +
+    "here once scored; to see them all now, open Apply → All jobs.";
+}
 async function loadChoose() {
   const view = $("#choose-view").value;
   try { chooseJobs = await api("/api/jobs?view=" + view); } catch (e) { return toast(e.message, true); }
@@ -739,7 +748,7 @@ async function loadChoose() {
         j.score_keywords ? el("div", { style: "margin-top:4px" }, el("b", {}, "Matches: "), j.score_keywords) : ""));
   }));
   $("#choose-empty").textContent = chooseJobs.length ? "" : view === "skipped" ? "No skipped jobs."
-    : "Nothing to choose from yet. Run the Discover, Enrich and Score steps above first.";
+    : unscoredNote() || "Nothing to choose from yet. Run the Discover, Enrich and Score steps above first.";
   chooseCounts();
 }
 $("#choose-view").addEventListener("change", loadChoose);
@@ -1043,7 +1052,10 @@ async function loadJobs() {
   $("#jobs-empty").textContent = jobs.length ? "" :
     total ? "No " + $("#job-kind").selectedOptions[0].textContent.toLowerCase() + " jobs in this view (" + total +
       " of other types). Choose \"Any job type\" to see them."
-    : $("#job-view").value === "ready" ? "No tailored jobs yet. Run \"Find jobs\" first."
+    : $("#job-view").value === "ready" ? (status && status.stats && status.stats.total
+      ? "No tailored jobs yet: " + status.stats.total + " found, " + (status.stats.scored || 0) + " scored. Choose " +
+        "the ones to tailor in Find jobs → Choose jobs to tailor, or pick \"All jobs\" above to see every job found."
+      : "No tailored jobs yet. Run \"Find jobs\" first.")
     : $("#job-view").value === "quick" ? "None found yet. Press \"Check where to apply\" to look up where each job applies."
     : "Nothing here yet.";
 }
