@@ -134,6 +134,7 @@ async function loadSettings() {
   showProvider(); showEngine();
   $("#daily-limit").value = s.GEMINI_DAILY_LIMIT || "";
   $("#apply-reserve").value = s.GEMINI_APPLY_RESERVE || "";
+  $("#gemini-rpm").value = s.GEMINI_RPM || "";
   for (const [id, key] of [["gemini", "GEMINI_API_KEY"], ["openai", "OPENAI_API_KEY"],
                            ["anthropic", "ANTHROPIC_API_KEY"], ["capsolver", "CAPSOLVER_API_KEY"],
                            ["reed", "REED_API_KEY"]]) {
@@ -161,6 +162,7 @@ const saveSettings = (engine, confirmAgent) => guarded(async () => {
     ANTHROPIC_API_KEY: $("#anthropic").value, CODEX_MODEL: $("#codex-model").value,
     CAPSOLVER_API_KEY: $("#capsolver").value, LLM_MODEL: $("#model").value,
     GEMINI_DAILY_LIMIT: $("#daily-limit").value, GEMINI_APPLY_RESERVE: $("#apply-reserve").value,
+    GEMINI_RPM: $("#gemini-rpm").value,
   });
   await loadSettings(); await refreshStatus();
 }, "Settings saved");

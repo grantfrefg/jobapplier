@@ -18,6 +18,7 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 
 ### Fixed
 - **A page with no styling and nothing working after an update (seen on a Mac).** If the old version was still running when you opened the new one (an open tab keeps it alive), the new app reopened the old server, which then served the new page without its scripts and styles. The app now checks the running copy's version and, if it's different, asks it to quit and starts the new one.
+- **Gemini "rate limit (HTTP 429)" while tailoring.** Requests went out as fast as they were made, so a burst (a draft the fact-check kept sending back, plus the letter and the recruiter screen) went over the free tier's per-minute limit and spent its time in growing back-offs that could end in a failed job. Gemini requests are now paced to 12 a minute (Setup → AI → Request limits, or `GEMINI_RPM`; raise it on a paid account, 0 turns it off). If Gemini still refuses (some models allow fewer), the pace drops to what it allowed, for the rest of the run, so it happens once.
 - **Tidier student visa fields** in Setup: shorter help, clearer names ("Course ends (MM/YYYY)", "Course level", "Visa after your course").
 
 ## [0.17.0] - 2026-11-11
