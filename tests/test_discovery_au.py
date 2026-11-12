@@ -256,3 +256,26 @@ def test_workforce_australia_jobs_get_a_link_and_readable_fields(tmp_path, monke
     # No id to fill the template with: still skipped, never a broken link
     assert se._url_from_template("https://x/{result.vacancyId}", {"result": {}}) is None
     database.close_connection(tmp_path / "jobs.db")
+
+
+def test_workday_skips_jobs_it_already_has(tmp_path, monkeypatch):
+    """The same role turns up for several searches: its details are fetched once."""
+    from applypilot import database
+    from applypilot.discovery import workday
+    monkeypatch.setattr(database, "DB_PATH", tmp_path / "jobs.db")
+    conn = database.init_db(tmp_path / "jobs.db")
+    conn.execute("INSERT INTO jobs (url, title, site) VALUES (?, 'Saved earlier', 'PayPal')",
+                 ("https://wd1.myworkdaysite.com/recruiting/paypal/jobs/job/Sydney/Analyst_R1",))
+    conn.commit()
+    monkeypatch.setattr(workday, "_seen", set())
+    jobs = [{"external_path": "/job/Sydney/Analyst_R1"}, {"external_path": "/job/Sydney/Engineer_R2"},
+            {"external_path": "/job/Sydney/Engineer_R2"}]
+    assert [j["external_path"] for j in workday._not_seen("paypal", jobs)] == ["/job/Sydney/Engineer_R2"]
+    assert workday._not_seen("paypal", [{"external_path": "/job/Sydney/Engineer_R2"}]) == []  # seen this run
+
+    fetched = []
+    monkeypatch.setattr(workday, "workday_detail", lambda emp, path: fetched.append(path) or
+                        {"jobPostingInfo": {"jobDescription": "<p>x</p>", "externalUrl": "https://x" + path}})
+    out = workday.fetch_details({"name": "PayPal"}, [{"external_path": f"/job/{i}"} for i in range(7)])
+    assert sorted(fetched) == sorted(f"/job/{i}" for i in range(7)) and all(j["apply_url"] for j in out)
+    database.close_connection(tmp_path / "jobs.db")

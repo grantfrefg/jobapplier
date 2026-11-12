@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import sqlite3
+import threading
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -270,25 +271,27 @@ def _fetch_one_detail(employer: dict, job: dict) -> dict:
     return job
 
 
+DETAIL_WORKERS = 3  # detail pages fetched at once per employer
+
+
 def fetch_details(employer: dict, jobs: list[dict]) -> list[dict]:
-    """Fetch full description + apply URL for each job sequentially."""
+    """Fetch full description + apply URL for each job, a few at a time."""
     log.info("%s: fetching details for %d jobs...", employer["name"], len(jobs))
 
     completed = 0
     errors = 0
     t0 = time.time()
 
-    for job in jobs:
-        _fetch_one_detail(employer, job)
-        completed += 1
-        if "detail_error" in job:
-            errors += 1
-
-        if completed % 20 == 0 or completed == len(jobs):
-            elapsed = time.time() - t0
-            rate = completed / elapsed if elapsed > 0 else 0
-            log.info("%s: %d/%d (%d errors) [%.1f jobs/sec]",
-                     employer["name"], completed, len(jobs), errors, rate)
+    with ThreadPoolExecutor(max_workers=DETAIL_WORKERS) as pool:
+        for job in pool.map(lambda j: _fetch_one_detail(employer, j), jobs):
+            completed += 1
+            if "detail_error" in job:
+                errors += 1
+            if completed % 20 == 0 or completed == len(jobs):
+                elapsed = time.time() - t0
+                rate = completed / elapsed if elapsed > 0 else 0
+                log.info("%s: %d/%d (%d errors) [%.1f jobs/sec]",
+                         employer["name"], completed, len(jobs), errors, rate)
 
     elapsed = time.time() - t0
     log.info("%s: done in %.1fs (%.1f jobs/sec)", employer["name"], elapsed, len(jobs) / elapsed if elapsed > 0 else 0)
@@ -337,6 +340,27 @@ def store_results(conn: sqlite3.Connection, jobs: list[dict], employers: dict) -
     return new, existing
 
 
+_seen: set[tuple[str, str]] = set()
+_seen_lock = threading.Lock()
+
+
+def _not_seen(employer_key: str, jobs: list[dict]) -> list[dict]:
+    """The jobs not found earlier in this run and not already saved (by their Workday path)."""
+    conn = get_connection()
+    fresh = []
+    for job in jobs:
+        path = job.get("external_path") or ""
+        key = (employer_key, path)
+        with _seen_lock:
+            if path and key in _seen:
+                continue
+            _seen.add(key)
+        if path and conn.execute("SELECT 1 FROM jobs WHERE url LIKE ? LIMIT 1", ("%" + path,)).fetchone():
+            continue
+        fresh.append(job)
+    return fresh
+
+
 def _process_one(
     employer_key: str,
     employers: dict,
@@ -363,6 +387,14 @@ def _process_one(
     if not jobs:
         return {"employer": emp["name"], "query": search_text,
                 "found": 0, "new": 0, "existing": 0}
+
+    # Skip jobs already found by another search in this run, or saved by an earlier one: their
+    # details were fetched then (the same role turns up for "IT Engineer" and "Solution Engineer")
+    found = len(jobs)
+    jobs = _not_seen(employer_key, jobs)
+    if not jobs:
+        log.info("%s: all %d already found", emp["name"], found)
+        return {"employer": emp["name"], "query": search_text, "found": found, "new": 0, "existing": found}
 
     try:
         jobs = fetch_details(emp, jobs)
