@@ -76,6 +76,9 @@ def _port_free(port: int) -> bool:
 
 def main() -> None:
     os.environ["APPLYPILOT_DESKTOP"] = "1"
+    if getattr(sys, "frozen", False):
+        from applypilot import tls
+        tls.use_bundled_certificates()  # the bundled Python has no trusted certificates on macOS
 
     from applypilot import config
 

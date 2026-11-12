@@ -153,148 +153,171 @@ def collect_page_intelligence(url: str, headless: bool = True) -> dict:
     }
 
     captured_responses: list[dict] = []
+    finished: list = []
 
-    def on_response(response):
-        ct = response.headers.get("content-type", "")
-        rurl = response.url
+    def keep(rurl: str, ct: str) -> bool:
         if any(ext in rurl for ext in [".js", ".css", ".png", ".jpg", ".svg", ".woff", ".ico", ".gif", ".webp"]):
-            return
-        if "json" in ct or "/api/" in rurl or "algolia" in rurl or "graphql" in rurl:
+            return False
+        return "json" in ct or "/api/" in rurl or "algolia" in rurl or "graphql" in rurl
+
+    def read_bodies() -> None:
+        """Read the API bodies once the page has loaded. Reading them inside the response event
+        (as this used to) blocks Playwright's event loop until each body arrives: on a busy page
+        (Hays) that slowed every step and could end in "Timeout 30000ms exceeded"."""
+        for request in finished:
             try:
+                response = request.response()
+                if response is None or not keep(response.url, response.headers.get("content-type", "")):
+                    continue
                 body = response.text()
-                try:
-                    data = json.loads(body)
-                except Exception:
-                    data = None
-                captured_responses.append({
-                    "url": rurl,
-                    "status": response.status,
-                    "size": len(body),
-                    "data": data,
-                })
             except Exception:
-                pass
+                continue
+            try:
+                data = json.loads(body)
+            except Exception:
+                data = None
+            captured_responses.append({"url": response.url, "status": response.status,
+                                       "size": len(body), "data": data})
 
     with sync_playwright() as p:
         browser = launch_chromium(p, headless=headless)
         page = browser.new_page(user_agent=UA)
-        page.on("response", on_response)
+        page.set_default_timeout(20000)
+        # "requestfinished" means the body has fully arrived, so reading it later can't hang
+        page.on("requestfinished", lambda request: finished.append(request))
 
-        page.goto(url, timeout=60000)
+        try:
+            page.goto(url, timeout=60000)
+        except Exception as e:
+            # A slow page that never fires "load" may still have its jobs on screen
+            if not page.url or page.url == "about:blank":
+                browser.close()
+                raise
+            log.warning("Page load didn't finish (%s); using what loaded", str(e).splitlines()[0][:120])
         wait_idle(page)  # busy pages never go quiet: carry on with what's loaded
+        read_bodies()
 
-        intel["page_title"] = page.title()
+        try:
+            intel["page_title"] = page.title()
 
-        # 1. JSON-LD
-        for el in page.query_selector_all('script[type="application/ld+json"]'):
-            try:
-                data = json.loads(el.inner_text())
-                intel["json_ld"].append(data)
-            except Exception:
-                pass
+            # 1. JSON-LD
+            for el in page.query_selector_all('script[type="application/ld+json"]'):
+                try:
+                    data = json.loads(el.inner_text())
+                    intel["json_ld"].append(data)
+                except Exception:
+                    pass
 
-        # 2. __NEXT_DATA__
-        next_data = page.query_selector("script#__NEXT_DATA__")
-        if next_data:
-            try:
-                intel["next_data"] = json.loads(next_data.inner_text())
-            except Exception:
-                pass
+            # 2. __NEXT_DATA__
+            next_data = page.query_selector("script#__NEXT_DATA__")
+            if next_data:
+                try:
+                    intel["next_data"] = json.loads(next_data.inner_text())
+                except Exception:
+                    pass
 
-        # 3. data-testid attributes
-        intel["data_testids"] = page.evaluate("""
-            () => {
-                const els = document.querySelectorAll('[data-testid]');
-                const results = [];
-                els.forEach(el => {
-                    results.push({
-                        testid: el.getAttribute('data-testid'),
-                        tag: el.tagName.toLowerCase(),
-                        text: el.innerText?.slice(0, 80) || ''
+            # 3. data-testid attributes
+            intel["data_testids"] = page.evaluate("""
+                () => {
+                    const els = document.querySelectorAll('[data-testid]');
+                    const results = [];
+                    els.forEach(el => {
+                        results.push({
+                            testid: el.getAttribute('data-testid'),
+                            tag: el.tagName.toLowerCase(),
+                            text: el.innerText?.slice(0, 80) || ''
+                        });
                     });
-                });
-                return results.slice(0, 50);
-            }
-        """)
-
-        # 4. DOM stats
-        intel["dom_stats"] = page.evaluate("""
-            () => {
-                const body = document.body;
-                return {
-                    total_elements: body.querySelectorAll('*').length,
-                    links: body.querySelectorAll('a[href]').length,
-                    headings: body.querySelectorAll('h1,h2,h3,h4').length,
-                    lists: body.querySelectorAll('ul,ol').length,
-                    tables: body.querySelectorAll('table').length,
-                    articles: body.querySelectorAll('article').length,
-                    has_data_ids: body.querySelectorAll('[data-id]').length,
-                };
-            }
-        """)
-
-        # 5. Find repeating card-like elements
-        intel["card_candidates"] = page.evaluate("""
-            () => {
-                const candidates = [];
-                const allParents = document.querySelectorAll('*');
-
-                for (const parent of allParents) {
-                    const children = Array.from(parent.children);
-                    if (children.length < 3) continue;
-
-                    const tagCounts = {};
-                    children.forEach(c => {
-                        const key = c.tagName;
-                        tagCounts[key] = (tagCounts[key] || 0) + 1;
-                    });
-
-                    const dominant = Object.entries(tagCounts).sort((a,b) => b[1]-a[1])[0];
-                    if (!dominant || dominant[1] < 3) continue;
-
-                    const repeatingChildren = children.filter(c => c.tagName === dominant[0]);
-                    const withText = repeatingChildren.filter(c => c.innerText?.trim().length > 20);
-                    if (withText.length < 3) continue;
-
-                    const withLinks = withText.filter(c => c.querySelector('a[href]'));
-                    const score = withLinks.length * 2 + withText.length;
-
-                    const parentId = parent.id ? '#' + parent.id : '';
-                    const parentClasses = Array.from(parent.classList).filter(c => c.length < 30).slice(0, 3).join('.');
-                    const parentTag = parent.tagName.toLowerCase();
-                    const parentSelector = parentTag + (parentId || (parentClasses ? '.' + parentClasses : ''));
-
-                    const childTag = dominant[0].toLowerCase();
-                    const sampleChild = withText[0];
-                    const childClasses = Array.from(sampleChild.classList).filter(c => c.length < 30).slice(0, 3).join('.');
-                    const childSelector = childTag + (childClasses ? '.' + childClasses : '');
-
-                    const examples = withText.slice(0, 3).map(c => {
-                        const clone = c.cloneNode(true);
-                        clone.querySelectorAll('script,style,svg,noscript').forEach(el => el.remove());
-                        const html = clone.outerHTML;
-                        return html.length > 5000 ? html.slice(0, 5000) + '...' : html;
-                    });
-
-                    candidates.push({
-                        parent_selector: parentSelector,
-                        child_selector: childSelector,
-                        child_tag: childTag,
-                        total_children: repeatingChildren.length,
-                        with_text: withText.length,
-                        with_links: withLinks.length,
-                        score: score,
-                        examples: examples,
-                    });
+                    return results.slice(0, 50);
                 }
+            """)
 
-                candidates.sort((a,b) => b.score - a.score);
-                return candidates.slice(0, 3);
-            }
-        """)
+            # 4. DOM stats
+            intel["dom_stats"] = page.evaluate("""
+                () => {
+                    const body = document.body;
+                    return {
+                        total_elements: body.querySelectorAll('*').length,
+                        links: body.querySelectorAll('a[href]').length,
+                        headings: body.querySelectorAll('h1,h2,h3,h4').length,
+                        lists: body.querySelectorAll('ul,ol').length,
+                        tables: body.querySelectorAll('table').length,
+                        articles: body.querySelectorAll('article').length,
+                        has_data_ids: body.querySelectorAll('[data-id]').length,
+                    };
+                }
+            """)
 
-        # Capture full rendered HTML
-        intel["full_html"] = page.content()
+            # 5. Find repeating card-like elements
+            intel["card_candidates"] = page.evaluate("""
+                () => {
+                    const candidates = [];
+                    const allParents = document.querySelectorAll('*');
+
+                    for (const parent of allParents) {
+                        const children = Array.from(parent.children);
+                        if (children.length < 3) continue;
+
+                        const tagCounts = {};
+                        children.forEach(c => {
+                            const key = c.tagName;
+                            tagCounts[key] = (tagCounts[key] || 0) + 1;
+                        });
+
+                        const dominant = Object.entries(tagCounts).sort((a,b) => b[1]-a[1])[0];
+                        if (!dominant || dominant[1] < 3) continue;
+
+                        const repeatingChildren = children.filter(c => c.tagName === dominant[0]);
+                        const withText = repeatingChildren.filter(c => c.innerText?.trim().length > 20);
+                        if (withText.length < 3) continue;
+
+                        const withLinks = withText.filter(c => c.querySelector('a[href]'));
+                        const score = withLinks.length * 2 + withText.length;
+
+                        const parentId = parent.id ? '#' + parent.id : '';
+                        const parentClasses = Array.from(parent.classList).filter(c => c.length < 30).slice(0, 3).join('.');
+                        const parentTag = parent.tagName.toLowerCase();
+                        const parentSelector = parentTag + (parentId || (parentClasses ? '.' + parentClasses : ''));
+
+                        const childTag = dominant[0].toLowerCase();
+                        const sampleChild = withText[0];
+                        const childClasses = Array.from(sampleChild.classList).filter(c => c.length < 30).slice(0, 3).join('.');
+                        const childSelector = childTag + (childClasses ? '.' + childClasses : '');
+
+                        const examples = withText.slice(0, 3).map(c => {
+                            const clone = c.cloneNode(true);
+                            clone.querySelectorAll('script,style,svg,noscript').forEach(el => el.remove());
+                            const html = clone.outerHTML;
+                            return html.length > 5000 ? html.slice(0, 5000) + '...' : html;
+                        });
+
+                        candidates.push({
+                            parent_selector: parentSelector,
+                            child_selector: childSelector,
+                            child_tag: childTag,
+                            total_children: repeatingChildren.length,
+                            with_text: withText.length,
+                            with_links: withLinks.length,
+                            score: score,
+                            examples: examples,
+                        });
+                    }
+
+                    candidates.sort((a,b) => b.score - a.score);
+                    return candidates.slice(0, 3);
+                }
+            """)
+
+            # Capture full rendered HTML
+            intel["full_html"] = page.content()
+        except Exception as e:
+            # One step failing (the page navigating mid-read, a slow script) shouldn't lose the rest
+            log.warning("Page read stopped early (%s); using what was collected", str(e).splitlines()[0][:120])
+            if not intel.get("full_html"):
+                try:
+                    intel["full_html"] = page.content()
+                except Exception:
+                    pass
 
         browser.close()
 
@@ -1142,11 +1165,21 @@ def _run_all(
             total_existing += existing
             log.info("DB: +%d new, %d already existed", new, existing)
 
+    def _safe_run(target: dict) -> dict:
+        """One site's failure (a page that never loads, a browser crash) is that site's result,
+        recorded for retry; it used to end smart extract and skip every site after it."""
+        try:
+            return _run_one_site(target["name"], target["url"])
+        except Exception as e:
+            reason = str(e).strip().splitlines()[0][:200] if str(e).strip() else type(e).__name__
+            log.warning("%s: failed (%s); carrying on with the other sites", target["name"], reason)
+            return {"name": target["name"], "status": "ERROR", "error": reason, "jobs": []}
+
     if workers > 1 and len(targets) > 1:
         # Parallel mode
         with ThreadPoolExecutor(max_workers=min(workers, len(targets))) as pool:
             future_to_target = {
-                pool.submit(_run_one_site, target["name"], target["url"]): target
+                pool.submit(_safe_run, target): target
                 for target in targets
             }
             for future in as_completed(future_to_target):
@@ -1162,7 +1195,7 @@ def _run_all(
                 label = f"{target['name']} [{target['query']}]"
             log.info("[%d/%d] %s", i + 1, len(targets), label)
 
-            r = _run_one_site(target["name"], target["url"])
+            r = _safe_run(target)
             results.append(r)
             _process_result(r, target)
 
