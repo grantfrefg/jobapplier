@@ -77,6 +77,7 @@ def _print_budget() -> None:
 def _run_discover(workers: int = 1) -> dict:
     """Stage: Job discovery — JobSpy, Workday, and smart-extract scrapers."""
     stats: dict = {"jobspy": None, "workday": None, "smartextract": None, "reed": None}
+    before = _job_count()
     if not config.SEARCH_CONFIG_PATH.exists():
         console.print("  [yellow]No job search saved yet: fill in What jobs to look for in Setup "
                       "(or run applypilot init), then run Discover again.[/yellow]")
@@ -126,7 +127,30 @@ def _run_discover(workers: int = 1) -> dict:
         console.print(f"  [red]Smart extract error:[/red] {e}")
         stats["smartextract"] = f"error: {e}"
 
+    _discover_summary(before, _job_count(), stats)
     return stats
+
+
+def _job_count() -> int:
+    try:
+        return get_connection().execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+    except Exception:
+        return 0
+
+
+def _discover_summary(before: int, after: int, stats: dict) -> None:
+    """The line people look for at the end: how many jobs, and where they are now."""
+    new = after - before
+    if new > 0:
+        console.print(f"\n  [bold green]Found {new} new job(s) this run ({after} in total).[/bold green] "
+                      "Next: Score rates them against your resume (it runs next when ticked), then they're "
+                      "listed in Find jobs → Choose jobs to tailor. To see them all now: Apply → All jobs.")
+        return
+    errors = [f"{k}: {v}" for k, v in stats.items() if str(v).startswith("error")]
+    why = (" Some sources failed: " + "; ".join(errors)[:300] + "." if errors
+           else " Every job found was already saved, or filtered out by location or excluded titles"
+                " (the lines above say which).")
+    console.print(f"\n  [bold yellow]No new jobs this run ({after} in total).[/bold yellow]{why}")
 
 
 def _run_enrich(workers: int = 1) -> dict:
