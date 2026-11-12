@@ -93,12 +93,16 @@
       </div>
       <label for="model">Model (optional)</label>
       <input type="text" id="model" placeholder="gemini-3.5-flash-lite">
-      <details data-provider="gemini"><summary>Daily request limit</summary>
+      <details data-provider="gemini"><summary>Request limits</summary>
         <p class="sub" style="margin-top:8px">Google's free tier allows a set number of requests per day (resets at midnight US Pacific time). Finding and preparing jobs stops early to keep some for applying.</p>
         <label for="daily-limit">Requests per day for your model</label>
         <input type="number" id="daily-limit" min="0" placeholder="500">
         <label for="apply-reserve">Keep this many for applying</label>
         <input type="number" id="apply-reserve" min="0" placeholder="50">
+        <label for="gemini-rpm">Requests per minute (paced so Gemini doesn't refuse them)</label>
+        <input type="number" id="gemini-rpm" min="0" placeholder="12">
+        <p class="sub" style="margin-top:4px">The free tier allows about 15 a minute; a paid Gemini account allows far
+          more, so raise this (0 turns pacing off).</p>
         <p class="muted" id="budget-detail"></p>
       </details>
       <details class="dev-only"><summary>Optional keys</summary>

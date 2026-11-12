@@ -112,3 +112,43 @@ def test_local_engine_counts_against_full_limit(monkeypatch):
     with pytest.raises(budget.BudgetExhausted):
         le._call_ai("p", "k", MODEL)
     assert budget.used(MODEL) == 10
+
+
+def test_gemini_requests_are_paced_under_the_per_minute_cap(monkeypatch):
+    """Tailoring one job is a burst of requests; they're spaced out instead of hitting 429s."""
+    from applypilot import llm
+    clock = {"t": 1000.0}
+    slept = []
+
+    def sleep(s):
+        slept.append(round(s, 1))
+        clock["t"] += s
+    pacer = llm._Pacer()
+    monkeypatch.setenv("GEMINI_RPM", "3")
+    for _ in range(3):
+        assert pacer.wait(now=lambda: clock["t"], sleep=sleep) == 0
+        clock["t"] += 1
+    assert pacer.wait(now=lambda: clock["t"], sleep=sleep) > 0  # the 4th within a minute waits
+    assert slept == [57.1]  # until the first one is a minute old
+    monkeypatch.setenv("GEMINI_RPM", "0")  # off
+    assert all(pacer.wait(now=lambda: clock["t"], sleep=sleep) == 0 for _ in range(10))
+    monkeypatch.setenv("GEMINI_RPM", "lots")  # not a number: the default
+    assert llm._Pacer.limit() == 12
+
+
+def test_pacing_learns_a_lower_limit_from_a_429(monkeypatch):
+    from applypilot import llm
+    clock = {"t": 0.0}
+    slept = []
+
+    def sleep(s):
+        slept.append(s)
+        clock["t"] += s
+    monkeypatch.setenv("GEMINI_RPM", "12")
+    pacer = llm._Pacer()
+    for _ in range(6):  # Gemini refuses the 6th: this model allows about 5 a minute
+        pacer.wait(now=lambda: clock["t"], sleep=sleep)
+        clock["t"] += 1
+    pacer.refused(now=lambda: clock["t"])
+    assert pacer._learned == 5
+    assert pacer.wait(now=lambda: clock["t"], sleep=sleep) > 0 and len(slept) == 1  # paced to 5 now
