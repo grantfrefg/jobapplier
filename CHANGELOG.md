@@ -14,6 +14,9 @@ Entries up to 0.3.0 are from the original ApplyPilot.
 - Smart extract reads a page's API data after the page loads, not inside Playwright's response event,
   which held up every other step. The Hays search page now takes 19 s instead of 42 s. A page that never
   finishes loading is read as far as it got, and page steps time out at 20 s instead of 30 s.
+- Mac app: Workday employers (PayPal, Cisco, Salesforce and others) failed with "CERTIFICATE_VERIFY_FAILED:
+  unable to get local issuer certificate". The app's built-in Python has no trusted certificates on macOS;
+  it now uses certifi's list. Nothing needed changing on the computer itself.
 
 ## [0.18.0] - 2026-11-11
 
