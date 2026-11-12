@@ -10,10 +10,10 @@ datas, binaries, hiddenimports = [], [], []
 # Our package (YAML registries, UI page, profile template), the job-board
 # scraper and its native curl library, uvicorn's dynamically imported bits,
 # pypdf (reads your own resume PDFs), pdfplumber/pdfminer (your PDF's design), python-docx
-# (your Word resume) and the Claude SDK (when Claude is the
+# (your Word resume), certifi (trusted certificates for HTTPS) and the Claude SDK (when Claude is the
 # chosen AI provider); all are only imported when needed
 for pkg in ("applypilot", "jobspy", "curl_cffi", "uvicorn", "pypdf", "anthropic", "pdfplumber", "pdfminer",
-            "docx"):
+            "docx", "certifi"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b

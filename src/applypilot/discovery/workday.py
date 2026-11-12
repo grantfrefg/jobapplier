@@ -20,7 +20,7 @@ from html.parser import HTMLParser
 
 import yaml
 
-from applypilot import config
+from applypilot import config, tls
 from applypilot.config import CONFIG_DIR
 from applypilot.database import get_connection, init_db
 
@@ -116,11 +116,16 @@ def strip_html(html: str) -> str:
 _opener = None
 
 
+def _https() -> urllib.request.HTTPSHandler:
+    """HTTPS with certifi's trusted certificates: the Mac app's Python has none of its own."""
+    return urllib.request.HTTPSHandler(context=tls.context())
+
+
 def setup_proxy(proxy_str: str | None) -> None:
     """Configure a global urllib opener with proxy support."""
     global _opener
     if not proxy_str:
-        _opener = urllib.request.build_opener()
+        _opener = urllib.request.build_opener(_https())
         return
 
     parts = proxy_str.split(":")
@@ -131,14 +136,14 @@ def setup_proxy(proxy_str: str | None) -> None:
         proxy_url = f"http://{parts[0]}:{parts[1]}"
     else:
         log.warning("Proxy format not recognized: %s (expected host:port:user:pass or host:port)", proxy_str)
-        _opener = urllib.request.build_opener()
+        _opener = urllib.request.build_opener(_https())
         return
 
     proxy_handler = urllib.request.ProxyHandler({
         "http": proxy_url,
         "https": proxy_url,
     })
-    _opener = urllib.request.build_opener(proxy_handler)
+    _opener = urllib.request.build_opener(proxy_handler, _https())
     log.info("Proxy configured: %s:%s", parts[0], parts[1])
 
 
@@ -146,7 +151,7 @@ def _urlopen(req, timeout=30):
     """Open a URL using the configured opener (with or without proxy)."""
     if _opener:
         return _opener.open(req, timeout=timeout)
-    return urllib.request.urlopen(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout, context=tls.context())
 
 
 # -- Workday API -------------------------------------------------------------
